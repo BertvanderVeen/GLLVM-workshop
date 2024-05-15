@@ -52,7 +52,7 @@ Sessions from 14:00 to 20:00 (Monday to Thursday). Sessions will consist of a mi
 |   Day   |Time         |Subject                                                         |
 |---------|-------------|----------------------------------------------------------------|
 |Monday   |14:00 - 14:45| Recap of Generalised Linear Models (GLM)                       |
-|         |14:45 - 15:45| Practical: Fitting vector GLMs                                 |
+|         |14:45 - 15:45| Practical 1: Fitting vector GLMs                               |
 |         |15:45 - 16:00| Break                                                          |
 |         |16:00 - 16:45| Recap of Generalised Linear Mixed Models (GLMM)                |
 |         |16:45 - 17:45| Practical 2: Fitting multivariate GLMMs                        |
