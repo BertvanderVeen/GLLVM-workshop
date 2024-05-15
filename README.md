@@ -1,6 +1,7 @@
 # GLLVMS: Advanced multivariate analysis of ecological communities in R
 
-## Physalia Generalised Linear Latent Variable Model workshop by Bert van der Veen
+## Physalia Generalised Linear Latent Variable Model workshop 
+## Bert van der Veen
 This repository includes material for the Physalia workshop on Generalized linear Latent Variable Models, 10-13 June 2024. Feel free to share, alter, or re-use this material with appropriate referencing of this repository.
 
 Workshop webpage: https://www.physalia-courses.org/courses-workshops/gllvm/
