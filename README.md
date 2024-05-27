@@ -25,13 +25,13 @@ Please make sure to update your R installation prior to the workshop. Most of th
 Sessions from 14:00 to 20:00 (Monday to Thursday). Sessions will consist of a mix of lectures, in-class discussion, and practical exercises / case studies over Slack and Zoom.
 
 ### Monday
+* Introduction and overview
 * Recap of Generalised Linear Models
 * Recap of Generalised Linear Mixed Models
 * Concepts in multivariate analysis
-* Introduction to the gllvm R-package
 
 ## Tuesday
-* Background of GLLVMs
+* Introduction to the gllvm R-package
 * Ecological gradient theory: what are latent variables?
 * Joint Species Distribution Models and/or ordination
 * Benefits of GLLVMs over classical ordination methods
@@ -51,22 +51,22 @@ Sessions from 14:00 to 20:00 (Monday to Thursday). Sessions will consist of a mi
 # Detailed schedule
 |   Day   |Time         |Subject                                                         |
 |---------|-------------|----------------------------------------------------------------|
-|Monday   |14:00 - 14:45| Recap of Generalised Linear Models (GLM)                       |
-|         |14:45 - 15:45| Practical 1: Fitting vector GLMs                               |
+|Monday   |14:00 - 14:45| Introduction                                                   |
+|         |14:45 - 15:45| Recap of Generalised Linear Models (GLM)                       |
 |         |15:45 - 16:00| Break                                                          |
-|         |16:00 - 16:45| Recap of Generalised Linear Mixed Models (GLMM)                |
-|         |16:45 - 17:45| Practical 2: Fitting multivariate GLMMs                        |
+|         |16:00 - 16:45| Practical 1: Fitting vector GLMs                               |
+|         |16:45 - 17:45| Recap of Generalised Linear Mixed Models (GLMM)                |
 |         |17:45 - 18:30| Break                                                          |
-|         |18:30 - 19:15| Recap of classical ordination                                  |
-|         |19:15 - 20:00| Background on Generalised Linear Latent Variable Models (GLLVM)                      |
+|         |18:30 - 19:15| Practical 2: Fitting multivariate GLMMs                        |
+|         |19:15 - 20:00| Recap of classical ordination                                  |
 |---------|-------------|----------------------------------------------------------------|
-|Tuesday  |14:00 - 14:45| Introduction to the gllvm R-package      |
+|Tuesday  |14:00 - 14:45| Introduction to GLLVMs and the gllvm R-package                 |
 |         |14:45 - 15:45| Practical 3: Getting familiar with the gllvm R-package         |
 |         |15:45 - 16:00| Break                                                          |
 |         |16:00 - 16:45| Ecological gradient theory:  what are latent variables?        |
 |         |16:45 - 17:45| Practical 4: Comparing model-based and classical ordinations   |
 |         |17:45 - 18:30| Break                                                          |
-|         |18:30 - 19:15| GLLVMs vs. classical methods                                   |
+|         |18:30 - 19:15| GLLVMs vs. classical methods                                   |<!--distributions vs distances. distributions for community data-->
 |         |19:15 - 20:00| Practical 5: ggplotting a gllvm ordination                     |<!--maybe also someting with ordisurf-->
 |---------|-------------|----------------------------------------------------------------|
 |Wednesday|14:00 - 14:45| Ordination with covariates                                     |
