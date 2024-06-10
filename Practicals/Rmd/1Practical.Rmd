@@ -9,8 +9,6 @@ output: html_document
 
 Before getting to GLLVMs, we will consider some simpler models to get a feel for multispecies modeling. Since the data that is collected in community ecology is almost always non-normal, and very often discrete, GLMs are a good place to start. However, many decisions need to be made when fitting a GLM: a suitable response distribution, and formulation of the model. In this practical, we will first fit GLMs, and second vector GLMs.
 
-Regression of count dat
-
 # R-packages
 
 There are various R-packages and function that we need for this practical. First of all we need the `glm` function in R, though that is not ideally suited as it assumes constant dispersion. To relax that assumption, we need packages that can fit *vector* GLMs, so one of:

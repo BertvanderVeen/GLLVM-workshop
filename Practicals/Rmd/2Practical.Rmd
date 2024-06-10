@@ -70,7 +70,7 @@ Pollock et al. (2015) popularized including correlation between species into a m
 
 ```{r jsadm1, cache = TRUE}
 library(glmmTMB)
-model <- glmmTMB(Count ~ Species + Species*(silt_clay+temperature) + (0+Species|island/station/transect), family = "poisson", data = datalong)
+model <- glmmTMB(Count ~ Species + Species:(silt_clay+temperature) + (0+Species|island/station/transect), family = "poisson", data = datalong)
 ```
 Fitting the model in this way takes -very- long, especially if the data includes many species. The first term `Species` incorporates an intercept per species to account for the mean abundance, the second term `Species*(silt_clay + temperature)` incorporates species-specific effects to the two covariates. The last term is the "error" term that accounts for correlations between species at the island, station, transect combination. This is the (basic) model that GLLVMs also fit, but in a more efficient fashion.
 
