@@ -1,0 +1,124 @@
+---
+title: "Practical: getting familiar with the gllvm R-package"
+subtitle: "Physalia workshop on GLLVMs"
+author: "Bert van der Veen"
+output: html_document
+---
+
+# Description
+
+The <tt>gllvm</tt> fits Generalized Linear Latent Variable Models in the general sense of the definition. Because it is hsa that focus, it provides some more tools for fitting such models more efficiently, and for processing the results. In this practical, we will explore the package a little by fitting unconstrained ordinations to different datasets.
+
+# Data
+
+I collected some datasets that we can work with, but if you have your own data you can start by analyzing that instead. <tt>mvabund</tt> has a few datasets included that we can play with:
+
+1. "tasmania": abundances of Copepod and Nematode species in a blocked design under a disturbance treatment
+2. "antTraits": abundance of 41 ant species, with environmental data
+3. "solberg": abundance of benthic invertebrate species with a variable of organic enrichment
+4. "spider": abundance of 12 wolf spider species with environmental variables
+5. "tikus":  abundance of coral species over time
+
+and there are more datasets (e.g., "dune", "pyrifos", "mite", and "BCI") in the <tt>vegan</tt> R-package. These are even more datasets in the "data" folder of the workshop that you can use for this practical:
+
+1. Beetles (abundance)
+2. Birds (abundance)
+3. wadden (abundance)
+4. wadden (biomass)
+4. fungi (presence-absence)
+5. eucalypt (presence-absence)
+
+My suggestion is to try a few different data types in this exercise (e.g., presence-absence (alpine, eucalypt), ordinal (dune, Skabbholmen), abundance (take your pick), biomass (wadden) to get an impression of what it takes to analyse such datatypes. For some of these response types (e.g., ordinal, biomass) it might be more difficult to find software for multispecies modeling that also supports a suitable response distribution (don't worry, <tt>gllvm</tt> has it all).
+
+# Tasks
+
+Start by choosing a dataset, I will again start with the waddensea (abundance) data.
+
+```{r data}
+Y <- read.table("../../data/waddenY.csv", sep="," ,header=TRUE, row.names = 2)[,-1]
+```
+
+Similar to GLMMs, GLLVMs include random effects that cannot analytically be integrated out of the likelihood in almost all cases. Thus, it employs some approximations to do it, which are quite accurate most of the time. And when one is not, we can switch to another! By default, this is the Variational Approximation method as in Hui et al. (2017), but if you select a family that is not supposed by that method, the package will switch to another. Let's go ahead and fit an unconstrained ordination:
+
+```{r uo, cache = TRUE}
+library(gllvm)
+model <- gllvm(Y, num.lv = 2, family = "poisson")
+```
+
+In most cases, the package will default to `num.lv = 2`, so also when it is not explicitly specified. We can inspect the latent variables using the `getLV` function:
+
+```{r LVs, echo = -1, message=FALSE}
+library(gllvm)
+LVs <- getLV(model)
+LVs
+```
+
+A <tt>gllvm</tt> is a type of list object, that contains many components that we can see from [the help file](https://jenniniku.github.io/gllvm/reference/gllvm.html).
+the parameter estimates are stored under `model$params`, though we can also use the `coef` function to extract most of them. Iin the newest version of the package (not on CRAN yet) the species loadings with `getLoadings`. Here we will just extract them ourselves. They exist of two components, and these need to be multiplied together:
+
+```{r}
+unscaledLoadings <- coef(model, "loadings")
+scaleLoadings <- coef(model, "sigma.lv")
+Loadings <- unscaledLoadings%*%diag(scaleLoadings)
+colnames(Loadings) <- c("LV1","LV2")
+Loadings
+```         
+
+These loadings are also what represent the correlation of species. By squaring the object we get the covariances of species, but fortunately the package has the `getResidualCov` and `getResidualCor` functions that do this for us:
+
+```{r}
+covariances <- getResidualCov(model)
+correlations <- getResidualCor(model)
+``` 
+
+The covariances object has "cov" and "trace". "trace" is the sum of the diagonal entries, and represents the total variance of the latent variables. Depending on the exact model, these list components may be a bit different, and have different names. "correlations" is just a matrix of correlations between species. We can visualize that nicely with a ggplot.
+
+```{r}
+library(ggplot2)
+p1 <- ggplot(reshape2::melt(correlations))+geom_tile(aes(x=Var1, y=Var2, fill = value))+scale_fill_gradient2(low="blue",high="red",mid = "white")+
+  theme_bw()+theme(
+      axis.text.x = element_text(angle = 90, vjust = 1, size = 12, hjust = 1),
+      axis.text.y = element_text(size = 12)) +
+    ggplot2::coord_fixed()+xlab(NULL)+ylab(NULL)
+p1
+```
+
+Oof, what a mess. There are many things we can do to improve the readability of this plot, including: 1) showing only half of the matrix (it is symmetric, so the same information is display above and below the diagonal elements), 2) ordering by some method, and 3) placing the species names in a more readable place. There are other R-packages to do so, for example the <tt>corrplot</tt> package or the <tt>ggcorrplot</tt> package.
+
+These correlations represent how the species in the data relate to each other, but note that they are affected by the rest of the model. They represent information that is not accounted for by other parts of the model. Like this, without covariates, they could represent shared environmental responses. And, when covariates are included in the model, they cannot represent information that the covariates explain. When a correlation is positive, we expect species to co-occur. When a correlation is negative, we expect the opposite.
+
+From the same model we can also make an ordination diagram. We need to take a few things into consideration: the rotation is fixed in a <tt>gllvm</tt>, and the rotation is irrelevant. Unlike classical ordination methods, the rotation is not represented in such a way that the first latent variable explains most of the variation. That is, because the concept of variation is not quite the same for models of non-normally distributed responses, as is the case here. That means we can rotate the ordination in any direction that we want! The rotation below rotates the ordination so that the dimension that has the largest <b> sample variance </b> comes first. However, there are other possible rotations, for example as in the <tt>GPArotation</tt> package.
+
+Similarly, in classical ordination methods both the latent variables and the species loadings are standardized, and the scale of the ordination is represented by the eigenvalues. In model-based ordination, the scale is confounded with the loadings, so we often need to rescale the whole solution to make the plot look better.
+
+```{r}
+do_svd <- svd(LVs)
+rotation <- do_svd$v
+scales <- sapply(1:ncol(LVs), function(q)sqrt(sum(LVs[,q]^2))*sqrt(sum(Loadings[,q]^2)))
+newLVs <- apply(LVs,2,function(x)x/sqrt(sum(x^2))*scales^0.5)
+newRotatedLVs <- newLVs%*%do_svd$v
+newLoadings <- apply(Loadings,2,function(x)x/sqrt(sum(x^2))*scales^0.5)
+newRotatedLoadings <- Loadings%*%do_svd$v
+
+p2 <- ggplot()+geom_text(data=LVs, aes(y=LV2,x=LV1, label = 1:nrow(Y)), col = "grey")+
+               geom_text(data=Loadings, aes(y = LV2, x = LV1, label = colnames(Y), col = "blue"))+
+               theme_bw()+coord_fixed()+ guides(col="none")
+p2
+```
+
+This plot too can be improved in many ways: making sure that labels do not overlap for example, or adding prediction regions. Note that the `ordiplot` function in the <tt>gllvm</tt> R-package does a lot of this by default, and usually does quite a good job! Let's just use the <tt> patchwork </tt> package and put the above plots together, they display the same information afterall:
+
+```{r}
+library(patchwork)
+p1|p2
+```
+
+Can you see the similarities? Just pick any set of species and compare the results. I suggest to do this in your own R window, since the plots in the knitted file are quite difficult to read.
+
+Suggestions for continuing this practical:
+
+1) Fit models with different numbers of LVs and see how this changes the plots and fit
+2) Explore some of the other functionality in the package: `plot` a model to see residuals, the `summary` method
+3) Change some of the default arguments of the `gllvm` function: 'starting.val', 'method', and perhaps others
+4) Have a look at the package index (or [the associated website](https://jenniniku.github.io/gllvm/reference)) to see what else is available
+5) Try a different dataset

@@ -1,0 +1,113 @@
+---
+title: "Practical: fitting vector GLMs"
+subtitle: "Physalia workshop on GLLVMs"
+author: "Bert van der Veen"
+output: html_document
+---
+
+# Description
+
+Before getting to GLLVMs, we will consider some simpler models to get a feel for multispecies modeling. Since the data that is collected in community ecology is almost always non-normal, and very often discrete, GLMs are a good place to start. However, many decisions need to be made when fitting a GLM: a suitable response distribution, and formulation of the model. In this practical, we will first fit GLMs, and second vector GLMs.
+
+Regression of count dat
+
+# R-packages
+
+There are various R-packages and function that we need for this practical. First of all we need the `glm` function in R, though that is not ideally suited as it assumes constant dispersion. To relax that assumption, we need packages that can fit *vector* GLMs, so one of:
+
+- <tt>mvabund</tt>
+- <tt>VGAM</tt>
+- <tt>glmmTMB</tt>
+- <tt>boral</tt>
+- <tt>Hmsc</tt>
+- <tt>gllvm</tt>
+
+Tomorrow we will look more into using <tt>gllvm</tt>. I suggest to use a different package for this practical, so that you can get familiar with the benefits (and quircks or downsides) of using the <tt>gllvm</tt> R-package. <tt>boral</tt> and <tt>Hmsc</tt> fit models using MCMC and are quite slow, and we need something faster as we have limited time. <tt>mvabund</tt> has nice functionality for hypothesis testing, so it is my preferred choice here.
+
+# Data
+
+I collected some datasets that we can work with, but if you have your own data you can start by analyzing that instead. <tt>mvabund</tt> has a few datasets included that we can play with:
+
+1. "tasmania": abundances of Copepod and Nematode species in a blocked design under a disturbance treatment
+2. "antTraits": abundance of 41 ant species, with environmental data
+3. "solberg": abundance of benthic invertebrate species with a variable of organic enrichment
+4. "spider": abundance of 12 wolf spider species with environmental variables
+5. "tikus":  abundance of coral species over time
+
+and there are more datasets (e.g., "dune", "pyrifos", "mite", and "BCI") in the <tt>vegan</tt> R-package. These are even more datasets in the "data" folder of the workshop that you can use for this practical:
+
+1. Beetles (abundance)
+2. Birds (abundance)
+3. wadden (abundance)
+4. wadden (biomass)
+4. fungi (presence-absence)
+5. eucalypt (presence-absence)
+
+My suggestion is to try a few different data types in this exercise (e.g., presence-absence (alpine, eucalypt), ordinal (dune, Skabbholmen), abundance (take your pick), biomass (wadden) to get an impression of what it takes to analyse such datatypes. For some of these response types (e.g., ordinal, biomass) it might be more difficult to find software for multispecies modeling that also supports a suitable response distribution (don't worry, <tt>gllvm</tt> has it all).
+
+# Tasks
+
+Start by choosing a dataset, I will take the waddensea (abundance) data.
+
+```{r data}
+Y <- read.table("../../data/waddenY.csv", sep="," ,header=TRUE, row.names = 2)[,-1]
+X <- read.table("../../data/waddenX.csv", sep=",", header=TRUE, row.names = 2)[,-1]
+```
+
+It is good practice to first explore data. For example, to make sure there are no outliers, errors, or other abnormalities. <tt>mvabund</tt> can help with that:
+
+```{r}
+library(mvabund)
+meanvar.plot(mvabund(Y), xlab = "mean", ylab="var")
+```
+
+this function plots the variance of each species against its mean. That gives us an impression of the model that we might want to fit. Clearly, the variance increases with the mean. It applies a log transformation to the axes so that the mean-variance relationship is easier to discern, which is appropriate for abundance data. To see how the function creates the plot, we can also do it ourselves:
+
+```{r}
+plot(apply(Y,2,var)~apply(Y,2,mean),log="xy", ylab = "var", xlab="mean")
+```
+
+at least what we can see, is that the sample mean of species is usually not equal to the sample variance; the variance is much larger. Consequently, the Poisson assumption of mean and variance being equal does not seem appropriate for this data (although note that we have not checked it with the covariates).
+
+Let's continue to fitting a model:
+
+```{r glm}
+model1 <- manyglm(mvabund(Y)~silt_clay + temperature, data = X, family = "poisson")
+```
+
+here I just chose two covariates at random. Before looking at the results, we want to first check if our model assumptions are met. The <tt>mvabund</tt> package includes functionality for plotting model residuals, so we can just go ahead:
+
+```{r res1}
+plot(model1)
+```
+
+that does not look terribly well, the residuals fan-out. We need to adjust the model:
+
+```{r ds}
+model2 <- manyglm(mvabund(Y)~silt_clay + temperature, data = X, family = "negative.binomial")
+plot(model2)
+```
+
+that already looks much better, although there is some bunching of residuals at the left side of the plot, which we should not be seeing. Most likely it is because I have only included two covariates in the model, so it is OK for this demonstration.
+
+Looking at the results:
+
+```{r res2}
+coefplot(model2)
+```
+
+the results look very uncertain: some species have very large confidnece intervals. Grey effects are those of which the confidence intevals cross zero, and are thus too uncertainty to draw any conclusions. We have not really screened the data, and we really should have before we started, but we can still do it:
+
+```{r}
+sum(colSums(ifelse(Y==0,0,1))>4)/ncol(Y)
+```
+
+this is something I like to do before an analysis: check how many species have enough observations. Here "enough" means at least more than the number of species-specific parameters in the model (which is quite a low threshold, to be completely honest). Community ecological data have the property of including many species with few observations, and if we fit the models that we are fitting here, we really cannot expect the results to be reliable if we do not have so much data. So we can choose: simplify the model (e.g., effects that are the same across species), or exclude some of the species. This is a situation where GLLVMs shine, because they use dimension reduction to reduce the number of parameters.
+
+Suggestions for continuing this practical:
+
+1) Try the anova function for hypothesis testing
+2) Use the summary function to inspect the results further (can be quite slow since it also uses simulation for results)
+3) Use a different dataset
+4) Drop some of the species with few observations and refit the model
+5) Fit a model with traits via the <tt>traitglm</tt> function in <tt>mvabund</tt>

@@ -1,0 +1,37 @@
+\newcommand{\columnsbegin}{\begin{columns}}
+\newcommand{\columnsend}{\end{columns}}
+\makeatletter
+\def\insertnavigation#1{%
+  \vbox{{%
+    \usebeamerfont{section in head/foot}\usebeamercolor[fg]{section in head/foot}%
+    \beamer@xpos=0\relax%
+    \beamer@ypos=1\relax%
+    \beamer@ypos@offset=0\relax%
+    \hbox to #1{\hskip.3cm\setbox\beamer@sectionbox=\hbox{\kern1sp}%
+      \ht\beamer@sectionbox=1.875ex%
+      \dp\beamer@sectionbox=0.75ex%
+        \hskip-1.875ex plus-1fill%
+        \global\beamer@section@min@dim\z@
+        \dohead%
+        \beamer@section@set@min@width
+      \box\beamer@sectionbox\hfil\hskip.3cm\hskip0pt plus1filll}%
+  }}} 
+\makeatother
+\DeclareMathAlphabet{\mathams}{U}{msb}{m}{n}
+\newcommand{\ex}{\mathams{E}}
+\usepackage{tcolorbox}
+\newtcolorbox{codebox}{enhanced,colback=shadecolor,colframe=orange,boxrule=.2pt, arc=0pt, width=\paperwidth, enlarge left by=-10mm}\AtBeginSection{}
+\useoutertheme{miniframes}
+\setbeamertemplate{frametitle}{\vskip0.3cm\usebeamerfont*{frametitle}\insertframetitle\vskip-1.5ex\begin{beamercolorbox}[colsep=0.2pt, wd=\textwidth]{lower separation line head}\end{beamercolorbox}}
+\setbeamercolor{lower separation line head}{bg=orange}
+\definecolor{shadecolor}{RGB}{200, 200, 200}
+\hypersetup{colorlinks,citecolor=orange,filecolor=red,linkcolor=brown,urlcolor=blue}
+\definecolor{forestgreen}{RGB}{34, 139, 34}
+\definecolor{darkorange}{RGB}{255, 150, 0}
+\definecolor{gray}{RGB}{100, 100, 100}
+\definecolor{grey}{RGB}{100, 100, 100}
+\setbeamercolor{itemize item}{fg=orange}
+\setbeamercolor{itemize subitem}{fg=orange}
+\setbeamercolor{enumerate item}{fg=orange}
+\setbeamercolor{enumerate subitem}{fg=orange}
+\tcbuselibrary{skins}

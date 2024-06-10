@@ -1,0 +1,109 @@
+---
+title: "Practical: comparing model-based and classical ordination methods"
+subtitle: "Physalia workshop on GLLVMs"
+author: "Bert van der Veen"
+output: html_document
+---
+
+# Description
+
+To really assess if you like an ordination, we will compare the model-based ordinations to a few classical methods. For this we need the `procrustes` function in the <tt>vegan</tt> package, because that tells us how different two ordinations. We also need other ordination methods of course, which we can get from the same package. 
+
+# Data
+
+I collected some datasets that we can work with, but if you have your own data you can start by analyzing that instead. <tt>mvabund</tt> has a few datasets included that we can play with:
+
+1. "tasmania": abundances of Copepod and Nematode species in a blocked design under a disturbance treatment
+2. "antTraits": abundance of 41 ant species, with environmental data
+3. "solberg": abundance of benthic invertebrate species with a variable of organic enrichment
+4. "spider": abundance of 12 wolf spider species with environmental variables
+5. "tikus":  abundance of coral species over time
+
+and there are more datasets (e.g., "dune", "pyrifos", "mite", and "BCI") in the <tt>vegan</tt> R-package. These are even more datasets in the "data" folder of the workshop that you can use for this practical:
+
+1. Beetles (abundance)
+2. Birds (abundance)
+3. wadden (abundance)
+4. wadden (biomass)
+4. fungi (presence-absence)
+5. eucalypt (presence-absence)
+
+My suggestion is to try a few different data types in this exercise (e.g., presence-absence (alpine, eucalypt), ordinal (dune, Skabbholmen), abundance (take your pick), biomass (wadden) to get an impression of what it takes to analyse such datatypes. For some of these response types (e.g., ordinal, biomass) it might be more difficult to find software for multispecies modeling that also supports a suitable response distribution (don't worry, <tt>gllvm</tt> has it all).
+
+# Tasks
+
+Start by choosing a dataset, I will again start with the waddensea (abundance) data.
+
+```{r data}
+Y <- read.table("../../data/waddenY.csv", sep="," ,header=TRUE, row.names = 2)[,-1]
+```
+
+I start by fitting the same model as I did in the last exercise, and directly plot it:
+
+```{r uo, cache = TRUE}
+library(gllvm)
+model1 <- gllvm(Y, num.lv = 2, family = "poisson")
+gllvm::ordiplot(model1, biplot = TRUE)
+```
+
+and I fit a DCA and a NMDS to the same data:
+
+```{r uo2, message=FALSE, results="hide", cache = TRUE}
+library(vegan)
+DCA <- decorana(Y)
+NMDS <- metaMDS(Y, trymax = 1000,try=100)
+plot(DCA)
+plot(NMDS)
+```
+
+Now we can use the procrustes error, which accounts for differences in scale and rotation, to assess if these ordinations are similar. At one, the rotations are the same, and at zero they are completely different.
+
+```{r proc1, echo = -c(1,2), message=FALSE}
+library(vegan)
+library(gllvm)
+procrustes(scores(DCA, choices=1:2), scores(NMDS), symmetric=TRUE)
+```
+
+```{r proc2}
+procrustes(scores(DCA, choices=1:2), getLV(model1), symmetric=TRUE)
+```
+
+```{r proc3}
+procrustes(scores(NMDS), getLV(model1), symmetric=TRUE)
+```
+
+Note that NMDS does not possess species loadings, so we just compare everything based on the sites. The model-based ordination is more different from the DCA and NMDS than they are from each other. We can of course just throw in the towel, declare DCA and NMDS poor methods, and continue with our model-based ordination. However, I never checked if the Poisson distribution is actually a decent choice for this data, so let's have a look at the residuals of the model first:
+
+```{r res}
+plot(model1)
+```
+
+there are a lot of patterns in the residuals, indicating that the model is not a great fit. That might explain why the ordinations are so different as well. We can adjust the model; we choose a negative-binomial distribution instead and check the residuals again to see if it is an improvement.
+
+```{r uo3, cache = TRUE, echo = -1}
+library(gllvm)
+model2 <- gllvm(Y, num.lv = 2, family = "negative.binomial")
+plot(model2)
+```
+
+This mode looks considerably better, since there are no patterns in the residuals. We can compare it to the first model with Poisson distribution:
+
+```{r compare1, cache = TRUE, echo = -1}
+AIC(model1, model2)
+procrustes(getLV(model1), getLV(model2), symmetric = TRUE)
+```
+
+```{r compare2, cache = TRUE, echo = -1}
+procrustes(scores(DCA, chouces = 1:2), getLV(model2), symmetric = TRUE)
+procrustes(scores(NMDS), getLV(model2), symmetric = TRUE)
+```
+
+Like this, the model-based ordination is already more similar to the DCA and NMDS ordinations, almost as similar as they are to each other. Ultimately, we do not need the ordinations to be similar at all, and we should not go through a model selection procedure trying to find an ordination that is similar to a classical ordination method. Classical ordination methods have their own quircks, and model-based ordination is trying to do something very different. So, if we do find an ordination that is very different from one of the classical methods, that can actually be a good thing! What we do want, is a model that fits our data well, so we can look at the residuals, think about the properties of our data, and compare models to find the best model-based ordination that we can find.
+
+Suggestions for continuing this practical: 
+
+1) Compare to other classical ordination methods: PCA, CA, or PCoA
+2) See if species loadings of ordinations give a similar result to the site scores
+3) Visually assess how different the ordinations are, and compare it to the result from `procrustes`
+4) Fit an ordination with the <tt>glmmTMB</tt> package and compare it to one by <tt>gllvm</tt>
+5) Try a different dataset

@@ -1,0 +1,118 @@
+---
+title: "Practical: fitting multispecies GLMMs"
+subtitle: "Physalia workshop on GLLVMs"
+author: "Bert van der Veen"
+output: html_document
+---
+
+# Description
+
+GLLVMs are a special kind of GL(M)M, and GLMMs come with their own (numerical) quircks. However, they also offer great opportunities in estimating the variability or correlation of effects. Incorporating correlation into the modeling of multiple species was one of the original motivations for the introduction of GLLVMs to ecology! In this practical we will fit GLMMs to data of multiple species, and try to make sense of the results.
+
+# R-packages
+
+There are various R-packages and function that we can use for this practical, including <tt>gllvm</tt>. A few of the packages that we could use in the previous exercise are now no longer suitable, sa they focus on implementing fixed effects only. <tt>lme4</tt> could also be used, but I have omitted that from the list here.
+
+- <tt>glmmTMB</tt>
+- <tt>boral</tt>
+- <tt>Hmsc</tt>
+- <tt>gllvm</tt>
+
+Tomorrow we will look more into using <tt>gllvm</tt>. I suggest to use a different package for this practical, so that you can get familiar with the benefits (and quircks or downsides) of using the <tt>gllvm</tt> R-package. <tt>boral</tt> and <tt>Hmsc</tt> fit models using MCMC and are quite slow, and we need something faster as we have limited time. <tt>glmmTMB</tt> has a wide range of response types, is state-of-the-art software, and can also fit GLLVMs, so we will use that here.
+
+# Data
+
+I collected some datasets that we can work with, but if you have your own data you can start by analyzing that instead. <tt>mvabund</tt> has a few datasets included that we can play with:
+
+1. "tasmania": abundances of Copepod and Nematode species in a blocked design under a disturbance treatment
+2. "antTraits": abundance of 41 ant species, with environmental data
+3. "solberg": abundance of benthic invertebrate species with a variable of organic enrichment
+4. "spider": abundance of 12 wolf spider species with environmental variables
+5. "tikus":  abundance of coral species over time
+
+and there are more datasets (e.g., "dune", "pyrifos", "mite", and "BCI") in the <tt>vegan</tt> R-package. These are even more datasets in the "data" folder of the workshop that you can use for this practical:
+
+1. Beetles (abundance)
+2. Birds (abundance)
+3. wadden (abundance)
+4. wadden (biomass)
+4. fungi (presence-absence)
+5. eucalypt (presence-absence)
+
+My suggestion is to try a few different data types in this exercise (e.g., presence-absence (alpine, eucalypt), ordinal (dune, Skabbholmen), abundance (take your pick), biomass (wadden) to get an impression of what it takes to analyse such datatypes. For some of these response types (e.g., ordinal, biomass) it might be more difficult to find software for multispecies modeling that also supports a suitable response distribution (don't worry, <tt>gllvm</tt> has it all).
+
+# Tasks
+
+Start by choosing a dataset, I will again take the waddensea (abundance) data.
+
+```{r data}
+Y <- read.table("../../data/waddenY.csv", sep="," ,header=TRUE, row.names = 2)[,-1]
+X <- read.table("../../data/waddenX.csv", sep=",", header=TRUE, row.names = 2)[,-1]
+
+# Remove species with few observations
+Y <- Y[,colSums(Y)>4]
+
+# Scale covariates: always good to do when using numerical optimisation
+X <- lapply(X,function(x)if(is.numeric(x)){scale(x)}else{as.factor(x)})
+
+# Y to long format
+datalong <- reshape(cbind(Y, X), 
+                    varying = colnames(Y), 
+                    v.names = "Count", , 
+                    timevar = "Species", 
+                    direction = "long")
+
+datalong$Species <- factor(datalong$Species, 
+                           labels = colnames(Y))
+```
+
+Pollock et al. (2015) popularized including correlation between species into a model. They also realised that incorporating correlation in the way that they did was prone to many issues; the number of correlation parameters grows very quickly with the number of species, so such models are prone to issues with convergence. Here I do not use binary data, but abundance data, but the principle is the same. We can fit such a model like this:
+
+```{r jsadm1, cache = TRUE}
+library(glmmTMB)
+model <- glmmTMB(Count ~ Species + Species*(silt_clay+temperature) + (0+Species|island/station/transect), family = "poisson", data = datalong)
+```
+Fitting the model in this way takes -very- long, especially if the data includes many species. The first term `Species` incorporates an intercept per species to account for the mean abundance, the second term `Species*(silt_clay + temperature)` incorporates species-specific effects to the two covariates. The last term is the "error" term that accounts for correlations between species at the island, station, transect combination. This is the (basic) model that GLLVMs also fit, but in a more efficient fashion.
+
+We will park this for the moment, and have a look at the other random effects models in the presentation. The first model was a random intercept model. This specifies the first term above ("Species") as random effects instead, which has the benefit of: 1) shrinking effects to a common mean, 2) estimating variability in mean abundance:
+
+```{r jsadm2, cache = TRUE}
+model <- glmmTMB(Count ~ (1|Species) + Species:(silt_clay+temperature), family = "poisson", data = datalong)
+```
+
+Note that I have changed the product sign to a colon, as to exclude the main species effect from the model. Technically, we could incorporate both fixed and random species intercept of the model, but there is usually no good reason to do that.
+
+```{r summary}
+summary(model)
+```
+
+Looking at the variance of the random effect in the top of the summary shows us that there is a lot variability in mean species abundance!
+
+Let us make a catterpillar plot of the results with ggplot2:
+
+```{r cat, echo = -1}
+library(glmmTMB)
+library(ggplot2)
+# gather the results
+# omit global intercept for now
+CIs <- data.frame(confint(model)[-1,], check.names = FALSE)
+CIs <- CIs[-nrow(CIs),] #remove CI of variance 
+# Add a column for the species names
+CIs$Species <- gsub("Species","",sub(':.*', '', row.names(CIs)))
+CIs$Covariate <- sub('.*:', '', row.names(CIs))
+
+ggplot(data = CIs)+geom_point(aes(y=Species, x = Estimate))+# our estimates
+  geom_errorbarh(aes(y=Species,xmin=`2.5 %`,xmax=`97.5 %`))+#95% CI
+  facet_grid(~Covariate)+#a window per covariate
+  geom_vline(xintercept = 0, lty = "dashed", linewidth=.2, col="gray")+ #add a vertical line
+  theme_bw() # I like this theme better
+```
+
+Suggestions for continuing this practical:
+
+1) Fit the other random effects models in the presentation: with random slopes, and possibly correlation with the random intercepts (and infer what the result means ecologically)
+2) Try the `rr` structure in the <tt>glmmTMB</tt> package: it allows us to fit GLLVMs
+3) Incorporate a species-specific dispersion parameter with the `dispformula` argument
+4) Compare some of these models via a likelihood ratio test (`anova`) or with information criteria
+5) Make some more plots of the results! Maybe the random effects next?
+6) Try a different dataset.
