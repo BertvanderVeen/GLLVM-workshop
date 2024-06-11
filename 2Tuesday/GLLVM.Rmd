@@ -55,11 +55,13 @@ knit_hooks$set(
 
 knitr::opts_chunk$set(echo = TRUE)
 ```
-# Outline
 
+# Outline today
+
+- \texttt{gllvm} \texttt{R}-package
 - GLLVMs background
 - Difference to classical methods
-- \texttt{gllvm} \texttt{R}-package
+- Unimodal responses
 
 ## Questions so far?
 
@@ -570,8 +572,6 @@ We will look at how/why to change these these in the workshop.
 \textcolor{red}{\textbf{Some of these can be combined, not all}} \newline
 \textcolor{red}{E.g., no traits with constrained/concurrent ordination}
 \tiny that might be the only limitation at present
-
-## `ordiplot(.)`
 
 # Example
 

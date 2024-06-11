@@ -59,6 +59,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 # Outline
 
+Let's do some comparisons!
 
 ## Questions so far?
 
@@ -143,8 +144,6 @@ PM1 <- podani1()
 PM2 <- podani2()
 PM3 <- podani3()
 ```
-
-## Have a look at the data
 
 ## PM1: PCA
 
@@ -369,8 +368,6 @@ The criterion is simple: if we see this lattice, the method is doing well.
 MC <- read.csv("https://raw.githubusercontent.com/BertvanderVeen/Examples/master/Minchin87_2b_counts.csv",skip=1)
 MC[is.na(MC)] <- 0
 ```
-
-## Have a look at the data
 
 ## MC: PCA
 
