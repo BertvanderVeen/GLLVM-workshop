@@ -1,0 +1,110 @@
+---
+title: "Practical: ordination with covariates"
+subtitle: "Physalia workshop on GLLVMs"
+author: "Bert van der Veen"
+output: html_document
+---
+
+# Description
+
+On the second day of the workshop, we have focused on implementing unconstrained ordinations with a linear or unimodal response model. Today, we will focus on models that also include covariates. This practical will include covariates in a GLLVM, either in the ordination or outside ("covariate-adjusted" or "residual" ordination). This is helpful if we want to get a better impression of the meaning that can be attributed to ordination axes.
+
+# Data
+
+I collected some datasets that we can work with, but if you have your own data you can start by analyzing that instead. <tt>mvabund</tt> has a few datasets included that we can play with:
+
+1. "tasmania": abundances of Copepod and Nematode species in a blocked design under a disturbance treatment
+2. "antTraits": abundance of 41 ant species, with environmental data
+3. "solberg": abundance of benthic invertebrate species with a variable of organic enrichment
+4. "spider": abundance of 12 wolf spider species with environmental variables
+5. "tikus":  abundance of coral species over time
+
+and there are more datasets (e.g., "dune", "pyrifos", "mite", and "BCI") in the <tt>vegan</tt> R-package. These are even more datasets in the "data" folder of the workshop that you can use for this practical:
+
+1. Beetles (abundance)
+2. Birds (abundance)
+3. wadden (abundance)
+4. wadden (biomass)
+4. fungi (presence-absence)
+5. eucalypt (presence-absence)
+
+My suggestion is to try a few different data types in this exercise (e.g., presence-absence (alpine, eucalypt), ordinal (dune, Skabbholmen), abundance (take your pick), biomass (wadden) to get an impression of what it takes to analyse such datatypes. For some of these response types (e.g., ordinal, biomass) it might be more difficult to find software for multispecies modeling that also supports a suitable response distribution (don't worry, <tt>gllvm</tt> has it all).
+
+# Tasks
+
+Start by choosing a dataset, I will again start with the waddensea (abundance) data. This time I will also load the accompanying covariate data.
+
+```{r data}
+Y <- read.table("../../data/waddenY.csv", sep="," ,header=TRUE, row.names = 2)[,-1]
+X <- read.table("../../data/waddenX.csv", sep="," ,header=TRUE, row.names = 2)[,-1]
+# the temperature covariate has some NAs: I need to remove those rows before fitting models
+Y <- subset(Y, !is.na(X$temperature))
+X <- subset(X, !is.na(X$temperature))
+# some species now lack any observations
+Y <- Y[,colSums(Y)>0]
+```
+
+When implementing models that are fitted using numerical optimisation methods (such as in <tt>gllvm</tt> but also <tt>glmmTMB</tt>) it is good practice to center and scale the covariates. This improves our chances of successful convergence. In <tt>gllvm</tt> especially the constrained ordination methods can be prone to convergence issues if we do not do this. The following code standardizes the covariates:
+
+```{r standardising}
+X <- data.frame(lapply(X, function(x)if(is.numeric(x)){scale(x)}else{as.factor(x)}))
+```
+
+categorical covariates are not usually standardised, and it is also not always necessary. What we need to keep in mind is that we choose a sensible reference category. <tt>R</tt> will by default choose the category that comes first alphabetically, but if this does not have many observations, or causes extreme results for some other reason, this can mess-up the convergence of our models too. Occasionally, it can help to choose a different type of contrast, but I will not go into that here.
+
+We fit a (fixed-effects) constrained ordination in <tt>gllvm</tt> using the following code:
+
+```{r co1, message=FALSE}
+library(gllvm)
+model1 <- gllvm(Y, X = X, lv.formula = ~season+temperature+elevation+silt_clay+Chl.a, num.RR = 2, family = "negative.binomial")
+gllvm::ordiplot(model1, symbols = TRUE, s.colors = X$season)
+```
+
+The arrows in the plot are drawn using the canonical coefficients, unlike in most classical constrained ordination methods. They are also rescaled, so that the covariate with the largest coefficients is the longest arrow. Note, that it means that all effects of covariates could be small, and still seem like they are influential in the plot. The statistical uncertainty of these effects is incorporated by turning the arrows pink if the confidence interval for the coefficients crosses zero, and we are unsure if the effect is positive or negative. We can inspect the canonical coefficients themselves with the `coef` function:
+
+```{r cancoef}
+coef(model1, "Cancoef")
+```
+note that the `ordiplot` function by default rotates the solution, so to compare these coefficients to the plot we need to add the `rotate=FALSE` argument to the plot, or instead use the `summary` function of the model, as that has a  `rotate` argument that defaults to TRUE:
+
+```{r summary}
+summary(model1)
+```
+
+so that this output we can compare to the plot.
+
+Unlike in classical constrained ordination methods, we can also extract the species-specific responses to the covariates. This is because the constrained ordination method is really a type of multivariate regression that uses latent variables to perform a (reduced-rank) approximation of these effects. We use the `coefplot` function to do so:
+
+```{r coefplot}
+coefplot(model1, which.Xcoef = c("seasonsummer", "temperature"))
+```
+
+These effects are a function of the species loadings in the ordination, as well as of the canonical coefficients. 
+
+ter Braak (1986) notes that the canonical coefficients in constrained ordination methods tend to be affected by issues of multicollinearity, and can bounce around a lot. Here, we can improve that by treating them as random effects; this penalizes them a ltitle. 
+
+```{r co2, message=FALSE}
+model2 <- gllvm(Y, X = X, lv.formula = ~season+temperature+elevation+silt_clay+Chl.a, num.RR = 2, randomB="LV", family = "negative.binomial", starting.val = "zero")
+gllvm::ordiplot(model2, symbols = TRUE, s.colors = X$season)
+```
+
+Uncertainty of the arrows is now based on prediction intervals instead, which can be turned off using the `arrow.ci` argument in the plotting function. The coefficients no longer appear in the summary of the model; that is reserved for fixed effects. Their prediction can still be extracted with the `coef`function, and their prediction errors using the `getPredictErr` function:
+
+```{r cancoef2}
+coef(model2, "Cancoef")
+getPredictErr(model2)$b.lv # think of these as SEs for the REs
+```
+
+Finally, we can use the `randomCoefPlot` function to make a caterpillar plot again:
+
+```{r randomcoefplot}
+randomCoefplot(model2, which.Xcoef = c("seasonsummer", "temperature"))
+```
+
+
+Suggestions for continuing this practical:
+
+1) Compare to CCA or another constrained ordination method
+2) Apply a `concurrent` ordination instead using the `num.lv.c` argument
+3) Combine the code here with the code from yesterday: fit a unimodal constrained or concurrent ordination using the `quadratic` argument
+4) Add a random site effect with the constrained ordination using `row.eff`
