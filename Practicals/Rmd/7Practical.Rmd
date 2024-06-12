@@ -1,0 +1,136 @@
+---
+title: "Practical: Fourth-corner latent variable models"
+subtitle: "Physalia workshop on GLLVMs"
+author: "Bert van der Veen"
+output: html_document
+---
+
+# Description
+
+Constrained ordination is fun, but if you have traits there is (not yet) a method for including them in a model-based ordination. Instead, we turn to Joint Species Distribution Models, which are fitted in the same statistical framework, and utilize their model formulation instead. In this practical, we fit models that include both environmental covariates, trait covariates, and are particularly interested in studying how the interaction of traits and environment impacts a community.
+
+# Data
+
+I collected some datasets that we can work with, but if you have your own data you can start by analyzing that instead. <tt>mvabund</tt> has a few datasets included that we can play with:
+
+1. "tasmania": abundances of Copepod and Nematode species in a blocked design under a disturbance treatment
+2. "antTraits": abundance of 41 ant species, with environmental data
+3. "solberg": abundance of benthic invertebrate species with a variable of organic enrichment
+4. "spider": abundance of 12 wolf spider species with environmental variables
+5. "tikus":  abundance of coral species over time
+
+and there are more datasets (e.g., "dune", "pyrifos", "mite", and "BCI") in the <tt>vegan</tt> R-package. These are even more datasets in the "data" folder of the workshop that you can use for this practical:
+
+1. Beetles (abundance)
+2. Birds (abundance)
+3. wadden (abundance)
+4. wadden (biomass)
+4. fungi (presence-absence)
+5. eucalypt (presence-absence)
+
+My suggestion is to try a few different data types in this exercise (e.g., presence-absence (alpine, eucalypt), ordinal (dune, Skabbholmen), abundance (take your pick), biomass (wadden) to get an impression of what it takes to analyse such datatypes. For some of these response types (e.g., ordinal, biomass) it might be more difficult to find software for multispecies modeling that also supports a suitable response distribution (don't worry, <tt>gllvm</tt> has it all).
+
+# Tasks
+
+Start by choosing a dataset, I will choose a different dataset this time, because the waddensea data has no traits. Instead, I use the Beetles data that is also used in Niku et al. (2021) for developing the model.
+
+```{r data}
+# Response data
+Y <- t(read.csv("../../data/beetlesY.csv"))
+colnames(Y) <- Y[2,]
+Y<-Y[-c(1:2),-c(1,70:71)]
+Y <- as.data.frame(apply(Y,2,as.integer))
+
+# Environmental predictors
+X <- read.csv("../../data/beetlesX.csv")[,-c(1:5)]
+X <- as.data.frame(apply(X,2,as.numeric))
+X$Sampling.year <- X$Sampling.year - min(X$Sampling.year)
+X$Texture <- as.factor(X$Texture)
+
+# Traits
+TR  <- read.csv("../../data/beetlesTR.csv")
+row.names(TR) <- TR$SPECIES
+TR <- TR[,-c(1:3)]
+# Traits to categorical
+# Removing question marks, not ideal
+TR[,c("CLG","CLB","WIN","PRS","OVE","FOA","DAY","BRE","EME","ACT")] <- apply(TR[,c("CLG","CLB","WIN","PRS","OVE","FOA","DAY","BRE","EME","ACT")],2,function(x)as.factor(gsub("\\?.*","",x)))
+
+# Data standardization
+X <- scale(model.matrix(~.,X))[,-1] # environmental variables
+TR <- scale(model.matrix(~.,TR))[,-1] # species traits
+```
+
+A fourth-corner model in <tt>gllvm</tt> is fitted by providing environment and trait covariates simultaneously. We can use the `formula` argument if we only want to use some of the covariates, the `randomX` argument for adding species-specific responses to the environment as random effects, and the `beta0comm` option if we want to assume a global intercept, instead of the default of species-specific intercepts in all <tt>gllvm</tt> models. Niku et al. used only a few covariates, so I will do the same:
+
+```{r traits, cache = TRUE}
+library(gllvm)
+model1 <- gllvm(y = Y, X = X, TR = TR, 
+                formula = ~ Management + Elevation + pH + Moist + (Management + Elevation + pH + Moist):(LPH+ LTL + OVE2 + BRE2 + BRE3), 
+                family = "negative.binomial", num.lv = 2)
+```
+
+This first model fits rather quickly: there are only a few coefficients included as it excludes species-specific responses to the environment. We can amend that with the `randomX` argument. We do need to run the model a few times, as it includes a lot of effects and might not converge well.
+
+```{r traits2, cache = TRUE}
+model2 <- gllvm(y = Y, X = X, TR = TR, 
+                formula = ~ Management + Elevation + pH + Moist + (Management + Elevation + pH + Moist):(LPH+ LTL + OVE2 + BRE2 + BRE3), randomX = ~ Management + Elevation + pH + Moist,
+                family = "negative.binomial", num.lv = 2, n.init = 3)
+```
+
+Similar as in the ordination with environment and random effects, we can plot the species-specific responses with `randomCoefPlot`. The random effects are assumed to have a community-level mean effect, which can be plotted with `coefplot` instead.
+
+```{r res, echo = -1, message=FALSE}
+library(gllvm)
+randomCoefplot(model2, which.Xcoef = "Moist")
+coefplot(model2)
+```
+
+All the tools from previous practicals, such as `ordiplot` and `getResidualCor` are still available to us too:
+
+```{r ordiplot}
+ordiplot(model2)
+```
+
+```{r corrplot}
+corrplot::corrplot(getResidualCor(model2), order="AOE", type = "lower")
+```
+
+Finally, we can plot the fourth-corner coefficients, which we are probably most interested in! You can do this in base R using the <tt>lattice</tt> package, but I will do it in a ggplot2 flavor instead:
+
+```{r 4th, message=FALSE}
+library(ggplot2)
+fourth <- gllvm:::getFourthCorner(model2)
+#tricking gllvm to get the SDs sorted
+#we use this to strike out effects that are too uncertain
+modelSDtrick <- model2
+modelSDtrick$params$B <- modelSDtrick$sd$B
+fourthSD <- gllvm:::getFourthCorner(modelSDtrick)
+library(dplyr)
+library(tidyr)
+library(tibble)
+fourth.gg <- fourth%>%
+    as.data.frame%>%
+    rownames_to_column("environment")%>%
+    pivot_longer(-environment,names_to="trait",values_to="value")
+fourth.gg.sd <- fourthSD%>%
+    as.data.frame%>%
+    rownames_to_column("environment")%>%
+    pivot_longer(-environment,names_to="trait",values_to="value")
+# Check if CI includes zero
+fourth.gg$sig <- ifelse(fourth.gg$value+fourth.gg.sd$value*qnorm(1-0.95)<0 & fourth.gg$value+fourth.gg.sd$value*qnorm(0.95) > 0,0,1)
+# set value to 0 if it does
+fourth.gg$value <- ifelse(fourth.gg$sig==0,0,fourth.gg$value)
+
+# create the plot
+g1 <- ggplot(fourth.gg, aes(trait, environment))+geom_tile(aes(fill=value), col = "grey")+scale_fill_gradientn(
+    colors=c("blue","white","red"), values = scales::rescale(c(min(fourth),0,max(fourth))))+theme_minimal()+ theme(axis.text.x = element_text(angle = 90, vjust = 0.5))+ 
+  theme(plot.margin = unit(c(0.5,0.5,0.5,0.5), "inches"), plot.title = element_text(size=10),  axis.text.x = element_text(size = 16), axis.text.y = element_text(size = 16), axis.title.x = element_text(size = 16), axis.title.y = element_text(size = 16))+xlab("Traits")+ylab("Environment")#+theme(legend.position="none")
+g1
+```
+
+Suggestions for continuing this practical:
+
+1) Perform model selection with `AIC`; check how many LVs are needed for this model
+2) Try a different dataset
+2) Use the results to draw conclusions on drivers of the community
+3) Install the development version of the package, and fit models with Phylogenetic random effects
