@@ -118,4 +118,4 @@ Suggestions for continuing this practical:
 
 1) Compare to the information provided by DCA (axis length)
 2) Try a different dataset
-3) Explore repeatd fitting of the models with `n.init`, `n.init.max`, also the option `diag.iter` as well as `start.struc` (the last one is only applicable to unimodal response models in the package)
+3) Explore repeated fitting of the models with `n.init`, `n.init.max`, also the option `diag.iter` as well as `start.struc` (the last one is only applicable to unimodal response models in the package)
