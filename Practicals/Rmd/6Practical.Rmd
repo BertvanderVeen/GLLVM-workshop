@@ -81,7 +81,7 @@ coefplot(model1, which.Xcoef = c("seasonsummer", "temperature"))
 
 These effects are a function of the species loadings in the ordination, as well as of the canonical coefficients. 
 
-ter Braak (1986) notes that the canonical coefficients in constrained ordination methods tend to be affected by issues of multicollinearity, and can bounce around a lot. Here, we can improve that by treating them as random effects; this penalizes them a ltitle. 
+ter Braak (1986) notes that the canonical coefficients in constrained ordination methods tend to be affected by issues of multicollinearity, and can bounce around a lot. Here, we can improve that by treating them as random effects; this penalizes them a little. 
 
 ```{r co2, message=FALSE}
 model2 <- gllvm(Y, X = X, lv.formula = ~season+temperature+elevation+silt_clay+Chl.a, num.RR = 2, randomB="LV", family = "negative.binomial", starting.val = "zero")
@@ -100,7 +100,6 @@ Finally, we can use the `randomCoefPlot` function to make a caterpillar plot aga
 ```{r randomcoefplot}
 randomCoefplot(model2, which.Xcoef = c("seasonsummer", "temperature"))
 ```
-
 
 Suggestions for continuing this practical:
 
