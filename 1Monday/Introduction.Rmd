@@ -129,7 +129,7 @@ Please make sure you've downloaded data and updated R/packages
 - [Michael Palmer's website](https://ordination.okstate.edu/overview.htm)
 - [Numerical ecology](https://shop.elsevier.com/books/numerical-ecology/legendre/978-0-444-53868-0)
 - [Numerical ecology with R](https://link.springer.com/book/10.1007/978-1-4419-7976-6)
-- [Data analysis in Community and Landscape cology](https://www.cambridge.org/core/books/data-analysis-in-community-and-landscape-ecology/CF8B1E39A3A586FF7A3C76B514EA96A5)
+- [Data analysis in Community and Landscape ecology](https://www.cambridge.org/core/books/data-analysis-in-community-and-landscape-ecology/CF8B1E39A3A586FF7A3C76B514EA96A5)
 - [Analysis of ecological communities](https://www.wildblueberrymedia.net/store/analysis-of-ecological-communities)
 
 ## Resources on model-based ordination
