@@ -1,0 +1,121 @@
+---
+title: "Practical: Tools, tips and tricks"
+subtitle: "Physalia workshop on GLLVMs"
+author: "Bert van der Veen"
+output: html_document
+---
+
+# Description
+
+The models generally fitted with the <tt>gllvm</tt> R-package are complex, and sometimes require carefully tuning the arguments in the model to get an improved solution. In this practical, we will go through some of the arguments that control model fitting, including repeated fits with different starting values.
+
+# Data
+
+I collected some datasets that we can work with, but if you have your own data you can start by analyzing that instead. <tt>mvabund</tt> has a few datasets included that we can play with:
+
+1. "tasmania": abundances of Copepod and Nematode species in a blocked design under a disturbance treatment
+2. "antTraits": abundance of 41 ant species, with environmental data
+3. "solberg": abundance of benthic invertebrate species with a variable of organic enrichment
+4. "spider": abundance of 12 wolf spider species with environmental variables
+5. "tikus":  abundance of coral species over time
+
+and there are more datasets (e.g., "dune", "pyrifos", "mite", and "BCI") in the <tt>vegan</tt> R-package. These are even more datasets in the "data" folder of the workshop that you can use for this practical:
+
+1. Beetles (abundance)
+2. Birds (abundance)
+3. wadden (abundance)
+4. wadden (biomass)
+4. fungi (presence-absence)
+5. eucalypt (presence-absence)
+
+My suggestion is to try a few different data types in this exercise (e.g., presence-absence (alpine, eucalypt), ordinal (dune, Skabbholmen), abundance (take your pick), biomass (wadden) to get an impression of what it takes to analyse such datatypes. For some of these response types (e.g., ordinal, biomass) it might be more difficult to find software for multispecies modeling that also supports a suitable response distribution (don't worry, <tt>gllvm</tt> has it all).
+
+# Tasks
+
+Start by choosing a dataset, I will again start with the waddensea (abundance) data.
+
+```{r data}
+Y <- read.table("../../data/waddenY.csv", sep="," ,header=TRUE, row.names = 2)[,-1]
+```
+
+The model is fitted similarly as before, but instead we add the "quadratic" argument which takes the options TRUE, LV, and FALSE as explained in the presentation. The model is more complex, so it also takes longer to fit it. I will fit it straight away with a negative-binomial distribution, since that was is also what this dataset required in the last exercise. We could also just include more latent variables, because that has a similar effect of accounting for residual variation (just within the model, instead of in the distribution). One thing to keep in mind, is the increased complexity of the unimodal response model, i.e., there are more parameters to estimate, for which there needs to be enough information in the data. 
+
+```{r uo, cache = TRUE, message=FALSE}
+library(gllvm)
+model1 <- gllvm(Y, num.lv = 2, family = "negative.binomial", quadratic = TRUE, n.init = 3)
+gllvm::ordiplot(model1, biplot = TRUE)
+```
+
+The `n.init` option is very necessary: the GLLVM with unimodal response is even more prone to finding a suboptimal solution than usually. That also means that fitting the model is much slower, so using <tt> gllvm</tt> its (new) option for parallel computation could help. `ordiplot` will plot the species optima, and if the optima are too far away from the estmated latent variable, it will plot the species effects as arrows instead.
+
+```{r uo2, message=FALSE, results="hide", echo = -1}
+library(gllvm)
+ordiplot(model1, biplot = TRUE)
+```
+
+Clearly, the optima are far away from the gradient, which means that on one of the latent variables we are estimating linear responses instead of unimodal responses: so we have one long and one short gradient. Let's inspect the optima
+
+```{r opt}
+optima(model1, sd.errors = FALSE)
+```
+
+and the tolerances
+
+```{r tol}
+tolerances(model1, sd.errors = FALSE)
+```
+
+manually. As expected, some optima and tolerances are very large, indicating some linear responses. Predicting with the model might make this a little easier to visualize, so let's do that.
+
+```{r pred, results = "hide", echo = -1, fig.height = 5}
+par(mfrow=c(2,1))
+LVs = getLV(model1)
+newLV = cbind(LV1 = seq(min(LVs[,1]), max(LVs[,1]), length.out=1000), LV2 = 0)
+preds <- predict(model1, type = "response", newLV = newLV)
+plot(NA, ylim = range(preds), xlim = c(range(getLV(model1))), ylab  = "Predicted response", xlab = "LV1")
+segments(x0=optima(model1, sd.errors = FALSE)[,1],x1 = optima(model1, sd.errors = FALSE)[,1], y0 = rep(0, ncol(model1$y)), y1 = apply(preds,2,max), col = "red", lty = "dashed", lwd = 2)
+rug(getLV(model1)[,1])
+sapply(1:ncol(model1$y), function(j)lines(sort(newLV[,1]), preds[order(newLV[,1]),j], lwd = 2))
+
+newLV = cbind(LV1 = 0, LV2 =  seq(min(LVs[,2]), max(LVs[,2]), length.out=1000))
+preds <- predict(model1, type = "response", newLV = newLV)
+plot(NA, ylim = range(preds), xlim = c(range(getLV(model1))), ylab  = "Predicted response", xlab = "LV2")
+segments(x0=optima(model1, sd.errors = FALSE)[,2],x1 = optima(model1, sd.errors = FALSE)[,2], y0 = rep(0, ncol(model1$y)), y1 = apply(preds,2,max), col = "red", lty = "dashed", lwd = 2)
+rug(getLV(model1)[,2])
+sapply(1:ncol(model1$y), function(j)lines(sort(newLV[,2]), preds[order(newLV[,2]),j], lwd = 2))
+```
+
+We can also calculate turnover for these two estimated gradients, although that is a little difficult when we have unequal tolerances.
+
+```{r grad_length}
+# Extract tolerances
+tol <- tolerances(model1, sd.errors = FALSE)
+gradLength <- 4/apply(tol, 2, median)
+```
+
+```{r grad_length_res}
+cat("Gradient length:", gradLength)
+```
+
+As expected, the second gradient is -very- short; we might even be able to drop it from the model. Let's have a look:
+
+```{r compare}
+model2<-update(model1, num.lv=1)
+AIC(model1, model2)
+BIC(model1, model2)
+```
+
+It depends on how you look at it. We can just stick with the same model for now. Finally, we can calculate the median turnover:
+
+```{r turn}
+turn <- 2*qnorm(.999, sd = apply(tol, 2, median))
+cat("Turnover rate:", turn)
+```
+
+and as expected, turnover is slow on the second latent variable, as also reflected by the short gradient length.
+
+Suggestions for continuing this practical:
+
+1) Compare to the information provided by DCA (axis length)
+2) Try a different dataset
+3) Explore repeatd fitting of the models with `n.init`, `n.init.max`, also the option `diag.iter` as well as `start.struc` (the last one is only applicable to unimodal response models in the package)
