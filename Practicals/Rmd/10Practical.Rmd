@@ -1,0 +1,76 @@
+---
+title: "Practical: comparing with machine learning"
+subtitle: "Physalia workshop on GLLVMs"
+author: "Bert van der Veen"
+output: html_document
+---
+
+# Description
+
+We have looked at classical ordination methods, and contrasted them with model-based ordination methods. However, classical ordination have not seen significant developments for decades, while there is a class of ordination methods that has: the ones that are algorithm-based. The field of Machine Learning has been very busy in the development of new ordination methods for dimension reduction of large datasets. In this practical we explore some of them.
+
+# R packages
+
+The packages we need:
+
+- <tt>labdsv</tt>
+- <tt>umap</tt>
+- <tt>Rdimtools</tt>
+- <tt>vegan</tt>
+
+# Data
+
+I collected some datasets that we can work with, but if you have your own data you can start by analyzing that instead. <tt>mvabund</tt> has a few datasets included that we can play with:
+
+1. "tasmania": abundances of Copepod and Nematode species in a blocked design under a disturbance treatment
+2. "antTraits": abundance of 41 ant species, with environmental data
+3. "solberg": abundance of benthic invertebrate species with a variable of organic enrichment
+4. "spider": abundance of 12 wolf spider species with environmental variables
+5. "tikus":  abundance of coral species over time
+
+and there are more datasets (e.g., "dune", "pyrifos", "mite", and "BCI") in the <tt>vegan</tt> R-package. These are even more datasets in the "data" folder of the workshop that you can use for this practical:
+
+1. Beetles (abundance)
+2. Birds (abundance)
+3. wadden (abundance)
+4. wadden (biomass)
+4. fungi (presence-absence)
+5. eucalypt (presence-absence)
+
+My suggestion is to try a few different data types in this exercise (e.g., presence-absence (alpine, eucalypt), ordinal (dune, Skabbholmen), abundance (take your pick), biomass (wadden) to get an impression of what it takes to analyse such datatypes. For some of these response types (e.g., ordinal, biomass) it might be more difficult to find software for multispecies modeling that also supports a suitable response distribution (don't worry, <tt>gllvm</tt> has it all).
+
+# Tasks
+
+Start by choosing a dataset, I will again start with the waddensea (abundance) data. I am not loading any covariates, because machine learning methods do not offer the opportunity to include covariates.
+
+```{r data}
+Y <- read.table("../../data/waddenY.csv", sep="," ,header=TRUE, row.names = 2)[,-1]
+# some species now lack any observations
+Y <- Y[,colSums(Y)>0]
+```
+
+These methods work very similar to NMDS, so we need the `vegdist` function from the vegan package to calculate dissimilarities in some cases.
+
+One of the most popular methods at present is t-SNE. This is also implemented in the <tt>labdsv</tt> package and was applied in Roberts (2020) together with NMDS. It needs multiple restarts, like NMDS, but there is a function for that too.
+
+```{r, message = FALSE}
+library(labdsv)
+tsne <- besttsne(vegan::vegdist(Y))
+plot(tsne)
+```
+
+UMAP is a method which was suggested as an improvement over t-SNE, partially because it fits faster:
+
+```{r, message = FALSE}
+library(umap)
+uMAP <- umap(Y)
+plot(uMAP$layout)
+```
+
+each of these methods has a few arguments to fine tune, which might make some different. We can explore that further at the end of the practical.
+
+Suggestions for continuing this practical:
+
+1) Change some of the input arguments to the functions
+2) Compare to model-based ordinations using the `procrustes` function in vegan
+3) Try applying some of the other machine learning methods in the presentation
