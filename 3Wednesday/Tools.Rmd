@@ -526,7 +526,7 @@ emmeans::.emm_register("gllvm","gllvm")
 
 ```{r, messages = FALSE, warning=FALSE, cache = TRUE}
 library(emmeans)
-coord <- gllvm:::gllvm(Y, X, lv.formula = ~A1+Manure+Moisture+Management, num.RR=2,family="ordinal")
+coord <- gllvm::gllvm(Y, X, lv.formula = ~A1+Manure+Moisture+Management, num.RR=2,family="ordinal")
 emmeans(coord, ~Manure:species, component = "LV")
 ```
 
@@ -544,7 +544,7 @@ Similar to \texttt{emmeans} very limited functionality is supported for `MuMIn::
 \footnotesize
 
 ```{r, warning=FALSE}
-fit <- gllvm:::gllvm(y = Y, X = X, formula = ~Manure+A1, family = "ordinal")
+fit <- gllvm::gllvm(y = Y, X = X, formula = ~Manure+A1, family = "ordinal")
 tab <- MuMIn::dredge(fit,varying=list(num.lv=1:2), rank="AICc")
 tab
 ```
