@@ -355,7 +355,7 @@ Marginal interpretaiton & Conditional interpretation \\
 
 # \texttt{VGAM}
 
-## Vector Generalised Linera and Additive Models
+## Vector Generalised Linear and Additive Models
 
 ```{r, fig.align="center", echo=F, out.width = "80%"}
 knitr::include_graphics("VGAM.png")
@@ -445,7 +445,7 @@ knitr::include_graphics("glmmTMB.png")
 - Laplace approximation with TMB (state-of-the-art)
 - Great usability
 - Can include many random-effects
-- Unconstrained and constrained ordination (RE formulation)
+- Unconstrained ordination
 - Slower than \texttt{gllvm}'s VA (I think?)
 - Structured random effects (e.g., spatial) soon Phylogenetic
 - No other support for ordinations
@@ -560,7 +560,7 @@ Excellent developers & No comment :) \\
 \end{tabularx}
 \end{table}
 
-\texttt{glmmTMB} is especially useful if you want user friendliness and many other random effects. Ordination is an afterthought in a package supposed to do many other things (but also still new).
+\texttt{glmmTMB} is especially useful if you want user friendliness and many other random effects. Ordination is an afterthought in a package does many other things (but also still new).
 
 # \texttt{gmf}
 
@@ -747,7 +747,7 @@ gllvm & yes & yes & yes & yes & yes & yes & yes & yes & Not really & F \\
 HMSC & yes & yes & no & no & yes & yes & yes & yes & yes & B \\
 \tiny ecoCopula & yes & yes & no & no & no & no & kind of & no & no & F \\
 VGAM & yes & yes & yes & no & no & some & new? & no & no & F \\
-\tiny glmmTMB & yes & yes & yes & no & yes & yes & yes & soon & Kind of & F \\
+\tiny glmmTMB & yes & yes & no & no & yes & yes & yes & soon & Kind of & F \\
 gmf & no & yes & no & no & no & no & no & no & no & F \\
 RCM & no & yes & yes & no & no & no & no & no & no & F \\
 \tiny latent INLA & no & no & no & yes & yes & yes & soon & no & yes & B \\
