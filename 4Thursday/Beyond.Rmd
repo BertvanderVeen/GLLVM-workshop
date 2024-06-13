@@ -589,7 +589,7 @@ Read more here:
 
 # Algorithm-based ordination
 
-This workshop focussed strongly on model-based methods for dimension reduction. However, recall that there are three **schools** of ordination:
+This workshop focused strongly on model-based methods for dimension reduction. However, recall that there are three **schools** of ordination:
 
 1) \textcolor{orange}{"Simple-method"}
 
