@@ -156,7 +156,6 @@ A vector GLM:
 
 ```{r VGLM, cache = TRUE, echo  =-1, message=FALSE}
 library(VGAM)
-# constrained (fixed effects) ordination
 model6 <- vglm(Y ~ soil.dry+fallen.leaves+moss, data=data.frame(X), family = poissonff)
 ```
 
@@ -287,5 +286,3 @@ library(phyloseq)
 model10 <- RCM(phyloseq(otu_table(spider$abund, taxa_are_rows = FALSE), sample_data(spider$x)), covariates = c("soil.dry", "moss", "fallen.leaves"), k = 2)
 plot(model10)
 ```
-
-
