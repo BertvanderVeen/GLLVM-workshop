@@ -87,5 +87,17 @@ Sessions from 14:00 to 20:00 (Monday to Thursday). Sessions will consist of a mi
 
 <!--
 # TODO
-grey meadow data from gauch
+- grey meadow data from gauch
+- Consider TUES on ordination, WED on JSDM, expanding 4th corner and Phylo effects
+- remove ML methods
+- "partial ordination" might be more familiar to people that use vegan
+- table of sensible combinations for gllvm formulas!
+- consider small exercises that people can do by themselves
+- use menti on the first days to boost interaction or a notepad where people can anonmously write things they dont understand
+- num.lv.c fits concurrent ordination, num.lv unconstrained,  num.RR constrained
+- consider cutting the presentations up in 30 minute chunks
+- after each chunk or model a short exercise, and then a bit about ecological inference
+- ordination pres should start on monday, and then finish with "but we want to do multispecies modeling"
+- perhaps just start with gllvm on covariates without REs
+- second part with gllvm REs and interpretation thereof (so pres stays the same but we use gllvm instead of glmmtmb)
 -->
