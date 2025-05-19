@@ -22,73 +22,86 @@ Please make sure to update your R installation prior to the workshop. Most of th
 [You can find an R installation based on your operating system here](https://cran.r-project.org/bin/windows/base/)
 
 ## PROGRAM
-Sessions from 14:00 to 20:00 (Monday to Thursday). Sessions will consist of a mix of lectures, in-class discussion, and practical exercises / case studies over Slack and Zoom.
+Sessions from 14:00 to 20:00 (Tuesday to Friday). Sessions will consist of a mix of lectures, in-class discussion, and practical exercises / case studies over Slack and Zoom.
 
-### Monday
-* [Introduction and overview](https://github.com/BertvanderVeen/GLLVM-workshop/blob/main/1Monday/Introduction.pdf)
-* [Recap of Generalised Linear Models](https://github.com/BertvanderVeen/GLLVM-workshop/blob/main/1Monday/GLMs.pdf)
-* [Recap of Generalised Linear Mixed Models](https://github.com/BertvanderVeen/GLLVM-workshop/blob/main/1Monday/GLMMs.pdf)
-* [Recap Concepts in multivariate analysis](https://github.com/BertvanderVeen/GLLVM-workshop/blob/main/1Monday/RecapOrdination.pdf)
-
-## Tuesday
-* [Introduction to the gllvm R-package](https://github.com/BertvanderVeen/GLLVM-workshop/blob/main/2Tuesday/GLLVM.pdf)
-* [Comparing model-based and classical ordination](https://github.com/BertvanderVeen/GLLVM-workshop/blob/main/2Tuesday/ModelvsClassic.pdf)
-* [Unimodal response models in gllvm](https://github.com/BertvanderVeen/GLLVM-workshop/blob/main/2Tuesday/Unimodal.pdf)
+### Tuesday
+* [Introduction and overview](https://github.com/BertvanderVeen/GLLVM-workshop/blob/main/1Tuesday/Introduction.pdf)
+* [Aspects of community data](https://github.com/BertvanderVeen/GLLVM-workshop/blob/main/1Tuesday/CommunityData.pdf)
+* [Multispecies Generalised Linear Models](https://github.com/BertvanderVeen/GLLVM-workshop/blob/main/1Tuesday/VGLMs.pdf)
+* [Multispecies Generalised Linear Mixed Models](https://github.com/BertvanderVeen/GLLVM-workshop/blob/main/1Tuesday/VGLMMs.pdf)
 
 ## Wednesday
-* [Ordination with covariates](https://github.com/BertvanderVeen/GLLVM-workshop/blob/main/3Wednesday/OrdWithPred.pdf)
-* [Joint Species Distribution Models,Fourth-corner latent variable models, Phylogenetic random effects](https://github.com/BertvanderVeen/GLLVM-workshop/blob/main/3Wednesday/JSDM.pdf)
-* [Tools, tips and tricks](https://github.com/BertvanderVeen/GLLVM-workshop/blob/main/3Wednesday/Tools.pdf)
+* [Diagnostics and comparison](https://github.com/BertvanderVeen/GLLVM-workshop/blob/main/2Wednesday/Checking.pdf)
+* [Hierarchical environmental responses](https://github.com/BertvanderVeen/GLLVM-workshop/blob/main/2Wednesday/HierarchicalResponses.pdf)
+* [Joint Species Distribution Models](https://github.com/BertvanderVeen/GLLVM-workshop/blob/main/2Wednesday/JSDM.pdf)
 
 ## Thursday
-* [Other R packages for fitting GLLVMs and JSDMs](https://github.com/BertvanderVeen/GLLVM-workshop/blob/main/4Thursday/Other.pdf)
-* [Beyond vanilla GLLVMs: hierarchical ordination and machine learning](https://github.com/BertvanderVeen/GLLVM-workshop/blob/main/4Thursday/Beyond.pdf)
+* [Model-based ordination](https://github.com/BertvanderVeen/GLLVM-workshop/blob/main/3Thursday/ModelbasedOrdination.pdf)
+* [Ordination with covariates](https://github.com/BertvanderVeen/GLLVM-workshop/blob/main/3Thursday/OrdWithPred.pdf)
+* [Unimodal responses](https://github.com/BertvanderVeen/GLLVM-workshop/blob/main/3Thursday/Unimodal.pdf)
+
+
+## Friday
+* [Other R packages for fitting GLLVMs and JSDMs](https://github.com/BertvanderVeen/GLLVM-workshop/blob/main/4Friday/Other.pdf)
+* [Beyond vanilla GLLVMs: hierarchical ordination and machine learning](https://github.com/BertvanderVeen/GLLVM-workshop/blob/main/4Friday/Beyond.pdf)
+* Discussion and reanalysis of a paper
 * Possibility for own data analysis, or addressing suggested topics by participants
 
 
 # Detailed schedule
 |   Day   |Time         |Subject                                                         |
 |---------|-------------|:---------------------------------------------------------------|
-|Monday   |14:00 - 14:45| Introduction                                                   |
-|         |14:45 - 15:45| Recap of Generalised Linear Models (GLM)                       |
-|         |15:45 - 16:00| Break                                                          |
-|         |16:00 - 16:45| Practical 1: Fitting vector GLMs                               |
-|         |16:45 - 17:45| Recap of Generalised Linear Mixed Models (GLMM)                |
+|Tuesday  |14:00 - 14:45| Introduction <!-- the gllvm R-package? -->                     |
+|         |14:45 - 15:05| Brainstorming: challenging properties of community data        | <!--maybe do a menti or smt..-->
+|         |14:05 - 15:30| Key concepts in modeling community data                        | <!--sampling variation, properties, estimator, confidence interval, sample size / amount of samples, the things that classicla analysis usually forgets -->
+|         |15:30 - 15:45| Break                                                          |
+|         |15:45 - 16:45| Vector Generalised Linear Models (VGLM)                        |
+|         |16:45 - 17:45| Practical 1: Fitting vector GLMs                               | 
 |         |17:45 - 18:30| Break                                                          |
-|         |18:30 - 19:15| Practical 2: Fitting multispecies GLMMs                        |
-|         |19:15 - 20:00| Recap of classical ordination                                  |
+|         |18:30 - 19:15| Vector Generalised Linear Mixed Models (GLMM)                  |
+|         |19:15 - 20:00| Practical 2: Predicting diversity with multispecies GLMMs      |
 |---------|-------------|----------------------------------------------------------------|
-|Tuesday  |14:00 - 14:45| Introduction to GLLVMs and the gllvm R-package                 |
-|         |14:45 - 15:45| Practical 3: Getting familiar with the gllvm R-package         |
+|Wednesday|14:00 - 14:45| Model validation and comparison                                |
+|         |14:45 - 15:45| Practical 3: Validation and comparison                         |
 |         |15:45 - 16:00| Break                                                          |
-|         |16:00 - 16:45| GLLVMs vs. classical ordination methods                        |
-|         |16:45 - 17:45| Practical 4: Comparing model-based and classical ordinations   |
+|         |16:00 - 16:45| Hierarchically modeling environmental responses                |
+|         |16:45 - 17:45| Practical 4: traits and phylogeny                              |
 |         |17:45 - 18:30| Break                                                          |
-|         |18:30 - 19:15| The unimodal response model                                    |
-|         |19:15 - 20:00| Practical 5: Unimodal response models in gllvm                 |
+|         |18:30 - 19:15| Incorporating species' correlation                             |
+|         |19:15 - 20:00| Practical 5: Joint Species Distribution Models                 |<!-- maybe something about prediction here and checking predictive performance and maps-->
 |---------|-------------|----------------------------------------------------------------|
-|Wednesday|14:00 - 14:45| Ordination with covariates                                     |
-|         |14:45 - 15:45| Practical 6: Ordination with covariates                        |
+|Thursday |14:00 - 14:45| Model-based ordination <!-- vs. JSDM and classical ordination-->|
+|         |14:45 - 15:45| Practical 6: Comparing ordinations                             |<!-- eg ca and dca and nmds, but also residual vs ordiplot -->
 |         |15:45 - 16:00| Break                                                          |
-|         |16:00 - 16:45| Joint Species Distribution Modeling                            | 
-|         |16:45 - 17:45| Practical 7: Fourth-corner latent variable models              |
+|         |16:00 - 16:45| Ordination with predictors                                     | 
+|         |16:45 - 17:45| Practical 7: Random canonical coefficients                     |<!--R^2, fixed and random-->
 |         |17:45 - 18:30| Break                                                          |
-|         |18:30 - 19:15| Tools and tips for inference, diagnostics, and convergence     |
-|         |19:15 - 20:00| Practical 8: Tools and tips for finding a good GLLVM           |
+|         |18:30 - 19:15| Ordination with unimodal responses                             |
+|         |19:15 - 20:00| Practical 8: Quadratic GLLVM                                   |
 |---------|-------------|----------------------------------------------------------------|
-|Thursday |14:00 - 14:45| Other R packages for fitting GLLVM and JSDMs                   |
+|Friday   |14:00 - 14:45| Other R packages for fitting GLLVM and JSDMs                   |
 |         |14:45 - 15:45| Practical 9: Fit a model with various R packages               |
 |         |15:45 - 16:00| Break                                                          |
-|         |16:00 - 16:45| Beyond GLLVMs                                                  |
-|         |16:45 - 17:45| Practical 10: Machine learning methods                         | 
+|         |16:00 - 16:45| Beyond vanilla GLLVMs <!--maybe a little about correlated lvs and HO-->|
+|         |16:45 - 17:45| Practical 10: Article reanalysis                               | 
 |         |17:45 - 18:30| Break                                                          |
 |         |18:30 - 20:00| Wrapping up - questions, requests, own analysis                |
 |---------|-------------|----------------------------------------------------------------|
 
+## Bonus
+
+![](ord.gif)
+
 <!--
 # TODO
+- consider if we can demonstrate the mean-variance issue from the warton paper when we focus on ordination
+- present from a concurrent ordination perspective: one framework to rule them all
+  - unconstrained, constrained, and concurrent ordination
+  - group-level ordination
+  - fixed effects unconstrained ordination
+  - much, much, more.
 - grey meadow data from gauch
-- Consider TUES on ordination, WED on JSDM, expanding 4th corner and Phylo effects
+- Consider Wed on ordination, Tues on JSDM, expanding 4th corner and Phylo effects; ordination as a more complex type of jsdm
 - remove ML methods
 - "partial ordination" might be more familiar to people that use vegan
 - table of sensible combinations for gllvm formulas!
@@ -100,4 +113,13 @@ Sessions from 14:00 to 20:00 (Monday to Thursday). Sessions will consist of a mi
 - ordination pres should start on monday, and then finish with "but we want to do multispecies modeling"
 - perhaps just start with gllvm on covariates without REs
 - second part with gllvm REs and interpretation thereof (so pres stays the same but we use gllvm instead of glmmtmb)
+
+- first ex; get people to use the swiss birds or the wetlands data to try vglm
+
+for friday:
+- different r package
+- hierarchical ordination
+- correlated LVs
+- hybrid/multiple ordinations in the same model
+- self-analysis or own data
 -->
