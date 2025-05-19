@@ -57,7 +57,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 
-# Still need something on how traits can induce co-occurrence; site-specific trait effect can be captured by the lvs
+<!--# Still need something on how traits can induce co-occurrence; site-specific trait effect can be captured by the lvs-->
 
 # Outline 
 
