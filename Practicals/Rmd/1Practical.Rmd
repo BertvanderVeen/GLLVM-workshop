@@ -1,38 +1,30 @@
 ---
-title: "Practical: fitting vector GLMs"
+title: "Practical: fitting GLMs to data of multiple species"
 subtitle: "Physalia workshop on GLLVMs"
 author: "Bert van der Veen"
 output: html_document
 ---
 
-# Description
+# Background
 
-Before getting to GLLVMs, we will consider some simpler models to get a feel for multispecies modeling. Since the data that is collected in community ecology is almost always non-normal, and very often discrete, GLMs are a good place to start. However, many decisions need to be made when fitting a GLM: a suitable response distribution, and formulation of the model. In this practical, we will first fit GLMs, and second vector GLMs.
+The data that is collected in community ecology is almost always non-normal, and very often discrete, which makes GLMs a good fit (much better than LMs). When fitting GLMs, there are many decisions that you need to make before it comes to the actual fitting: a suitable response distribution, formulation of the model, and such. In the first part of this practical, we will fit GLMs, and in the second part vector GLMs.
 
-# R-packages
+In the first lecture, we learned about the basics of fitting models to multispecies data. The models so far included basic Generalised Linear Models (GLM), as well as Vector Generalised Linear Models (VGLM. The main difference between the models is one critical assumption. Both can be fitted to multispecies data, but which do we choose?  In a GLM, we assume that 1) The response distribution is in the exponential family, 2) We have selected the correct link function, 3) We have selected the correct variance function, 3) There are no outliers that have a large influence on the model, 4) The model is linear on the link scale, 5) Independence of observations, 6) The dispersion parameter is the same for all observations. VGLMs relax assumption 6), which is often much more realistic, but there are distributions where GLMs and VGLMs are the same; namely for the so-called single-parameter exponential distributions. Tomorrow we will consider how we can check if these assumptions are violated. For now, we just focus on understanding and fitting the models.
 
-There are various R-packages and function that we need for this practical. First of all we need the `glm` function in R, though that is not ideally suited as it assumes constant dispersion. To relax that assumption, we need packages that can fit *vector* GLMs, so one of:
+The exponential family likelihood looks like:
 
-- <tt>mvabund</tt>
-- <tt>VGAM</tt>
-- <tt>glmmTMB</tt>
-- <tt>boral</tt>
-- <tt>Hmsc</tt>
-- <tt>gllvm</tt>
+\begin{equation}
+\mathcal{L}(\Theta) = \prod \limits^m \limits \prod^n\exp\{\frac{y_{ij}-b(\eta_{ij})}{a(\phi)} + c(y_{ij}, \phi)\}
+\end{equation}
 
-Tomorrow we will look more into using <tt>gllvm</tt>. I suggest to use a different package for this practical, so that you can get familiar with the benefits (and quircks or downsides) of using the <tt>gllvm</tt> R-package. <tt>boral</tt> and <tt>Hmsc</tt> fit models using MCMC and are quite slow, and we need something faster as we have limited time. <tt>mvabund</tt> has nice functionality for hypothesis testing, so it is my preferred choice here.
+In the single-parameter exponential family, $a(\phi) = 1$, and the last term $c(y_{ij}, \phi) = c(y_{ij})$ only depends on the data. The dispersion parameter accommodates excess variation that cannot be explained by the model; as  with $\sigma^2$ in the normal distribution or linear regression.
+
+We have also discussed the model structure; how we can have effects that are the same for all species, and effects that are species-specific. This is a similar idea as with the dispersion parameter, but for the model on $\eta_{ij}$. That has ecological implication; it speaks to the process we believe are data to be generated from. Estimating effects that are common for all species is easier, because we can leverage from all information in our dataset. For species-specific effects, we only have the information from a particular species. That's why the latter tend to be more difficult to accurately estimate, and more uncertain.
 
 # Data
 
-I collected some datasets that we can work with, but if you have your own data you can start by analyzing that instead. <tt>mvabund</tt> has a few datasets included that we can play with:
+The github repository has a "data" folder. You can pick any of the datasets:
 
-1. "tasmania": abundances of Copepod and Nematode species in a blocked design under a disturbance treatment
-2. "antTraits": abundance of 41 ant species, with environmental data
-3. "solberg": abundance of benthic invertebrate species with a variable of organic enrichment
-4. "spider": abundance of 12 wolf spider species with environmental variables
-5. "tikus":  abundance of coral species over time
-
-and there are more datasets (e.g., "dune", "pyrifos", "mite", and "BCI") in the <tt>vegan</tt> R-package. These are even more datasets in the "data" folder of the workshop that you can use for this practical:
 
 1. Beetles (abundance)
 2. Birds (abundance)
@@ -41,71 +33,267 @@ and there are more datasets (e.g., "dune", "pyrifos", "mite", and "BCI") in the 
 4. fungi (presence-absence)
 5. eucalypt (presence-absence)
 
-My suggestion is to try a few different data types in this exercise (e.g., presence-absence (alpine, eucalypt), ordinal (dune, Skabbholmen), abundance (take your pick), biomass (wadden) to get an impression of what it takes to analyse such datatypes. For some of these response types (e.g., ordinal, biomass) it might be more difficult to find software for multispecies modeling that also supports a suitable response distribution (don't worry, <tt>gllvm</tt> has it all).
+Note, as a rule-of-thumb, discrete data has less information in than continuous data, with binary data having the least information, so we need more of it than (say) count data, to accurately estimate parameters.
 
-# Tasks
+The packages installed for the workshop also includes datasets, for example the <tt>vegan</tt>, <tt>mvabund</tt> or <tt>gllvm</tt> packages, which you can explore via `data(package="...")`. The <tt>mvabund</tt> package has:
 
-Start by choosing a dataset, I will take the waddensea (abundance) data.
+1. "tasmania": abundances of Copepod and Nematode species in a blocked design under a disturbance treatment
+2. "antTraits": abundance of 41 ant species, with environmental data
+3. "solberg": abundance of benthic invertebrate species with a variable of organic enrichment
+4. "spider": abundance of 12 wolf spider species with environmental variables
+5. "tikus":  abundance of coral species over time
+
+and, for example, "dune", "pyrifos", "mite", and "BCI" in the <tt>vegan</tt> R-package.
+
+My suggestion is to try a few different data types in this exercise (e.g., presence-absence (alpine, eucalypt), ordinal (dune, Skabbholmen), abundance (take your pick), biomass (wadden) to get an impression of what it takes to analyse such datatypes. For some of these response types (e.g., ordinal, biomass) it might be more difficult to find software for multispecies modeling that also supports a suitable response distribution, for example, the `glm` function does not include functionality for Tweedie or ordinal responses; we need external packages (but don't worry, <tt>gllvm</tt> has it all).
+
+# Exploration
+
+Start by choosing a dataset, I will take the waddensea (abundance - it also has biomass) data.
 
 ```{r data}
 Y <- read.table("../../data/waddenY.csv", sep="," ,header=TRUE, row.names = 2)[,-1]
 X <- read.table("../../data/waddenX.csv", sep=",", header=TRUE, row.names = 2)[,-1]
 ```
 
-It is good practice to first explore data. For example, to make sure there are no outliers, errors, or other abnormalities. <tt>mvabund</tt> can help with that:
+This data has `r ncol(Y)` macrozoobenthos species and `r nrow(Y)` sites sampled on transects at various islands in the German north sea. So there is a repeated design here, indicated by "transect", "station", "island" and perhaps "season" columns in the data. There are also a few environmental variables: "elevation", "TOC", "DIN", "RDP", "Chl.a", and "silt_clay". More information on these is available in the associated article by [Dewenter et al. (2023)](https://onlinelibrary.wiley.com/doi/full/10.1002/ece3.10815). 
+
+It is good practice to first visualize the data. For example, to make sure there are no outliers, errors, or other abnormalities. <tt>mvabund</tt> can help with our first steps for that:
 
 ```{r}
 library(mvabund)
+require(graphics)
 meanvar.plot(mvabund(Y), xlab = "mean", ylab="var")
 ```
 
 this function plots the variance of each species against its mean. That gives us an impression of the model that we might want to fit. Clearly, the variance increases with the mean. It applies a log transformation to the axes so that the mean-variance relationship is easier to discern, which is appropriate for abundance data. To see how the function creates the plot, we can also do it ourselves:
 
 ```{r}
-plot(apply(Y,2,var)~apply(Y,2,mean),log="xy", ylab = "var", xlab="mean")
+plot(apply(Y,2,var)~colMeans(Y),log="xy", ylab = "Variance (log scale)", xlab="Mean (log scale)")
 ```
 
-at least what we can see, is that the sample mean of species is usually not equal to the sample variance; the variance is much larger. Consequently, the Poisson assumption of mean and variance being equal does not seem appropriate for this data (although note that we have not checked it with the covariates).
+we see that the log of the (sample) variance is linearly related to the log of the (sample) mean. Thus the following equations holds:
 
-Let's continue to fitting a model:
+\begin{equation}
+\log{var(y_{ij}) = \alpha\log(\mu_{ij}) + c},
+\end{equation}
+
+for some constant $c$ (the intercept of the line) and coefficient $\alpha$, the slope of the line. This kind of mean-variance relationship is very common in ecological data. It indicates a power-law relationship, where we "just" need to figure out what hte value of $\alpha$ is to determine a suitable response distribution.
+
+For a Poisson distribution, we have $c = 1$ and $\alpha = 1$, so that the variance and mean are the same. For a negative-binomial distribution (2), we have $var(y_{ij}) = \mu_{ij} + \mu_{ij}^2/\theta$, so the line would have to follow the relationship for $\alpha = 2$ and $c = \mu_{ij}$. We can try this by fitting a linear regression:
+
+```{r}
+lm(log(apply(Y,2,var))~log(colMeans(Y)))
+```
+
+which, with a slope coefficient of 1.5, is pretty close! You do not always have to go through this process, usually we have a pretty good idea which response distribution is suitable for our data, but it can make for a good sanity check. Before we start modeling, we may also want to plot the response data against the covariates, to see if we can already identify some relationships in advance.
+
+```{r}
+matplot(sort(X$silt_clay),pmax(Y[order(X$silt_clay),], 1), type  ="p", log = "y", ylab = "Y (log scale)")
+matplot(sort(X$elevation),pmax(Y[order(X$elevation),], 1), type  ="p", log = "y", ylab = "Y (log scale)")
+```
+
+That mostly just looks very messy. Not sure we can learn something from these, except that we do not have a lot of samples over the covariates.
+
+# Part I
+
+Let's just continue to fitting a model. We first need to form the data from wide to long:
+
+```{r}
+data <- data.frame(Y, X)
+datalong <- reshape(data, 
+                    varying = colnames(Y), 
+                    v.names = "count", 
+                    idvar = "Site", 
+                    timevar = "Species", 
+                    direction = "long")
+
+datalong$Species <- factor(datalong$Species, 
+                           labels = colnames(Y))
+```
+
 
 ```{r glm}
-model1 <- manyglm(mvabund(Y)~silt_clay + temperature, data = X, family = "poisson")
+model1 <- glm(count~silt_clay + elevation, data = datalong, family = "poisson")
 ```
-
-here I just chose two covariates at random. Before looking at the results, we want to first check if our model assumptions are met. The <tt>mvabund</tt> package includes functionality for plotting model residuals, so we can just go ahead:
-
-```{r res1}
-plot(model1)
-```
-
-that does not look terribly well, the residuals fan-out. We need to adjust the model:
-
-```{r ds}
-model2 <- manyglm(mvabund(Y)~silt_clay + temperature, data = X, family = "negative.binomial")
-plot(model2)
-```
-
-that already looks much better, although there is some bunching of residuals at the left side of the plot, which we should not be seeing. Most likely it is because I have only included two covariates in the model, so it is OK for this demonstration.
 
 Looking at the results:
 
-```{r res2}
-coefplot(model2)
+```{r res1}
+summary(model1)
+```
+we see loads of significane! Yay! Or, is that good? Statistical significance is mostly a function of information; the more information we have, the more significant a result will be. Here, because we assumed the effects to be the same for all species, there is loads of information to estimate them. So, the statistical significance is probably of minor relevance. We also see that the effects are pretty close to zero, but that may not be meaningful as we have not standardised our covariates. Let's try that again:
+
+```{r glm2}
+model2 <- glm(count~scale(silt_clay) + scale(elevation), data = datalong, family = "poisson")
+summary(model2)
 ```
 
-the results look very uncertain: some species have very large confidnece intervals. Grey effects are those of which the confidence intevals cross zero, and are thus too uncertainty to draw any conclusions. We have not really screened the data, and we really should have before we started, but we can still do it:
+The benefit of centering and standardizing the covariates, is that we can compare the magnitude of the coefficients for different covariates. Now, a coefficient further from zero means there is a stronger effect on the response variable. You may think that we changed the model, but we have not, we have just reparameterized it. We can check this by extracting the log-likelihood of the two models, so that we see they are the same:
 
 ```{r}
-sum(colSums(ifelse(Y==0,0,1))>4)/ncol(Y)
+logLik(model1)
+logLik(model2)
 ```
 
-this is something I like to do before an analysis: check how many species have enough observations. Here "enough" means at least more than the number of species-specific parameters in the model (which is quite a low threshold, to be completely honest). Community ecological data have the property of including many species with few observations, and if we fit the models that we are fitting here, we really cannot expect the results to be reliable if we do not have so much data. So we can choose: simplify the model (e.g., effects that are the same across species), or exclude some of the species. This is a situation where GLLVMs shine, because they use dimension reduction to reduce the number of parameters.
+We can also prove it mathematically:
 
-Suggestions for continuing this practical:
+\begin{equation}
+\begin{aligned}
+y_{ij} &= \alpha  + siltclay_i\beta_1 + elevation_i \beta_2\\
+&= \alpha + \frac{(siltclay_i-\mu_1)}{\sigma_1}\beta_1 + \frac{(elevation_i-\mu_2)}{\sigma_2}\beta_2\\
+&= \alpha -\mu_1\beta_1/\sigma_1 -\mu_2\beta_2/\sigma_2 + siltclay_i\beta_1/\sigma_1 + elevation_i\beta_2/\sigma_2\\
+&= \alpha^* + siltclay_i\beta_1^* + elevation_i \beta_2^*
+\end{aligned}
+\end{equation}
 
-1) Try the anova function for hypothesis testing
-2) Use the summary function to inspect the results further (can be quite slow since it also uses simulation for results)
-3) Use a different dataset
-4) Drop some of the species with few observations and refit the model
-5) Fit a model with traits via the <tt>traitglm</tt> function in <tt>mvabund</tt>
+so that $alpha^*$, $\beta_1^*$ and $\beta_2^*$ are the coefficients from the second model. Scaling and centering covariates is important to compare effects, but for more complex models (including random effects, for example), it is also crucial for *convergence*.
+
+Anyway, let's continue by plotting the coefficients with their confidence intervals:
+
+```{r}
+par(mar=c(5,7,4,2))
+CIs <- confint(model2)
+est <-  coef(model2)
+plot(x = est, y = 1:length(est), xlab = "Estimate", ylab = NA, pch  = "x", xlim = range(CIs), yaxt = "n")
+axis(2, 1:length(est), c("Intercept", labels(terms(model2))), las = 1)
+segments(CIs[,"2.5 %"], 1:length(est), CIs[,"97.5 %"], 1:length(est))
+```
+
+Excellent, this makes thing much easier to interpret. So, on average over all species, elevation is estimated to have a negative effect, and silt_clay a positive effect. We have assumed these to be the same for all species, the intercept too. This makes for a nice and small, easy to interpret model, but it is not ecologically realistic. In the next models, we will incorporate the species identities too. 
+I did not clarify this in the presentation, but you may have heard once upon a time "do not include higher order terms without lower order terms"; the general advice when fitting a statistical model. This is a good place to operate from, but we will ignore it anyway (and it is OK to do so).
+
+```{r}
+model3 <- glm(count~ 0 + Species + scale(silt_clay):Species + scale(elevation):Species, data = datalong, family = "poisson")
+```
+
+The `0+` serves to ensure that the estimates are not all relative to the first species (we absorb the global intercept term into the other terms).
+
+This model throws a warning, do you understand why? I will tell you:  we did not screen the data for species with few observations. Now, we are fitting a model with 3 parameter per species: the intercept, and two slope parameters (one for silt_clay and another for elevation). That means we need at least 3 (non-zero) observations to be able to (inacurrately) estimate the parameters. Let's check how many we have:
+
+```{r}
+table(colSums(ifelse(Y==0,0,1)))
+```
+
+23 species with 3 observations or less, ouch! This is the bane of community ecology: species often occur in few places, or rather,  we did not sample enough environments that these species can occur in. If we had, we probably would have found more new species and would have been stuck with exactly the same issue. In more complex models, this can be an issue: they will not converge or take a long time to fit. Here, we could choose to continue, while accepting our fate that some of the parameter estimates will be utter rubbish. You can also choose to remove them from the data. I'll leave it up to you to make a decision.
+
+Let's formulate another model, this time with the main terms:
+
+```{r}
+model4 <- glm(count~Species + scale(silt_clay) + scale(elevation) + scale(silt_clay):Species + scale(elevation):Species, data = datalong, family = "poisson")
+```
+
+again, we can show that these models are equivalent. They have the same number of parameters, and they thus have the same log likelihood value:
+
+```{r}
+logLik(model3)
+logLik(model4)
+```
+
+but, the former parameterisation is much more intuitive than the latter, so let's plot the coefficients for that. The standard `confint` might take too long for these models; it does likelihood profiling which involves refitting models many times. Calculating the confidence intervals based on the assumption of asymptotic normality will only take a second, so we'll do that here instead.
+
+```{r, warning=FALSE}
+par(mar=c(5,7,4,2), mfrow = c(1, 3))
+ses <- matrix(sqrt(diag(vcov(model3))), ncol = 3)
+LI <- est + qnorm(1-0.975)*ses
+UI <- est + qnorm(0.975)*ses
+est <- matrix(coef(model3), ncol = 3)
+for(i in 1:3){
+plot(x = est[,i], y = 1:nrow(est), xlab = "Estimate", ylab = NA, pch  = "x", xlim = c(min(LI[,i]), max(UI[,i])), yaxt = "n", main = c("Intercept",  labels(terms(model2)))[i])
+axis(2, 1:nrow(est), colnames(Y), las = 1)
+segments(LI[,i], 1:nrow(est), UI[,i], 1:nrow(est))
+}
+```
+
+You can probably identify the species that have too little data from these plots.
+
+## Tasks
+
+The goal of this first part is to get familiar with the ideas of multispecies modeling. Here is what I want you to do:
+
+1. Explore the models displayed above. Either for the used dataset, or any of the other listed datasets. Fit htem in you rown R session and explore the results. You can also select different covariates.
+2. Consider doing model selection, with `AIC` or with `anova`, for example. Can you figure out what drives this community?
+3. If you want to do something really daring, try changing the contrast for the 'Species' covariate to a sum-to-zero contrast (and isolate the species-common effect)
+4. After a while  we will discuss together how far you got, questions or challenges that have come up, and what conclusions you were able to draw.
+
+# Part II
+
+In this second part, we will look at vector GLMs. The equation for the likelihood from before becomes:
+
+\begin{equation}
+\mathcal{L}(\Theta) = \prod \limits^m \limits \prod^n\exp\{\frac{y_{ij}-b(\eta_{ij})}{a(\phi)} + c(y_{ij}, \phi)\}
+\end{equation}
+
+where the difference between a VGLM and GLM is that the dispersion parameter $\phi = \phi_j$, so that it is not the same for all observations, but instead each species gets its own dispersion parameter. It may seem like a trivial extension, which it is if we have only species-specific parameters in the model. Then, it means we are "just" fitting a GLM to the data of every species. Let's verify this:
+
+```{r, warning=FALSE}
+GLMs <- list()
+for(j in 1:ncol(Y)){
+  GLMs[[j]] <- glm(Y[,j]~silt_clay + elevation, family = "poisson", data = X)
+}
+Reduce("+", lapply(GLMs, logLik))
+```
+
+which just sums the likelihoods of all the separate models, which is the same as the model we just fitted above. We can also fit in with just a single line of code using the <tt>gllvm</tt> package:
+
+```{r, message=FALSE, eval = TRUE}
+X <- X[,-which(apply(X,2, anyNA))] # remove column with NAs
+library(gllvm)
+model5 <- gllvm(Y, X, formula = ~silt_clay + elevation, family = "poisson", num.lv = 0)
+logLik(model5)
+summary(model5, digits = 3L)
+```
+
+OK, it is not __exactly__ the same as before, but pretty close. That is because the <tt>gllvm</tt> package uses numerical optimisation, while the `glm` function in R uses a smart algorithm called iteratively re-weighted least squares. That is harder to use with random effects, and that is what <tt>gllvm</tt> is meant to do (so no IRWLS). 
+
+Species-common effects are specified with the `row.eff` argument, and work on average abundance at sites. We can combine this with `formula`, but note that the same effect cannot be in `row.eff` and in `formula` for identifiability reasons. There is a separate argument that takes the covariates related to `row.eff`, which is "studyDesign", so the code to fit this model is:
+
+```{r, message=FALSE, echo = -1}
+model6 <- gllvm(Y, studyDesign = X, row.eff = ~scale(silt_clay) + scale(elevation), family = "poisson", num.lv = 0)
+summary(model6)
+```
+
+
+The Poisson distribution is in the single-parameter exponential family, so we could continue with the `glm` function if we wanted to and the results would be the same. However, we are here to work with <tt>gllvm</tt> so let's use that instead! That way, you can get familiar with its functionality before we move on to more complex models.
+
+You already know how to create caterpillar plots (the name for the plots we made before) but now we have a function to do it for us:
+
+```{r}
+coefplot(model5, order = FALSE)
+```
+
+if we confidence interval crosses zero, the species' effect is greyed out as it is  too uncertain to draw any conclusions. The confidence intervals are again drawn assuming asymptotic normality.
+
+Compared to the models we have fitted before, the models in <tt>gllvm</tt> correspond to "dummy coding", so that there is no "common" effect, but species-specific effects instead, as long as things are treated as fixed. In this framework, we can now straightforwardly move to a distribution outside of the single-parameter exponential family; so we can fit (for example) a negative-binomial model that accommodates overdispersion per species.
+
+```{r, message=FALSE, echo = -1}
+model7 <- gllvm(Y, X, formula = ~scale(silt_clay) + scale(elevation), family = "negative.binomial", num.lv = 0)
+```
+
+I will not show equivalence with separate negative-binomial GLMs fitted to the data of each species, because the software for fitting negative-binomial GLMs (e.g., as in the <tt>MASS</tt> R-package) is not sufficiently robust; issues arise.
+
+Similar functionality applies here: we can apply `anova` or `aic` for model comparison, we can use  `confint` to get the confidence intervals, `coef` for the coefficients (estimates), `summary` to get some useful information on the model, and `coefplot` we already used before.
+
+From here, we could choose to explore the biomass equivalent of the same data ("WaddenY2"), with a Tweedie distribution. Without going into too much detail, the Tweedie family is a class of distributions, include the Poisson distribution, for positive continuous data with zeros (such as biomass). It has a dispersion parameter and a Power parameter. The variance function looks like:
+
+\begin{equation}
+\begin{aligned}
+\text{var}(\textbf{y}_j) &= \phi_j\mu^p\\
+\log\{\text{var}(\textbf{y}_j)\} &= \log{\phi_j} + p\log{\mu},
+\end{aligned}
+\end{equation}
+ 
+where $p$ is the power parameter and $\phi$ is the dispersion parameter as before. Note, this looks very similar to the variance function written above!
+The Power parameter controls the exact distribution that you have, and can be estimated by the package, so that is provides for very flexible modeling of biomass.
+
+## Tasks
+
+Try fitting a few models with the <tt>gllvm</tt> package; it's why you are here afterall! Each data type has its own "quirks" (ordinal classes different cover, different from biomass, and so on), and it is best to understand these before getting into more complex models. The data directory on the github as most types, so go through some modeling with different data types at this point.
+
+1. Biomass data (e.g., the waddensea data)
+2. Cover data (e.g., the road data)
+3. Cover classes (e.g., the Skabbholmen data in <tt>gllvm</tt> or the dune data in <tt>vegan</tt>)
+4. Binary data (e.g., the  SwissBirds data)
+5. Count data (e.g., the beetles data)
+
+In terms of tasks, you can go through similar steps as you did in the first part of the exercise: expplore the data, fit some models, do some model selection, and see if you can draw ecological conclusions using the information at your disposal (parameter estimates and statistical uncertainty).
