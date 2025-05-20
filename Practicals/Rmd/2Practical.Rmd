@@ -5,32 +5,19 @@ author: "Bert van der Veen"
 output: html_document
 ---
 
-# Description
+# Background
 
-GLLVMs are a special kind of GL(M)M, and GLMMs come with their own (numerical) quircks. However, they also offer great opportunities in estimating the variability or correlation of effects. Incorporating correlation into the modeling of multiple species was one of the original motivations for the introduction of GLLVMs to ecology! In this practical we will fit GLMMs to data of multiple species, and try to make sense of the results.
+So far, we have spoken a little about aspects of community ecological data, and learned about multispecies GLMs. In both cases, nested study designs is something that was encountered; plot-based sampling is very common in community ecology.
 
-# R-packages
+What we saw during the first practical, was that some of the species' effects were very extreme. When we observe species in just a few environments, or only on a particular place on a gradient, the models can become very sure of themselves about where the species occurs. This gives extreme results, as we will also encounter in ordinations on Thursday. This also comes together with a load of uncertainty (remember the confidence intervals for some species were extremely wide for the VGLMs) because the effects will most likely change considerably if we resampled the data. Makes sense when we have few observations, right?
 
-There are various R-packages and function that we can use for this practical, including <tt>gllvm</tt>. A few of the packages that we could use in the previous exercise are now no longer suitable, sa they focus on implementing fixed effects only. <tt>lme4</tt> could also be used, but I have omitted that from the list here.
+Anyway, this practical is about random effects. As covered in the lecture, random effects have multiple purposes. One of them, is to "get rid" of effects that we are not interested in or consider unmeasured. This can be the case for variation in community composition due to a nested design, or variation due to repeated measurements. Random effects can also help to induce "shrinkage"; we assume that the random effects have a mean effect (the common effect for all species), so that if we do not have enough information for any particular species to estimate its effect, it reverts to the average of the whole community.
 
-- <tt>glmmTMB</tt>
-- <tt>boral</tt>
-- <tt>Hmsc</tt>
-- <tt>gllvm</tt>
-
-Tomorrow we will look more into using <tt>gllvm</tt>. I suggest to use a different package for this practical, so that you can get familiar with the benefits (and quircks or downsides) of using the <tt>gllvm</tt> R-package. <tt>boral</tt> and <tt>Hmsc</tt> fit models using MCMC and are quite slow, and we need something faster as we have limited time. <tt>glmmTMB</tt> has a wide range of response types, is state-of-the-art software, and can also fit GLLVMs, so we will use that here.
+Rando effects also offer great opportunities in estimating the variability or correlation of effects. Incorporating correlation into the modeling of multiple species was one of the original motivations for the introduction of GLLVMs to ecology, which you will learn more about tomorrow. In this practical we will fit GLMMs to data of multiple species, and try to make sense of the results.
 
 # Data
 
-I collected some datasets that we can work with, but if you have your own data you can start by analyzing that instead. <tt>mvabund</tt> has a few datasets included that we can play with:
-
-1. "tasmania": abundances of Copepod and Nematode species in a blocked design under a disturbance treatment
-2. "antTraits": abundance of 41 ant species, with environmental data
-3. "solberg": abundance of benthic invertebrate species with a variable of organic enrichment
-4. "spider": abundance of 12 wolf spider species with environmental variables
-5. "tikus":  abundance of coral species over time
-
-and there are more datasets (e.g., "dune", "pyrifos", "mite", and "BCI") in the <tt>vegan</tt> R-package. These are even more datasets in the "data" folder of the workshop that you can use for this practical:
+I collected some datasets that we can work with, but if you have your own data you can also start by analyzing that instead. 
 
 1. Beetles (abundance)
 2. Birds (abundance)
@@ -39,80 +26,170 @@ and there are more datasets (e.g., "dune", "pyrifos", "mite", and "BCI") in the 
 4. fungi (presence-absence)
 5. eucalypt (presence-absence)
 
-My suggestion is to try a few different data types in this exercise (e.g., presence-absence (alpine, eucalypt), ordinal (dune, Skabbholmen), abundance (take your pick), biomass (wadden) to get an impression of what it takes to analyse such datatypes. For some of these response types (e.g., ordinal, biomass) it might be more difficult to find software for multispecies modeling that also supports a suitable response distribution (don't worry, <tt>gllvm</tt> has it all).
+Feel free to continue where you left off in the last exercises, for example with one of the datasets <tt>mvabund</tt> has:
 
-# Tasks
+1. "tasmania": abundances of Copepod and Nematode species in a blocked design under a disturbance treatment
+2. "antTraits": abundance of 41 ant species, with environmental data
+3. "solberg": abundance of benthic invertebrate species with a variable of organic enrichment
+4. "spider": abundance of 12 wolf spider species with environmental variables
+5. "tikus":  abundance of coral species over time
 
-Start by choosing a dataset, I will again take the waddensea (abundance) data.
+and there are more datasets (e.g., "dune", "pyrifos", "mite", and "BCI") in the <tt>vegan</tt> R-package. 
+
+# Part I
+
+If you chose to work with a dataset that you did not work with during the last exercise, please make sure to start with some basic visualizations. I will continue with the waddensea data; it has a nested study design which makes it perfect for demonstrating the use of random effects.
 
 ```{r data}
 Y <- read.table("../../data/waddenY.csv", sep="," ,header=TRUE, row.names = 2)[,-1]
 X <- read.table("../../data/waddenX.csv", sep=",", header=TRUE, row.names = 2)[,-1]
-
-# Remove species with few observations
-Y <- Y[,colSums(Y)>4]
-
-# Scale covariates: always good to do when using numerical optimisation
-X <- lapply(X,function(x)if(is.numeric(x)){scale(x)}else{as.factor(x)})
-
-# Y to long format
-datalong <- reshape(cbind(Y, X), 
-                    varying = colnames(Y), 
-                    v.names = "Count", , 
-                    timevar = "Species", 
-                    direction = "long")
-
-datalong$Species <- factor(datalong$Species, 
-                           labels = colnames(Y))
+X <- X[,-which(apply(X,2, anyNA))] # remove column with NAs
 ```
 
-Pollock et al. (2015) popularized including correlation between species into a model. They also realised that incorporating correlation in the way that they did was prone to many issues; the number of correlation parameters grows very quickly with the number of species, so such models are prone to issues with convergence. Here I do not use binary data, but abundance data, but the principle is the same. We can fit such a model like this:
+As a matter of terminology, we speak of "random effects model" if only random effects are included, and "mixed-effects model" means that both random and fixed effects are included. As a framework, the latter includes the former.
 
-```{r jsadm1, cache = TRUE}
-library(glmmTMB)
-model <- glmmTMB(Count ~ Species + Species:(silt_clay+temperature) + (0+Species|island/station/transect), family = "poisson", data = datalong)
-```
-Fitting the model in this way takes -very- long, especially if the data includes many species. The first term `Species` incorporates an intercept per species to account for the mean abundance, the second term `Species*(silt_clay + temperature)` incorporates species-specific effects to the two covariates. The last term is the "error" term that accounts for correlations between species at the island, station, transect combination. This is the (basic) model that GLLVMs also fit, but in a more efficient fashion.
+In the last exercise, I fitted the model:
 
-We will park this for the moment, and have a look at the other random effects models in the presentation. The first model was a random intercept model. This specifies the first term above ("Species") as random effects instead, which has the benefit of: 1) shrinking effects to a common mean, 2) estimating variability in mean abundance:
-
-```{r jsadm2, cache = TRUE}
-model <- glmmTMB(Count ~ (1|Species) + Species:(silt_clay+temperature), family = "poisson", data = datalong)
+```{r, message=FALSE}
+library(gllvm)
+model1 <- gllvm(Y, X, formula = ~scale(silt_clay) + scale(elevation), family = "negative.binomial", num.lv = 0)
+coefplot(model1)
 ```
 
-Note that I have changed the product sign to a colon, as to exclude the main species effect from the model. Technically, we could incorporate both fixed and random species intercept of the model, but there is usually no good reason to do that.
+The catterpillar plots created with `coefplot` showed some extreme results: species with very large estimates and large confidence intervals. By specifying the effects as random, we can pull these closer to the average effect, reigning their variability. Let's go ahead and specify the equivalent of this model, but with random effects:
 
-```{r summary}
-summary(model)
+```{r}
+model2 <- gllvm(Y, X, formula = ~(0+scale(silt_clay)|1) + (0+scale(elevation)|1), family = "negative.binomial", num.lv = 0)
+randomCoefplot(model2)
 ```
 
-Looking at the variance of the random effect in the top of the summary shows us that there is a lot variability in mean species abundance!
+The `randomCoefplot` function does essentially the same as `coefplot`, except that it plots random effects with *prediction* intervals. To understand what these are, let's have a look at the following two equations:
 
-Let us make a catterpillar plot of the results with ggplot2:
+\begin{equation}
+\begin{aligned}
+\beta_{kj} &\sim \mathcal{N}(\mu_k, \sigma^2_k)\\
+\beta_{kj} &= \mu_k + b_{kj} \sim \mathcal{N}(0, \sigma^2_k)
+\end{aligned}
+\end{equation}
 
-```{r cat, echo = -1}
-library(glmmTMB)
-library(ggplot2)
-# gather the results
-# omit global intercept for now
-CIs <- data.frame(confint(model)[-1,], check.names = FALSE)
-CIs <- CIs[-nrow(CIs),] #remove CI of variance 
-# Add a column for the species names
-CIs$Species <- gsub("Species","",sub(':.*', '', row.names(CIs)))
-CIs$Covariate <- sub('.*:', '', row.names(CIs))
+these two parameterisations are equivalent. The $\mu_k$ are the species-common effects per covariate $k$, and the $b_{kj}$ are the species' deviation from that common effect. The $b_{kj}$ are what the `randomCoefPlot` function plots, so that they are relative to the common effect. If the prediction interval crosses zero, we have too little evidence to conclude that the species' environmental response to the covariate is different from the common effect for all species. The common effect can be examined via the `summary`:
 
-ggplot(data = CIs)+geom_point(aes(y=Species, x = Estimate))+# our estimates
-  geom_errorbarh(aes(y=Species,xmin=`2.5 %`,xmax=`97.5 %`))+#95% CI
-  facet_grid(~Covariate)+#a window per covariate
-  geom_vline(xintercept = 0, lty = "dashed", linewidth=.2, col="gray")+ #add a vertical line
-  theme_bw() # I like this theme better
+```{r}
+summary(model2)
 ```
 
-Suggestions for continuing this practical:
+Which also reports the estimates for the variances of the random effects. If these are (very) close to zero, the random effect can be omitted from the model, but in this case there is a good reason to include it for both covariates. Some people prefer keeping random effects with zero variance in the model, out of theoretical reasons. For example, in the case it is a variable that accounts for a nested design. However, in that case the model is equivalent to the model without the random effect, and calculated uncertainties for fixed effects will be more accurate when we omit the random effect, so omission hhas my (personal) preference.
 
-1) Fit the other random effects models in the presentation: with random slopes, and possibly correlation with the random intercepts (and infer what the result means ecologically)
-2) Try the `rr` structure in the <tt>glmmTMB</tt> package: it allows us to fit GLLVMs
-3) Incorporate a species-specific dispersion parameter with the `dispformula` argument
-4) Compare some of these models via a likelihood ratio test (`anova`) or with information criteria
-5) Make some more plots of the results! Maybe the random effects next?
-6) Try a different dataset.
+By default, the (fixed) common effect is included with random effects in the <tt>gllvm</tt> package. However, it is controlled by `row.eff`, so we can exclude it if we want, or choose to include it only for particular covariates:
+
+```{r}
+model3 <- gllvm(Y, X, formula = ~(0+scale(silt_clay)|1) + (0+scale(elevation)|1), row.eff =~1, family = "negative.binomial", num.lv = 0)
+summary(model3)
+randomCoefplot(model3)
+```
+
+We can then check with (for example) information criteria, if the model is improved when it is included:
+
+```{r}
+AIC(model2, model3)
+```
+
+It is marginally improved, as it turns out. The typical rule-of-thumb (Burnham and Anderson, 2002) is that per parameter AIC should improve by 2 points. Here, it has improved by about 1 point while we included 2 more parameters in the first model than the second. So, we can probably omit them. The consequence, is that species' random effects will be centered around zero, so that on average the random effect has no effect on the community composition. This seems correct from the caterpillar plot of random coefficients, as most of the random effect estimates are greyed out.
+
+The model above includes random slopes. However, as I mentioned, the dataset has a nested design; transects at islands, which we should incorporate. We can choose to include this as random effect in `formula` or in `row.eff`. The latter is a simplification of the former; it does not allow for correlation between random effects (only within random effects, such as due to spatial autocorrelation), and it assumes that all random effect estimates are the same for all species. 
+
+Let's go ahead, fit these two models, and compare them. Note that this might take a little, as there are quite a few of random effects to estimate: $3*58+58*2$ and another 58 fixed effects parameters for species' intercepts (which are included by default). If we instead formulated the random effect below as transect/island, the number of random effects would instead be $3*3*58+58*2$ (as there are also 3 transects). There are some ways to speed this up, but we will consider those tomorrow instead. By default, the package includes correlations between the different categories of the same random effect, which we (for now) omit using `diag`.
+
+```{r}
+model4 <- gllvm(Y, X, formula = ~diag(0+island|1) + (0+scale(silt_clay)|1) + (0+scale(elevation)|1), row.eff =~1, family = "negative.binomial", num.lv = 0)
+model5 <- gllvm(Y, studyDesign=X, row.eff = ~(1|island) + (0+scale(silt_clay)+scale(elevation)|1), family = "negative.binomial", num.lv = 0)
+```
+
+The "model5" assumes the same variance for the terms in brackets; this is sensible because there are 2 random effects (one for silt_clay and one for elevation), which means there are only two replicates to estimate the variance parameter. Anyway, we can go ahead and compare them with AIC:
+
+```{r}
+AIC(model4, model5)
+```
+
+Although there are technically only a few parameters more in "model4" than "model5", we have to keep in mind that "model4" has many more (species-specific) random effects. So, we did expect "model4" to be considerably better, despite the fact that "model5" with species-common random effects is a much simpler model.
+
+Although we have now specified all effects as random, we are of course free to combine random and fixed effects at will, for example:
+
+```{r}
+model6 <- gllvm(Y, X, formula = ~diag(0+island|1) + scale(silt_clay) + scale(elevation), row.eff =~1, family = "negative.binomial", num.lv = 0)
+```
+
+Whether we include an effect as random or as fixed requires careful deliberation. Inducing shrinkage can result in (too) conservative estimates if we do not have enough data. When we have enough data, results of the two will (at least in this particular instance) be very similar; the random effect will then act like a fixed effect.
+
+One of the benefits of maintaining an effect as random, is that we can calculate diversity for our system from the model, as explained in the lecture. We can also predict how diversity changes along a gradient. For the model above with silt_clay and elevation as random effects, alpha diversity is:
+
+\begin{equation}
+\text{var}(\eta_{ij}) = elevation_i^2\sigma^2_{elevation} + silt_clay_i^2\sigma^2_{silt_clay}.
+\end{equation}
+
+Which tells us that we can visualize the change in alphha diversity due to one of the covariates, by keeping the other constant. For example, for elevation:
+
+```{r}
+xnew <- seq(min(scale(X$elevation)), max(scale(X$elevation)), length.out = 100)
+std <- sqrt(diag(model4$params$sigmaB)[5])
+alphadiv <- (xnew*std*sd(X$elevation)+mean(X$elevation)*std)^2
+xnew <- xnew*sd(X$elevation)+mean(X$elevation)
+plot(xnew, alphadiv, type = "l") # backtransform
+```
+
+so that alpha diversity increases with elevation.
+
+## Tasks
+
+1. Fit models with random intercepts and/or random slopes, to get a hang on the syntax.
+2. Try both standardized and centered covariates, as well as uncentered and unscaled. How does it affect the model?
+3. Experiment with fixed and random effects in the model; which one performs better for your chosen dataset?
+4. Try to build an ecological understandingg of variance parameters in term of diversity and turnover
+
+# Part II
+
+So far, we have fitted random effects models where the random effects are independent (have no correlation). Especially when it comes to shrinkage, or when we do not have so much information, this is a sensible thing to do. It requires quite a lot of information to estimate correlation parameters, where with "information" I mean "levels of the random effect". In our case, the number of species represent the number of replicates for the random effect that we have. Fortunately, we often have a bunch of them! So, we can probably go ahead and estimate the correlation of random effects.
+
+Ecologically, correlation of random effects corresponds best with *trait syndromes*, where species' environmental responses are a type of latent trait. Positive correlation of random effects means that a species' response to one effect is similar to that of another, and negative that they are opposites. If the correlation is close to zero, a species response to two effects is entirely different.
+
+Syntax-wise, terms that share the same brackets get correlation parameters; simple, right?! It is important to note that the number of correlation parameters increases quite quickly with the number of effects, and that it tends to slow model fitting down considerably, due to the added complexity. Having said that, let's go ahead and add a correlation parameter for silt_clay and elevation:
+
+```{r}
+model8 <- gllvm(Y, X, formula = ~diag(0+island|1) + (0+scale(silt_clay)+scale(elevation)|1), row.eff =~1, family = "negative.binomial", num.lv = 0)
+summary(model8)
+```
+
+We still have the `diag` wrapped around the island covariate, so we only add one correlation parameter. It is estimated to be about 0.48, meaning that the responses of species to silt_clay and elevation are somewhat similar. Usually, this can be seen in their estimates:
+
+```{r}
+randomCoefplot(model8, which.Xcoef = c("scale.silt_clay.", "scale.elevation."))
+```
+
+We do see similarity: some of species' responses to silt_clay are almost the same as for elevation. If the correlation parameter had been very close to 1, we would have been looking at two nearly duplicate plots.
+
+We can introduce a few more correlation parameters, by removing the `diag` around the island covariate, and then construct a corellogram for a quicker overview than that `summary` gives us. If you are using the same dataset as I am, the following model will take a bit to run, as there are 10 correlation parameters now included.
+
+```{r}
+model9 <- gllvm(Y, X, formula = ~(0+island+scale(silt_clay)+scale(elevation)|1), row.eff =~1, family = "negative.binomial", num.lv = 0)
+```
+ Woops, it did not converge; the numerical optimiser reached the maximum number of iterations. Let's increase this and try again:
+
+```{r}
+model9 <- gllvm(Y, X, formula = ~(0+island+scale(silt_clay)+scale(elevation)|1), row.eff =~1, family = "negative.binomial", num.lv = 0, control = list(maxit = 10e3))
+summary(model9)
+cors <- cov2cor(model9$params$sigmaB)
+colnames(cors) <- row.names(cors) <- colnames(model9$params$sigmaB)
+corrplot::corrplot(cors, type = "lower", diag = FALSE)
+```
+
+The random effects for the three islands act on the mean abundance. So, we see that the mean abundance of species on the first island is negatively correlated with that at the other two islands. We also see that the correlation of the silt_clay and elevation effects is still positive, indicating that if species' abundance increases with the cohesiveness of the sediment, it also increases with elevation (and vice verse for decreases). This may be related to the distribution of the sediment, if we plot the silt_clay covariate against elevation, we see that silt is mostly found at lower elevations.
+
+```{r}
+plot(X$silt_clay, X$elevation)
+```
+
+## Tasks
+
+1. Include correlation parameters between some (or all) of the terms in your model
+2. Can you make ecological sense of the estimates for the correlation parameters? 
+3. Try to change the model a bit and see if different fixed and random effects, or different independent random effect terms, have a large impact on the sign (minus or plus) of the correlation parameters (i.e., a little sensitivity analysis) 
