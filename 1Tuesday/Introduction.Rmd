@@ -96,9 +96,12 @@ Practicals of about 45-60 minutes: datasets and R
 
 ## Friday
 
+Start an hour sooner? Poll in the slack.
+
 1. Other \texttt{R}-packages for GLLVMs/JSDMs
 2. A brief look at Hierarchical ordination
 3. Article reanalysis
+  - You can send suggestions, the main requirement is published data
 4. Own data analysis/questions/suggestions
 
 How does that sound?
@@ -186,7 +189,7 @@ and some spatial packages
 - [van der Veen (2022)](https://ntnuopen.ntnu.no/ntnu-xmlui/handle/11250/2980780)
 - [van der Veen et al. (2023)](https://besjournals.onlinelibrary.wiley.com/doi/full/10.1111/2041-210X.14035)
 - [Korhonen et al. (2024)](https://besjournals.onlinelibrary.wiley.com/doi/full/10.1111/2041-210X.14437)
-- [van der Veen et al. (2024)][https://arxiv.org/abs/2408.05333]
+- [van der Veen et al. (2024)](https://arxiv.org/abs/2408.05333)
 - [Tang et al. (2025)](https://jdssv.org/index.php/jdssv/article/view/133)
 
 \columnsend
@@ -368,6 +371,7 @@ Seems like everything stops at the turn of the millennium?
     rounded corners,
     inner sep=10pt,
     fill = white,
+    align = center,
     text width = 0.8\paperwidth
   }
 }
