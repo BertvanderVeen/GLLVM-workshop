@@ -937,7 +937,7 @@ The prediction to use depends on your ecological question.
 - Usually, JSDMs are implemented using latent variables
   - The number used affects predictive performance
 - Conditional predictions can facilitate a focus on focal species
-- Thhere are different types of predictions possible, to target particular ecological questions
+- There are different types of predictions possible, to target particular ecological questions
 
 
 <!-- Let's fit a new model to predict: -->
