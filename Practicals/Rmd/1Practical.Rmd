@@ -296,4 +296,4 @@ Try fitting a few models with the <tt>gllvm</tt> package; it's why you are here 
 4. Binary data (e.g., the  SwissBirds data)
 5. Count data (e.g., the beetles data)
 
-In terms of tasks, you can go through similar steps as you did in the first part of the exercise: expplore the data, fit some models, do some model selection, and see if you can draw ecological conclusions using the information at your disposal (parameter estimates and statistical uncertainty).
+In terms of tasks, you can go through similar steps as you did in the first part of the exercise: explore the data, fit some models, do some model selection, and see if you can draw ecological conclusions using the information at your disposal (parameter estimates and statistical uncertainty).
