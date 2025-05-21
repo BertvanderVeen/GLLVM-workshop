@@ -101,7 +101,7 @@ terra::values(predrast) <- preds
 library(terra)
 par(mfrow = c(1,2))
 plot(predrast[[1]], main = colnames(Y)[1])
-plot(predrast[[2]], main = colnames(Y)[1])
+plot(predrast[[2]], main = colnames(Y)[2])
 ```
 Taking a look at their coefficients with `coefplot` that the first species is estimated to have a (small) positive response to slope, and the second species a negative response. The north of Switzerland is a plateau, so that steeper places occur in the south, so our predictions corresponds pretty well to my limited understanding of Swiss topography.
 
