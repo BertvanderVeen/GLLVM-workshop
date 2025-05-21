@@ -1,5 +1,5 @@
 ---
-title: "Practical: getting familiar with the gllvm R-package"
+title: "Practical: Validation and comparison"
 subtitle: "Physalia workshop on GLLVMs"
 author: "Bert van der Veen"
 output: html_document
@@ -7,118 +7,194 @@ output: html_document
 
 # Description
 
-The <tt>gllvm</tt> fits Generalized Linear Latent Variable Models in the general sense of the definition. Because it is hsa that focus, it provides some more tools for fitting such models more efficiently, and for processing the results. In this practical, we will explore the package a little by fitting unconstrained ordinations to different datasets.
+We have fitted VGLMs and VGLMMs at this point in the workshop. Hopefully, it is now clear to you that when we fit these models we make assumptions about the data generating process. If these assumptions do not hold, there are consequences for the conclusions that we connect to the results (they are most likely wrong). So, we need to understand the assumptions that we make, and more importantly, we need to know how to check and address assumption violations.
+
+With assumptions, we can distinguish between statistical assumptions and ecological assumptions. Here, we will first focus on the former, but the latter is not less important. Statistical assumptions include those listed for VGLMs and VGLMMs in the previous practicals and in the lectures:
+
+1. Correct distribution
+2. Correct link function
+3. Correct variance function
+4. No outliers
+5. No systematic departure from the model of another kind (e.g., non-linearity)
+6. Independence of observations
+7. The dispersion parameter is approriately selected (e.g., per species, per group, or the same)
+
+With ecological assumptions I mean the hypotheses and understandings we convey when we formulate a model. We validate and check those with things like model comparison (information cirteria, likelihood ratio test) and predictive comparison (more on that at the end of the day).
 
 # Data
 
-I collected some datasets that we can work with, but if you have your own data you can start by analyzing that instead. <tt>mvabund</tt> has a few datasets included that we can play with:
+As for data, you are free to pick a dataset again, but I suggest you take one that has some flexibility or ambiguity as to the right response distribution. For biomass you could work with Tweedie or gamma, for count data it is usually Poisson or negative-binomial, for binary data the response distribution is binomial, but there is choice in the link function: it can be logit or probit. Every data type has a natural response distribution connected to it, usually based on its domain (i.e., the limits of the data; biomass cannot be zero, counts cannot be negative and binary cannot be different from 0 or 1).
 
-1. "tasmania": abundances of Copepod and Nematode species in a blocked design under a disturbance treatment
-2. "antTraits": abundance of 41 ant species, with environmental data
-3. "solberg": abundance of benthic invertebrate species with a variable of organic enrichment
-4. "spider": abundance of 12 wolf spider species with environmental variables
-5. "tikus":  abundance of coral species over time
+I will again start with the waddensea (abundance) data, because it allows me to demonstrate the consequences of not accommodating overdispersion, and how to check for overdispersion.
 
-and there are more datasets (e.g., "dune", "pyrifos", "mite", and "BCI") in the <tt>vegan</tt> R-package. These are even more datasets in the "data" folder of the workshop that you can use for this practical:
-
-1. Beetles (abundance)
-2. Birds (abundance)
-3. wadden (abundance)
-4. wadden (biomass)
-4. fungi (presence-absence)
-5. eucalypt (presence-absence)
-
-My suggestion is to try a few different data types in this exercise (e.g., presence-absence (alpine, eucalypt), ordinal (dune, Skabbholmen), abundance (take your pick), biomass (wadden) to get an impression of what it takes to analyse such datatypes. For some of these response types (e.g., ordinal, biomass) it might be more difficult to find software for multispecies modeling that also supports a suitable response distribution (don't worry, <tt>gllvm</tt> has it all).
-
-# Tasks
-
-Start by choosing a dataset, I will again start with the waddensea (abundance) data.
 
 ```{r data}
 Y <- read.table("../../data/waddenY.csv", sep="," ,header=TRUE, row.names = 2)[,-1]
+X <- read.table("../../data/waddenX.csv", sep=",", header=TRUE, row.names = 2)[,-1]
+X <- X[,-which(apply(X,2, anyNA))] # remove column with NAs
 ```
 
-Similar to GLMMs, GLLVMs include random effects that cannot analytically be integrated out of the likelihood in almost all cases. Thus, it employs some approximations to do it, which are quite accurate most of the time. And when one is not, we can switch to another! By default, this is the Variational Approximation method as in Hui et al. (2017), but if you select a family that is not supposed by that method, the package will switch to another. Let's go ahead and fit an unconstrained ordination:
+The natural point of departure for count data is the Poisson distribution, or the binomial distribution if you want to condition on the total count.
 
-```{r uo, cache = TRUE}
+# Part I
+
+Let's fit a few of the models from the previous exercises, so we can examine them more closely:
+
+```{r, message=FALSE}
 library(gllvm)
-model <- gllvm(Y, num.lv = 2, family = "poisson")
+model1 <- gllvm(Y, X, formula = ~scale(silt_clay) + scale(elevation), family = "poisson", num.lv = 0)
+model2 <- gllvm(Y, X, formula = ~scale(silt_clay) + scale(elevation), family = "negative.binomial", num.lv = 0)
+model3 <- gllvm(Y, X, formula = ~(0+scale(silt_clay)|1) + (0+scale(elevation)|1), family = "poisson", num.lv = 0)
+model4 <- gllvm(Y, X, formula = ~(0+scale(silt_clay)|1) + (0+scale(elevation)|1), family = "negative.binomial", num.lv = 0)
 ```
 
-In most cases, the package will default to `num.lv = 2`, so also when it is not explicitly specified. We can inspect the latent variables using the `getLV` function:
+Similar to a linear regression, we can use `plot` function to visualize the residuals from a <tt>gllvm</tt> type object. There is also a `residuals` function if you actually want to have the residuals, but that is rarely needed in practice. This `plot` function makes five plots:
 
-```{r LVs, echo = -1, message=FALSE}
-library(gllvm)
-LVs <- getLV(model)
-LVs
+1. Residuals vs. linear predictors (also called Residuals vs. fitted)
+2. Normal QQ-plot
+3. Residuals vs. rows
+4. Residual vs. columns
+5. Scale-location
+
+Here the residual is defined as the Dunn-Smyth residual, also referred to as the randomized quantile residual. It is the gold standard of residuals when it comes to complex statistical models, is straightforward to define for all our statistical models, and is exactly normally distributed even in small samples, regardless of the response distribution that we select. It has a random component to is, which means that your residual will not look __exactly__ the same every time you use the function, but there will only be minor differences that should not affect your conclusion.
+
+Residual diagnostics is pretty straightforward: there should be no odd looking patterns in the plots. If there are, the conclusions we connect to it, and the consequences it has, depend on the exact assumption that is violated. Safe to say, if all assuptions are met, we do not need to concern ourselves further with the details, so let's focus on that instead!
+
+We check the following assumptions with the following plots:
+
+1. Correct link function, Correct variance function, systematic departure from the model, outliers
+2. Correct distribution, outliers, appropriateness of the dispersion parameter(s)
+3. Independence of observations (particularly sites), systematic depature
+4. Correct variance function, systematic depature from the model, appropriateness of the dispersion parameter(s)
+5. Correct link function, correct variance function, outliers
+
+There is some grey area here; assumptions violations can be extreme and easy to spot, or subtle and difficult to conclude. If you are afraid an assumption is violated, the safe thing to do is to relax the assumption to the best of your ability by adjusting the model, and seeing if the results have changed. If they haven't, the assumption was not violated or it simply didn't matter for your results.
+
+Each of the aforementioned assumptions tends to result in particular patterns in the plots; most violations will show in the first plot, but particularly systematic depature of the model. If you select the wrong distribution the QQ-plot will show departure from the diagonal line. If there is dependence of observations; usually spatially or temporally of sites, this will show in the third plot as clustering. Similarly, similarity of species (e.g., due to relatedness) will show as clustering in the fourth plot. Outliers will show in all the plots; particularly in the fifth plot as points that lay high above the line.
+
+In our case, if we look at the QQ-plot of the first model: 
+
+```{r, fig.width = 10}
+plot(model1, which = 2)
 ```
 
-A <tt>gllvm</tt> is a type of list object, that contains many components that we can see from [the help file](https://jenniniku.github.io/gllvm/reference/gllvm.html).
-the parameter estimates are stored under `model$params`, though we can also use the `coef` function to extract most of them. Iin the newest version of the package (not on CRAN yet) the species loadings with `getLoadings`. Here we will just extract them ourselves. They exist of two components, and these need to be multiplied together:
+We see that in the tails of the distribution there is a lot of deviation; the absolute size of the residuals is much larger than what corresponds to the Poisson distribution, so that the distributional assumption is violated. Also from some of the other plots it is not hard to determine that the model is a poor fit:
 
-```{r}
-unscaledLoadings <- coef(model, "loadings")
-scaleLoadings <- coef(model, "sigma.lv")
-Loadings <- unscaledLoadings%*%diag(scaleLoadings)
-colnames(Loadings) <- c("LV1","LV2")
-Loadings
-```         
-
-These loadings are also what represent the correlation of species. By squaring the object we get the covariances of species, but fortunately the package has the `getResidualCov` and `getResidualCor` functions that do this for us:
-
-```{r}
-covariances <- getResidualCov(model)
-correlations <- getResidualCor(model)
-``` 
-
-The covariances object has "cov" and "trace". "trace" is the sum of the diagonal entries, and represents the total variance of the latent variables. Depending on the exact model, these list components may be a bit different, and have different names. "correlations" is just a matrix of correlations between species. We can visualize that nicely with a ggplot.
-
-```{r}
-library(ggplot2)
-p1 <- ggplot(reshape2::melt(correlations))+geom_tile(aes(x=Var1, y=Var2, fill = value))+scale_fill_gradient2(low="blue",high="red",mid = "white")+
-  theme_bw()+theme(
-      axis.text.x = element_text(angle = 90, vjust = 1, size = 12, hjust = 1),
-      axis.text.y = element_text(size = 12)) +
-    ggplot2::coord_fixed()+xlab(NULL)+ylab(NULL)
-p1
+```{r, fig.width = 10}
+plot(model1, which = c(1, 3, 4, 5))
 ```
 
-Oof, what a mess. There are many things we can do to improve the readability of this plot, including: 1) showing only half of the matrix (it is symmetric, so the same information is display above and below the diagonal elements), 2) ordering by some method, and 3) placing the species names in a more readable place. There are other R-packages to do so, for example the <tt>corrplot</tt> package or the <tt>ggcorrplot</tt> package.
+The residuals vs. linear predictors (fitted) shows a fan pattern that is indicative of overdispersion, residuals vs. rows shows some very extreme residuals for particular species, which we also see in the residuals vs. columns plot. The scale-location plot leads to the same conclusion: the variance function is not correct. If you work with count data in community ecology, this would quickly lead you to the conclusion that a negative-binomial model will fit better, which we can verify by plotting the residuals of the second model.
 
-These correlations represent how the species in the data relate to each other, but note that they are affected by the rest of the model. They represent information that is not accounted for by other parts of the model. Like this, without covariates, they could represent shared environmental responses. And, when covariates are included in the model, they cannot represent information that the covariates explain. When a correlation is positive, we expect species to co-occur. When a correlation is negative, we expect the opposite.
-
-From the same model we can also make an ordination diagram. We need to take a few things into consideration: the rotation is fixed in a <tt>gllvm</tt>, and the rotation is irrelevant. Unlike classical ordination methods, the rotation is not represented in such a way that the first latent variable explains most of the variation. That is, because the concept of variation is not quite the same for models of non-normally distributed responses, as is the case here. That means we can rotate the ordination in any direction that we want! The rotation below rotates the ordination so that the dimension that has the largest <b> sample variance </b> comes first. However, there are other possible rotations, for example as in the <tt>GPArotation</tt> package.
-
-Similarly, in classical ordination methods both the latent variables and the species loadings are standardized, and the scale of the ordination is represented by the eigenvalues. In model-based ordination, the scale is confounded with the loadings, so we often need to rescale the whole solution to make the plot look better.
-
-```{r}
-do_svd <- svd(LVs)
-rotation <- do_svd$v
-scales <- sapply(1:ncol(LVs), function(q)sqrt(sum(LVs[,q]^2))*sqrt(sum(Loadings[,q]^2)))
-newLVs <- apply(LVs,2,function(x)x/sqrt(sum(x^2))*scales^0.5)
-newRotatedLVs <- newLVs%*%do_svd$v
-newLoadings <- apply(Loadings,2,function(x)x/sqrt(sum(x^2))*scales^0.5)
-newRotatedLoadings <- Loadings%*%do_svd$v
-
-p2 <- ggplot()+geom_text(data=LVs, aes(y=LV2,x=LV1, label = 1:nrow(Y)), col = "grey")+
-               geom_text(data=Loadings, aes(y = LV2, x = LV1, label = colnames(Y), col = "blue"))+
-               theme_bw()+coord_fixed()+ guides(col="none")
-p2
+```{r, fig.width = 10}
+plot(model2, which = c(1,2))
 ```
 
-This plot too can be improved in many ways: making sure that labels do not overlap for example, or adding prediction regions. Note that the `ordiplot` function in the <tt>gllvm</tt> R-package does a lot of this by default, and usually does quite a good job! Let's just use the <tt> patchwork </tt> package and put the above plots together, they display the same information afterall:
+The QQ-plot shows no departure and the residuals vs. linear predictors plot shows no extreme outliers or patterns. That does not make it a good model, just one with valid assumptions!
 
-```{r}
-library(patchwork)
-p1|p2
+Those five plots and assumptions cover assumption checking over the overall model residuals. We have not yet checked the normality assumption of the estimated random effects. It is something that is very often overlooked in mixed-effects models. There is a difference in the __prior__ assumption for the distribution of the random effect, and the __posterior__ (in Bayesian language by lack of a more succint frequentist alternative). Technically, in frequentist statistics, we distinguish between the distribution of the random effect before the model has encountered the data, and after. The former comes in as the normality assumption of the random effect, which you may have heard other people speak of. The latter is by design much more flexible, and its exact form and implementation vary depending on how we exactly estimate the model.
+
+Here, we can check the prior assumption of the random effect using the random effects estimates. It is important to note that these assumptions are similar to checking assumptions of a linear regression using the residual. There, the residual is the estimate of the error in the linear regression, as here our estimates are for the prior random effects. The assumptions are also very similar; for the random effects we assume homoscedasticity, independence to some degree, no outliers, and normality. We are slightly more limited in checking those, as we do not have "data" observed for the random effects; they are missing or unobserved and we only have the estimates. We can, however, plot them in a histogram, QQ-plot, and against the species to assess our assumptions. Here we go:
+
+```{r, fig.width = 10}
+re <- coef(model3, "Br")
+par(mfrow=c(1,nrow(re)))
+
+# qqplot
+for(i in 1:nrow(re)){
+qqnorm(re[i,], main = row.names(re)[i])
+qqline(re[i,])
+}
+
+# histogram
+for(i in 1:nrow(re)){
+hist(re[i,], main = row.names(re)[i], xlab = "Random effect")
+}
+
+# RE vs species
+for(i in 1:nrow(re)){
+plot(re[i,], x = 1:ncol(model3$y), main = row.names(re)[i], xlab = "Species", ylab = "Random effect")
+}
 ```
 
-Can you see the similarities? Just pick any set of species and compare the results. I suggest to do this in your own R window, since the plots in the knitted file are quite difficult to read.
+We can clearly see some deviation from normality in the random effects for elevation. This probably has to due with the misspecification of the response distribution, which the model is trying to accommodate. Let's check again for the negative-binomial VGLMM:
 
-Suggestions for continuing this practical:
+```{r, fig.width = 10}
+re <- coef(model4, "Br")
+par(mfrow=c(1,nrow(re)))
+# qqplot
+for(i in 1:nrow(re)){
+qqnorm(re[i,], main = row.names(re)[i])
+qqline(re[i,])
+}
 
-1) Fit models with different numbers of LVs and see how this changes the plots and fit
-2) Explore some of the other functionality in the package: `plot` a model to see residuals, the `summary` method
-3) Change some of the default arguments of the `gllvm` function: 'starting.val', 'method', and perhaps others
-4) Have a look at the package index (or [the associated website](https://jenniniku.github.io/gllvm/reference)) to see what else is available
-5) Try a different dataset
+```
+That looks somewhat better. In practice, there is very little we can do about this. Deviation from normality indicates that the tails of the estimated distribution are heavier than expected by normality, and particularly for the previous QQ-plot, that the estimated distribution has strong skew. In practice, it usually means that the model we have is not particularly good; we can add more covariates, or change its structure, to make things nicer behaved. Changing the random effects distribution is very complex, and little software to do so is available, so if changing the model does not work, a full Bayesian analysis would probably be the next step (but trust me, changing the model will work!). The consequences of the violation are not (too) dire; it mostly means that the estimate for the variance of the random effect can be biased, and the prediction intervals of the random effects might be inaccurate. The direction of the bias (upward or downward) will depend on the exact nature of the assumption violation.
+
+## Tasks I
+
+Here is what I want you to do:
+
+1. Take one (or multiple) of the models you fitted yesterday, and examine their residuals. 
+2. Can you spot any particular assumption deviations?
+3. If you do, based on the information above, can you figure out how to address the assumption violation?
+4. Also check the random effects assumptions using the code for the three plots above.
+5. If there are assumption violations, can you manage to change the model and to improve it?
+
+# Part II
+
+Residual diagnostics are a very important part to model checking, why would we compare models if one of them is not a valid model in the first place?
+
+However, there are different ways to approach your final workflow; we could first perform model selection and cross our fingers that the final model has all its assumptions met, so that we don't have to reiterate our process. Ultimately, model fitting, validation, and comparison is a process with an iterative nature. We fit models, we compare or check them, and we refine.
+
+Anyway, in this second part of the practical I would like us to compare some models. This can be fixed effects models as you fitted yesterday, or random effects models, but keep in mind the limitations of these methods when it comes to random effects, so that exhaustive model comparison should generally be avoided. Likelihood ratio tests should not be use to compare models when the null is "on the boundary". In practice, this means that you should not use it to test if including a new random effects improves your model. The approximation for the likelihood ratio test implemented in <tt>gllvm</tt> also assumes that the log-likelihood is quadratic. In practice, this means that it is relatively safe to test for if including new fixed effects improves your model, although there are some theoretical underpinnings that say it might sometimes go wrong. Information criteria (such as for example AIC) rely on the same assumptions.
+
+Exhaustive model comparison will only lead us into trouble due to Freedman's paradox (by chance, some variables will associate to the noise in our response data, and thus sometimes show as statistically significant effects). Make sure not to combine model selection with information criteria, and hypothesis testing, in practice as these are two completely different paradigms that should not be mixed (you will end up p-hacking; information criteria naturally selects models with statistical significance as the concepts are related).
+
+The functions we can use for model comparison in `gllvm` are:
+
+- `summary` (wald-statistics)
+- `AIC`, `BIC` or `AICc` for information criteria (all with a slightly different angle, but similar in interpretation)
+- `anova` for (approximate) likelihood ratio test of models
+
+The `anova` method has as main limitations that 1) the model need to be nested, 2) the number of parameters difference can not be too large, the null hypothesis cannot be on the boundary of the parameter space (such as a zero variance estimate because you are omitting species-specific random effects). Especially regarding 2) the function will throw a (relative conservative) warning. For example, we may want to compare the first model to a model without elevation:
+
+```{r}
+model5 <- gllvm(Y, X, formula = ~scale(silt_clay), family = "poisson", num.lv = 0)
+anova(model1, model5)
+```
+
+The warning is not because the test does not work. This has to do with the fact that when we include additional species-specific fixed effects, there is a large number of parameters added to the model. The difference in the number of parameters for a model with and without a single covariate is given by the number of species, and we often have many. The likelihood improves with every parameter that we add, so a single covariate difference often means a considerable change in the likelihood.
+
+A safer comparison, could be for the random-effects model with and without the species-common effect, for example:
+
+```{r}
+model6 <- gllvm(Y, X = X, formula = ~(0+scale(silt_clay)|1) + (0+scale(elevation)|1),
+                studyDesign = X, row.eff = ~scale(silt_clay), family = "poisson", num.lv = 0)
+```
+
+has one parameter less than the third model; the species-common effect for elevation is omitted by "overruling" the default of included species-common effects for all random effects, by using the `row.eff` formula argument. Now, our hypothesis test only looks at the improvement in the model due to a single parameter: the average effect for elevation. So, the question we are asking is "are species responses to elevation on average 0" (or, "does including an average effect of elevation improve our model"):
+
+```{r}
+anova(model3, model6)
+```
+
+The answer is no, no it does not; the p-value is considerably above the 0.05 threshold. `AIC` gives us essentially the same answer:
+
+```{r}
+AIC(model3, model6)
+```
+
+the model with an additional parameter is barely 2 points better, so there is no noticeable improvement. This is not a particularly big surprise, as the species-common effect for elevation was not statistically significant:
+
+```{r}
+summary(model3)
+```
+
+Although we have to separate out some of these different concepts of hypothesis testing and model selection with information criteria, I am wildly mixing them here for demonstration that they are related paradigms that often give us similar answers anyway.
+
+## Tasks II
+
+1. Choose a paradigm: exploratory or confirmatory. This is usually indicated by the nature of your research question
+2. Use `anova` if your analysis is confirmatory, or information criteria if your analysis is exploratory, to determine which covariate(s) in the data drive your community.
+3. Carefully consider (discuss with your breakout room "buddies") what the limitations are of likelihood ratio testing and information criteria in this setting of multispecies mixed-effects models. Think in the direction of boundary effects, Freedman's paradox, nestedness, and other caveats that may apply here.

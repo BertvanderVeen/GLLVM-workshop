@@ -1,5 +1,5 @@
 ---
-title: "Practical: comparing model-based and classical ordination methods"
+title: "Practical: hierarchically modeling environmental responses"
 subtitle: "Physalia workshop on GLLVMs"
 author: "Bert van der Veen"
 output: html_document
@@ -7,103 +7,284 @@ output: html_document
 
 # Description
 
-To really assess if you like an ordination, we will compare the model-based ordinations to a few classical methods. For this we need the `procrustes` function in the <tt>vegan</tt> package, because that tells us how different two ordinations. We also need other ordination methods of course, which we can get from the same package. 
+So far we have focused on answering the question "what environmental preference do species prefer?". VGLM(M)s estimate species responses to the environment, so the coefficients and statistical uncertainties help us to answer the question. A good part of community ecology is more occupied with answering the question "why do species prefer particular environmental conditions?" using functional traits.
 
-# Data
+The idea is species' physical characteristics are the driver of their ability to thrive in particular conditions. In the lecture, I took the example of leaf thickness of plants, or color of the fur for the snowshoe hare. Of course, there is individual variation in traits; some individuals have thicker leaves than others, or the fur color differs from hare to hare, but as we are analysing data at the species-level we will ignore intra-specific trait variation for the moment (also, few models currently exist that can incorporate it)!
 
-I collected some datasets that we can work with, but if you have your own data you can start by analyzing that instead. <tt>mvabund</tt> has a few datasets included that we can play with:
+Traditionally, community ecologists would explore this question using community weighted means in combination with a constrained ordination. Analyzing data in that matter has significant flaws, which two-step approaches usually do (for example, propagation of uncertainty, but also you will simply get the estimators wrong when your data is non-normally distributed, as it often is).
 
-1. "tasmania": abundances of Copepod and Nematode species in a blocked design under a disturbance treatment
-2. "antTraits": abundance of 41 ant species, with environmental data
-3. "solberg": abundance of benthic invertebrate species with a variable of organic enrichment
-4. "spider": abundance of 12 wolf spider species with environmental variables
-5. "tikus":  abundance of coral species over time
+As explained in the lecture, this approach of using traits to inform how species respond to the environment has long been referred to as the "fourth-corner problem". In a statistical model, we pose this as an interaction of traits and environment, so that the interaction coefficients explain if species with a particular trait respond differently to the environment. That makes the models an extension of what we looked at yesterday.
 
-and there are more datasets (e.g., "dune", "pyrifos", "mite", and "BCI") in the <tt>vegan</tt> R-package. These are even more datasets in the "data" folder of the workshop that you can use for this practical:
+# Part I
 
-1. Beetles (abundance)
-2. Birds (abundance)
-3. wadden (abundance)
-4. wadden (biomass)
-4. fungi (presence-absence)
-5. eucalypt (presence-absence)
+## Data
 
-My suggestion is to try a few different data types in this exercise (e.g., presence-absence (alpine, eucalypt), ordinal (dune, Skabbholmen), abundance (take your pick), biomass (wadden) to get an impression of what it takes to analyse such datatypes. For some of these response types (e.g., ordinal, biomass) it might be more difficult to find software for multispecies modeling that also supports a suitable response distribution (don't worry, <tt>gllvm</tt> has it all).
+Because we need functional traits in this exercise, we are now a bit more limited in the datasets that we can use. The following datasets include species response data, environmental variables, and traits:
 
-# Tasks
+1. Carabid beetles ("beetles", abundance)
+2. French Alpine plants ("Alpine2", presence-absence)
+3. Wood-inhabiting fungi ("fungi", presence-absence)
+4. Eucalyptus trees ("eucalypt", presence-absence)
+5. Hunting spiders ("spider", counts in <tt>mvabund</tt>)
 
-Start by choosing a dataset, I will again start with the waddensea (abundance) data.
+## Background
+
+Start by choosing a dataset, I will choose a different dataset this time, because the waddensea data has no traits. Instead, I use the Beetles data that is also used in [Niku et al. (2021)](https://onlinelibrary.wiley.com/doi/full/10.1002/env.2683) for developing the fourth-corner approach in the <tt>gllvm</tt> package. This first code chunk does some formatting to make sure that the data is in the right format.
 
 ```{r data}
-Y <- read.table("../../data/waddenY.csv", sep="," ,header=TRUE, row.names = 2)[,-1]
+# Response data
+Y <- t(read.csv("../../data/beetlesY.csv"))
+colnames(Y) <- Y[2,]
+Y<-Y[-c(1:2),-c(1,70:71)]
+Y <- as.data.frame(apply(Y,2,as.integer))
+
+# Environmental predictors
+X <- read.csv("../../data/beetlesX.csv")[,-c(1:5)]
+X <- as.data.frame(apply(X,2,as.numeric))
+X$Sampling.year <- X$Sampling.year - min(X$Sampling.year)
+X$Texture <- as.factor(X$Texture)
+
+# Traits
+TR  <- read.csv("../../data/beetlesTR.csv")
+row.names(TR) <- TR$SPECIES
+TR <- TR[,-c(1:3)]
+# Traits to categorical
+# Removing question marks, not ideal
+TR[,c("CLG","CLB","WIN","PRS","OVE","FOA","DAY","BRE","EME","ACT")] <- apply(TR[,c("CLG","CLB","WIN","PRS","OVE","FOA","DAY","BRE","EME","ACT")],2,function(x)as.factor(gsub("\\?.*","",x)))
+
+# Data standardization
+X <- scale(model.matrix(~.,X))[,-1] # environmental variables
+TR <- scale(model.matrix(~.,TR))[,-1] # species traits
 ```
 
-I start by fitting the same model as I did in the last exercise, and directly plot it:
+A fourth-corner model in <tt>gllvm</tt> is fitted by providing environment and trait covariates simultaneously. The arguments passed to the `formula` argument corresponds to the (hiearchical) equation for species responses; trait-environment interaction coefficients are the same for all species, environment terms are the same for all species, random effects are species-specific. The effects that are the same across all species could also be specified via `row.eff`. That makes that specification of the `formula` argument deviates a little from that of the previous models that we have fitted, but the principles are largely the same. We can also use the `beta0comm` option if we want to assume a global intercept (rather than the default of species-specific intercepts). 
 
-```{r uo, cache = TRUE}
+Niku et al. used only a few covariates, so I will do the same here:
+
+```{r traits, cache = TRUE}
 library(gllvm)
-model1 <- gllvm(Y, num.lv = 2, family = "poisson")
-gllvm::ordiplot(model1, biplot = TRUE)
+model1 <- gllvm(y = Y, X = X, TR = TR, 
+                formula = ~ Management + Elevation + pH + Moist + (Management + Elevation + pH + Moist):(LPH+ LTL + OVE2 + BRE2 + BRE3), 
+                family = "negative.binomial", num.lv = 0)
 ```
 
-and I fit a DCA and a NMDS to the same data:
+This first model fits rather quickly: there are only a few coefficients included as it excludes species-specific responses to the environment. It corresponds to the equation:
 
-```{r uo2, message=FALSE, results="hide", cache = TRUE}
-library(vegan)
-DCA <- decorana(Y)
-NMDS <- metaMDS(Y, trymax = 1000,try=100)
-plot(DCA)
-plot(NMDS)
-```
+\begin{equation}
+\symbf{\beta}_j = \symbf{\beta}_k + \text{tr}_j\textbf{B}_{x,tr}
+\end{equation}
 
-Now we can use the procrustes error, which accounts for differences in scale and rotation, to assess if these ordinations are similar. At one, the rotations are the same, and at zero they are completely different.
+This means that there is still a common component to species' environmental responses, $\symbf{\beta}_k$, but that the deviation from that for every species is fully determined by the traits $\text{tr}_j\textbf{B}_{x,tr}$. 
 
-```{r proc1, echo = -c(1,2), message=FALSE}
-library(vegan)
+We can extract the **fourth-corner** coefficients and have a look at them:
+
+```{r, fig.width = 10, echo = -1, message=FALSE}
 library(gllvm)
-procrustes(scores(DCA, choices=1:2), scores(NMDS), symmetric=TRUE)
+(fourth <- gllvm:::getFourthCorner(model1))
+coefplot(model1)
+```
+The `summary` also reports the interaction coefficients:
+
+```{r}
+summary(model1)
 ```
 
-```{r proc2}
-procrustes(scores(DCA, choices=1:2), getLV(model1), symmetric=TRUE)
+The following might be a more intuitive visualization, though:
+
+```{r, fig.width = 10}
+# extract standard errors
+model1temp <- model1
+model1temp$params$B <- model1$sd$B
+sds <- gllvm:::getFourthCorner(model1temp) # little trick to arrange the standard errors
+LI = t(fourth+sds*qnorm(1-0.95))
+UI = t(fourth+sds*qnorm(0.95))
+a = max(abs(fourth))
+fields::image.plot(1:nrow(fourth),1:ncol(fourth), fourth, axes=F, ylab=NA, xlab=NA, col = colorRampPalette(c("#E69F00","white","#009E73"))(29), breaks =seq(-a,a,length.out=30), legend.width=1, zlim=range(fourth))
+mtext("Traits", 3)
+mtext("Environment", 4)
+text(1:nrow(fourth), -.6, srt = 45, labels = rownames(fourth), xpd = TRUE, cex = 0.6)
+axis(1, label=F)
+axis(2, 1:ncol(fourth), colnames(fourth), las=1, cex.axis = 0.6)
+box(col="white", lwd=3)
+cells_to_outline <- which(((LI>0 & UI>0) | (LI<0 & UI<0)), arr.ind = TRUE)
+
+for (cell in 1:nrow(cells_to_outline)){
+  x <- cells_to_outline[cell, 1]
+  y <- cells_to_outline[cell, 2]
+  x_vals <- c(y - 0.5, y + 0.5, y + 0.5, y - 0.5)  # X coordinates of the rectangle corners
+  y_vals <- c(x - 0.5, x - 0.5, x + 0.5, x + 0.5)  # Y coordinates of the rectangle corners
+
+polygon(x_vals, y_vals, col = NA, border = "black", lwd = 2)
+}
 ```
 
-```{r proc3}
-procrustes(scores(NMDS), getLV(model1), symmetric=TRUE)
+where the effects that have confidence intervals overlapping zero are not outlined. The traits labeled "BRE" represent different breeding period. The reference category is spring, the two periods visualized here are summer (2) and autumn/winter (3). Consequently, we see that species that breed in summer are more negatively affected by intenser management than species that breed in spring, and species that breed in winter are more positively affected by intenser management than species that breed in spring (i.e., it's best to be a species that breeds in autum/winter if there is intense management). OVE represents the overwintering strategy, with the reference category being "adults only" and the second category representing "adults and larvae or larvae only". All species seem to exhibit higher abundance in response to elevation, relative to the reference category of species that breed in spring and overwinter only as adults. The other effects are interpreted in a similar fashion; relative to the reference category (as these things usually are in statistical models).
+
+The previous assumption of species' responses fully due to traits is fine the right traits are included, but if the chosen traits are not important to determining species' environmental responses, it will result in lack-of-fit. So, in this next model we relax that assumption by also including species-specific random effects. We do need to run the model a few times, as it includes a lot of effects and does not always converge well.
+
+```{r traits2, cache = TRUE, warning=FALSE}
+model2 <- gllvm(y = Y, X = X, TR = TR, 
+                formula = ~ Management + Elevation + pH + Moist + (Management + Elevation + pH + Moist):(LPH+ LTL + OVE2 + BRE2 + BRE3) + (0+Management + Elevation + pH + Moist|1),
+                family = "negative.binomial", num.lv = 0, n.init = 3)
 ```
 
-Note that NMDS does not possess species loadings, so we just compare everything based on the sites. The model-based ordination is more different from the DCA and NMDS than they are from each other. We can of course just throw in the towel, declare DCA and NMDS poor methods, and continue with our model-based ordination. However, I never checked if the Poisson distribution is actually a decent choice for this data, so let's have a look at the residuals of the model first:
+Similar as in the previous models we can plot the species-specific responses with `randomCoefPlot`.
 
-```{r res}
-plot(model1)
+```{r res, message=FALSE, fig.width = 10}
+# there is a little bug in the software, this first line circumvents that. Will be fixed in the upcoming CRAN submission
+model2$randomX <- model2$Xrandom <- NULL
+randomCoefplot(model2)
 ```
 
-there are a lot of patterns in the residuals, indicating that the model is not a great fit. That might explain why the ordinations are so different as well. We can adjust the model; we choose a negative-binomial distribution instead and check the residuals again to see if it is an improvement.
+and, our fourth-corner coefficients may have changed, so we want to recreate our plot of those:
 
-```{r uo3, cache = TRUE, echo = -1}
-library(gllvm)
-model2 <- gllvm(Y, num.lv = 2, family = "negative.binomial")
-plot(model2)
+```{r, fig.width = 10}
+# extract standard errors
+model2temp <- model2
+model2temp$params$B <- model2$sd$B
+sds <- gllvm:::getFourthCorner(model2temp) # little trick to arrange the standard errors
+LI = t(fourth+sds*qnorm(1-0.95))
+UI = t(fourth+sds*qnorm(0.95))
+a = max(abs(fourth))
+fields::image.plot(1:nrow(fourth),1:ncol(fourth), fourth, axes=F, ylab=NA, xlab=NA, col = colorRampPalette(c("#E69F00","white","#009E73"))(29), breaks =seq(-a,a,length.out=30), legend.width=1, zlim=range(fourth))
+mtext("Traits", 3)
+mtext("Environment", 4)
+text(1:nrow(fourth), -.6, srt = 45, labels = rownames(fourth), xpd = TRUE, cex = 0.6)
+axis(1, label=F)
+axis(2, 1:ncol(fourth), colnames(fourth), las=1, cex.axis = 0.6)
+box(col="white", lwd=3)
+cells_to_outline <- which(((LI>0 & UI>0) | (LI<0 & UI<0)), arr.ind = TRUE)
+
+for (cell in 1:nrow(cells_to_outline)){
+  x <- cells_to_outline[cell, 1]
+  y <- cells_to_outline[cell, 2]
+  x_vals <- c(y - 0.5, y + 0.5, y + 0.5, y - 0.5)  # X coordinates of the rectangle corners
+  y_vals <- c(x - 0.5, x - 0.5, x + 0.5, x + 0.5)  # Y coordinates of the rectangle corners
+
+polygon(x_vals, y_vals, col = NA, border = "black", lwd = 2)
+}
+```
+Finally, we can use `anova` to test if our species' responses really depend on these traits. So, we fit a VGLMM similarly to last exercise, without the trait effects, and compare to the model that we just fitted:
+
+```{r traits3, cache = TRUE, warning=FALSE}
+model3 <- gllvm(y = Y, X = X,
+                formula = ~ (0+Management + Elevation + pH + Moist|1),
+                family = "negative.binomial", num.lv = 0, n.init = 3)
+anova(model2, model3)
 ```
 
-This mode looks considerably better, since there are no patterns in the residuals. We can compare it to the first model with Poisson distribution:
+The models differ by 20 parameters, as indicated by the "df.diff" output. The resulting test is statistically significant; we conclude that species' responses to the environment really do depend on these traits.
 
-```{r compare1, cache = TRUE, echo = -1}
-AIC(model1, model2)
-procrustes(getLV(model1), getLV(model2), symmetric = TRUE)
+## Tasks
+
+Suggestions for this practical:
+
+1) Fit the models shown to your choice of dataset. You can experiment with including/excluding traits or environmental variables to see how it changes the results.
+2) Try to make ecological sense of the fourth-corner coefficients. Don't forget that the species-common effects are also present as shown by `summary`
+3) Use `anova` to test the environment-trait hypothesis. You can also try using information criteria with `AIC`, `BIC` or `AICc`
+
+# Part II
+
+## Background
+
+**Please be advised that the following models in this part of the practical may take some time to fit.**
+
+The above model incorporates traits, but assumes that species are independent. We are now starting on our journey to fitting JSDMs that incorporate correlation of species. Here, we do not use latent variables yet, we assume that there is some additional information that can explain the co-occurrence of species: a phylogeny. This information can help to improve our prediction of species' distribution. The beetles dataset does not include phylogenetic information, and finding published data with a good phylogeny is challenging, so we are restricted to a single dataset now. It is included in the package already, which makes loading it a bit easier.
+
+```{r}
+data(fungi, package = "gllvm")
+Y2 <- fungi$Y
+X2 <- fungi$X
+X2 <- data.frame(lapply(X2, function(x)if(is.numeric(x)){scale(x)}else{as.factor(x)}))
+tree <- fungi$tree
+covMat<- ape::vcv(tree)
+distMat <- ape::vcv(tree)
+TR <- fungi$TR
+colnames(TR)[8] <- "Sp.log.vol" # funky column name needs to be changed
 ```
 
-```{r compare2, cache = TRUE, echo = -1}
-procrustes(scores(DCA, chouces = 1:2), getLV(model2), symmetric = TRUE)
-procrustes(scores(NMDS), getLV(model2), symmetric = TRUE)
+We explore the data a little:
+
+```{r}
+any(rowSums(Y2)==0)
+dim(Y2)
+colnames(X2)
+colnames(TR)
 ```
 
-Like this, the model-based ordination is already more similar to the DCA and NMDS ordinations, almost as similar as they are to each other. Ultimately, we do not need the ordinations to be similar at all, and we should not go through a model selection procedure trying to find an ordination that is similar to a classical ordination method. Classical ordination methods have their own quircks, and model-based ordination is trying to do something very different. So, if we do find an ordination that is very different from one of the classical methods, that can actually be a good thing! What we do want, is a model that fits our data well, so we can look at the residuals, think about the properties of our data, and compare models to find the best model-based ordination that we can find.
+This a binary dataset by [Abrego et al. (2022)](https://besjournals.onlinelibrary.wiley.com/doi/full/10.1111/1365-2745.13839), of 215 wood inhabiting fungi inhabiting 1666 logs. `TR` include the trait covariates, and `X` includes environmental variables related to the forest, or the deadwood, that the fungi occurred in/on. First, we will fit a model without phylogeny but with traits, and including "REGION" and "RESERVE" as random row effects to account for the nested design. We will use a couple tricks to speed up fitting the model: parallel computation (because I am impatient!). 
 
-Suggestions for continuing this practical: 
+```{r, cache = TRUE}
+TMB::openmp(parallel::detectCores()-1, autopar = TRUE)
+model4 <- gllvm(Y2, X = X2, TR = TR, formula = ~DBH.CM+AVERDP+CONNECT10+TEMPR+PRECIP+
+                  (DBH.CM+AVERDP+CONNECT10+TEMPR+PRECIP):(PC1.1+PC1.2+PC1.3), 
+                row.eff = ~(1|REGION/RESERVE), studyDesign =  X2[,c("REGION","RESERVE")],
+                num.lv = 0, family = "binomial", sd.errors = FALSE,
+                optim.method = "L-BFGS-B")
+```
 
-1) Compare to other classical ordination methods: PCA, CA, or PCoA
-2) See if species loadings of ordinations give a similar result to the site scores
-3) Visually assess how different the ordinations are, and compare it to the result from `procrustes`
-4) Fit an ordination with the <tt>glmmTMB</tt> package and compare it to one by <tt>gllvm</tt>
-5) Try a different dataset
+This model does not include species-specific random effects yet, so should fit reasonably quickly. The included "traits" are Principal Components extracted from the original trait matrix, in order to a-priori reduce complexity of the model. Be careful when playing around: with these dataset dimensions the models start using loads of RAM, and when you run out of RAM R will crash, which can quickly happen when we add more traits. In general, when working with large datasets and complex models, using a server for more computing power is advisable.
+
+We can examine the fourth corner coefficients:
+
+```{r}
+library(lattice)
+fourth <- model4$fourth.corner # the coefficients
+a <- max(abs(fourth))
+colort <- colorRampPalette(c("blue", "white", "red"))
+plot.4th <- levelplot((as.matrix(fourth)), xlab = "Environmental Variables", 
+                      ylab = "Species traits", col.regions = colort(100), cex.lab = 1.3, 
+                      at = seq(-a, a, length = 100), scales = list(x = list(rot = 45)))
+plot.4th
+```
+
+Excellent! The trait-environment interaction coefficients have been included, and visualized. You can also examine them using the model its `summary`. With this model we again assumed that species' responses to the environment are fully determined by species' traits. Usually, we do not know if we have measured the right traits, so incorporating "residual" information in species' responses to the environmental covariates is vital. We relax our assumption by fitting another model (this might take a little). To speed it up further we combine this we a slightly rougher approximation to the log-likelihood (`Ab.struct = "diagonal"`):
+
+```{r, cache= TRUE}
+model5 <- gllvm(Y2, X = X2, TR = TR, formula = ~DBH.CM+AVERDP+CONNECT10+TEMPR+PRECIP+
+                  (DBH.CM+AVERDP+CONNECT10+TEMPR+PRECIP):(PC1.1+PC1.2+PC1.3), 
+                randomX = ~DBH.CM+AVERDP+CONNECT10+TEMPR+PRECIP,
+                row.eff = ~(1|REGION/RESERVE), studyDesign =  X2[,c("REGION","RESERVE")],
+                num.lv = 0, family = "binomial", sd.errors = FALSE,
+                optim.method = "L-BFGS-B", Ab.struct = "diagonal", maxit=1e5)
+```
+
+this formulation ensures that the relevant correlations between species' random effects are incorporated, which we can also examine with `summary`. Before we do that, we will add the final component to our model; the phylogeny. The <tt>gllvm</tt> package broadly implements phylogenetic mixed-effects models, which can also be used to fit models for traits or individuals (i.e., where traits are the response variables), but here we focus on our species data. Phylogenetic random effects make the model considerably more computer intensive (complex), and there are a range of considerations that we need to make when fitting it. In particular, the nearest neighbour approximation and the ordering of the species. There are various ways to find the "optimal" setting for both those things, which we will not go further into here (but ask if you want to know!). For further details see [the corresponding vignette in the package](https://jenniniku.github.io/gllvm/articles/vignette7.html). For the following models, you will need at least 30 minutes computing time. A smaller number of nearest neighbours will fit the model more quickly, but lead to less accurate results. Mind yourself, this is incredibly fast; it took the original authors ten days with the Hmsc R-package. For the exercises, you can reduce this further by (e.g.,) subsetting the data and fitting the models to a smaller number of species and sites.
+
+```{r, cache = TRUE}
+e <- eigen(covMat)$vectors[,1]
+ord <- gllvm:::findOrder(covMat = covMat, distMat = distMat, nn = 15, order = order(e))$order
+spec.ord <- colnames(covMat)[ord]
+model6 <- gllvm(Y2[,spec.ord], X = X2, TR = TR, formula = ~DBH.CM+AVERDP+CONNECT10+TEMPR+PRECIP+
+                  (DBH.CM+AVERDP+CONNECT10+TEMPR+PRECIP):(PC1.1+PC1.2+PC1.3), 
+                randomX = ~DBH.CM+AVERDP+CONNECT10+TEMPR+PRECIP,
+                row.eff = ~(1|REGION/RESERVE), studyDesign =  X2[,c("REGION","RESERVE")],
+                num.lv = 0, family = "binomial", sd.errors = FALSE,
+                optim.method = "L-BFGS-B", Ab.struct = "MNdiagonal", maxit = 1e5,
+                colMat = list(covMat[spec.ord, spec.ord], dist = distMat[spec.ord, spec.ord]), colMat.rho.struct = "term", nn.colMat = 15)
+```
+
+Let's also calculate the standard error for our "final" model, but post model fitting. This is a useful strategy if you have a complex model, or if you are going through a model comparison procedure, as standard error calculation can take a significant amount of time, depending on the exact model structure:
+
+```{r, cache = TRUE}
+ses <- se(model6)
+model6$sd <- ses$sd
+model6$Hess <- ses$Hess
+```
+
+We can examine the phylogenetic signal with `summary` and plot the species-specific random effects (without trait effects) jointly with the phylogeny. We first need to calculate standard errors to do that:
+
+```{r, fig.width = 15, fig.height = 10}
+summary(model6)
+phyloplot(model6, tree = tree)
+```
+
+and plot the associations due to the environmental variables and phylogeny:
+
+```{r, fig.width = 15, fig.height = 10}
+# little bug that will be addressed on next CRAN submission
+model6$col.eff$colMat <- model6$col.eff$colMat[[1]]
+library(Matrix)
+corrplot::corrplot(cov2cor(getEnvironCov(model6)$cov), type = "lower", order = "AOE", diag = FALSE, tl.pos = "l", tl.cex = 0.2, addgrid.col = NA)
+```
+
