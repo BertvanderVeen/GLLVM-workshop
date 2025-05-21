@@ -684,7 +684,7 @@ coef(model4)[1]
 
 \normalsize
 
-- The intercept is the same for all species
+- One intercept per species
 - One slp effect that is the same for all species (the mean of effects)
 - One slp effect per species, relative to the common effect
 
