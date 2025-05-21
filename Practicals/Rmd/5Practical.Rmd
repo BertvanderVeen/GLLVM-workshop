@@ -1,121 +1,126 @@
 ---
-title: "Practical: Unimodal response models in gllvm "
-subtitle: "Physalia workshop on GLLVMs"
+title: "Joint Species Distribution Model"
 author: "Bert van der Veen"
+date: "2025-04-07"
 output: html_document
 ---
 
-# Description
+# Background
 
-If a response model is truly unimodal, fitting a linear model will poorly retrieve the latent variables, and can lead to poor estimation of species associations. That is something community ecologists have understood for decades, because it is a subject that has been at the basis of choosing an ordination method. In this practical, we will apply the first ordination method that is explicitly based on an unimodal response model.
+In the this lecture today, we learned that JSDMs relax the assumption of species' independence. The phylogenetic model already did that, but often we do not have access to a phylogeny, or just want to estimate species' correlation in an unconstrained fashion (because there are other drivers of species co-occurrence patterns). The independence assumption is one of the more critical assumptions made in VGLMMs, that tends to be ecologically unrealistic. It is unrealistic, because we often expect species to co-occur, which results in positive correlation, or the opposite of co-occurring (avoidance) results in negative correlation between species.
 
-# Data
+These (residual) correlations are difficult to interpret. They can be caused by species interactions, but are confounded with all other sources of unmeasured variation. For example, if we forget to include an important covariate in the model, this will also result in residual correlations. That makes that the associations are useful for improving prediction, but perhaps not so much for inference?
 
-I collected some datasets that we can work with, but if you have your own data you can start by analyzing that instead. <tt>mvabund</tt> has a few datasets included that we can play with:
+Technically, JSDMs are models for binary data: presence-absence of species. However, we can generalize this to other data types and responses by keeping the model on the link-scale the same. In the gllvm R-package it is pretty straightforward: we just change the `family` argument to (for example) "Poisson", "ordinal", "beta" or "tweedie" (see `?gllvm`). In this exercise, we will fit JSDMs to binary data.
 
-1. "tasmania": abundances of Copepod and Nematode species in a blocked design under a disturbance treatment
-2. "antTraits": abundance of 41 ant species, with environmental data
-3. "solberg": abundance of benthic invertebrate species with a variable of organic enrichment
-4. "spider": abundance of 12 wolf spider species with environmental variables
-5. "tikus":  abundance of coral species over time
+## Data
 
-and there are more datasets (e.g., "dune", "pyrifos", "mite", and "BCI") in the <tt>vegan</tt> R-package. These are even more datasets in the "data" folder of the workshop that you can use for this practical:
+We will explore fitting JSDMs using a binary dataset of alpine plants by [D'Amen et al. (2018)](https://nsojournals.onlinelibrary.wiley.com/doi/epdf/10.1111/ecog.03148), used to demonstrate GLLVMs by [van der Veen et al. (2021)](https://besjournals.onlinelibrary.wiley.com/doi/full/10.1111/2041-210X.13595). The data is available in the github repository as "Alpine", in the data folder. You are of course free to use another dataset, but for this dataset we also have a raster file so we can predict with the model, and visualize that prediction.
 
-1. Beetles (abundance)
-2. Birds (abundance)
-3. wadden (abundance)
-4. wadden (biomass)
-4. fungi (presence-absence)
-5. eucalypt (presence-absence)
+We can read it in as follows:
 
-My suggestion is to try a few different data types in this exercise (e.g., presence-absence (alpine, eucalypt), ordinal (dune, Skabbholmen), abundance (take your pick), biomass (wadden) to get an impression of what it takes to analyse such datatypes. For some of these response types (e.g., ordinal, biomass) it might be more difficult to find software for multispecies modeling that also supports a suitable response distribution (don't worry, <tt>gllvm</tt> has it all).
-
-# Tasks
-
-Start by choosing a dataset, I will again start with the waddensea (abundance) data.
-
-```{r data}
-Y <- read.table("../../data/waddenY.csv", sep="," ,header=TRUE, row.names = 2)[,-1]
+```{r}
+Y <- read.csv("../../data/alpineY.csv")[,-1]
+X <- read.csv("../../data/alpineX.csv")[,-1]
+# You could choose to a-priori scale covariates before fitting the model.
+# X <- data.frame(lapply(X, function(x)if(is.numeric(x)){scale(x)}else{as.factor(x)}))
 ```
 
-The model is fitted similarly as before, but instead we add the "quadratic" argument which takes the options TRUE, LV, and FALSE as explained in the presentation. The model is more complex, so it also takes longer to fit it. I will fit it straight away with a negative-binomial distribution, since that was is also what this dataset required in the last exercise. We could also just include more latent variables, because that has a similar effect of accounting for residual variation (just within the model, instead of in the distribution). One thing to keep in mind, is the increased complexity of the unimodal response model, i.e., there are more parameters to estimate, for which there needs to be enough information in the data. 
+you might have to change the exact working directory to make it work for your exact set-up. A good place to start an analysis, is to first examine the data a bit more, so we know what we are dealing with:
 
-```{r uo, cache = TRUE, message=FALSE}
+```{r}
+dim(Y)
+colnames(X)
+```
+
+The data are presence-absences, and there are 912 rows and 175 columns (species). Because we will be modelling species-specific responses, we should ensure that each species has enough observations in the data. There area large number of rows, and although the method can technically accommodate sites without any observations, we can speed things up a little by removing the ones that are empty.
+
+```{r}
+min(colSums(Y))
+table(rowSums(ifelse(Y==0,0,1))>3)
+```
+
+From the 175 species, all have at least 22 observations. This is because D'Amen et al. already filtered the species and removed the ones with fewer than 22 presences. Removing species with few presences is a personal decision: it can considerably speed up model fitting and improve convergence (parameters for species with little data are often difficult to estimate), but of course we lose vital information. We might actually want to retain species with few observations when they add vital information about the range or limits of a gradient. However, here we are fitting JSDMs, and we take a different angle: the parameters of species with few observations cannot be accurately estimated anyway, so we might as well get rid of them!
+
+We also see that 72 rows in the data have no information, so we get rid of those.
+
+```{r}
+X <- X[rowSums(Y)>0, ]
+Y <- Y[rowSums(Y)>0,]
+```
+
+# Part I
+
+## Fitting a Joint Species Distribution Model
+
+The modeling goes as before, with the `gllvm` function. However, now we also use `num.lv`, which stands for the number of latent variables added to the model. Here, we fit JSDMs using the "factor-analytic" approach, or latent variable modeling. Few latent variables makes for a fast model, but potentially poor estimation of the correlation of species. So, we are left with trade-off: wait for a long time for an accurate estimate, or quickly get something slightly less accurate. 
+
+A good place to start, is two latent variables (the default). We can also add covariates, or random effects, to the model, but we will start without. We will use a few arguments to speed up the model, as well as fitting the model in parallel (**TIP:** you might want to open a task manager or system monitor to keep an eye on your computer's resources). The argument `Lambda.struc` simplifies the approximation to the likelihood and should be used cautiously, the argument `sd.errors` turns off calculation of standard errors as that can take longer than the actual model fitting at times, `optim.method` selects the numerical optimisation algorithm, because "L-BFGS-B" is often much faster with parallelisation than the default "BFGS". All together, this significantly reduces the time to fit the model from tens of minutes to about half a minute (with 7 CPU). If you work on a laptop, ensure that your battery settings are not set to "balanced", as this too will slow model fitting.
+
+```{r jsdm1, cache = TRUE, warning=FALSE, message=FALSE}
 library(gllvm)
-model1 <- gllvm(Y, num.lv = 2, family = "negative.binomial", quadratic = TRUE, n.init = 3)
-gllvm::ordiplot(model1, biplot = TRUE)
+TMB::openmp(parallel::detectCores()-1, DLL = "gllvm", autopar = TRUE)
+model1  <- gllvm(y = Y, num.lv = 2, family = "binomial", Lambda.struc = "diagonal", sd.errors = FALSE, optim.method = "L-BFGS-B")
 ```
 
-The `n.init` option is very necessary: the GLLVM with unimodal response is even more prone to finding a suboptimal solution than usually. That also means that fitting the model is much slower, so using <tt> gllvm</tt> its (new) option for parallel computation could help. `ordiplot` will plot the species optima, and if the optima are too far away from the estmated latent variable, it will plot the species effects as arrows instead.
+Turning off standard error calculation is often a good idea when in gllvm, when working with large datasets or complex models. When we have decided on our "final" model, we can post-hoc calculate the standard errors using the `se.gllvm` function (an example is shown on the help page of that function). For now, let's visualize the estimated associations:
 
-```{r uo2, message=FALSE, results="hide", echo = -1}
+```{r, fig.width = 10, fig.height = 10, echo = -1, message=FALSE, warning=FALSE, message = FALSE}
 library(gllvm)
-ordiplot(model1, biplot = TRUE)
+corrplot::corrplot(getResidualCor(model1), type = "lower", order = "AOE", diag = FALSE, tl.pos = "l", tl.cex = 0.2, addgrid.col = NA)
 ```
 
-Clearly, the optima are far away from the gradient, which means that on one of the latent variables we are estimating linear responses instead of unimodal responses: so we have one long and one short gradient. Let's inspect the optima
+The corrplot package again helps us to order the plot so we might identify patterns. As you might realize at this point, it is -very- difficult to make ecological sense of these associations (partly because there are so many, and now we are "only" working with 175 species).
 
-```{r opt}
-optima(model1, sd.errors = FALSE)
+This JSDM only includes latent variables; there are no species-specific fixed or random effects included with `formula`, or species-common effects with `row.eff`. We are of course free to introduce those here too, and often want to:
+
+```{r jsdm2, cache = TRUE, warning=FALSE, message=FALSE}
+model2  <- gllvm(y = Y, X = X, formula = ~ scale(SLOPE), num.lv = 2, family = "binomial", Lambda.struc = "diagonal", sd.errors = FALSE, optim.method = "L-BFGS-B")
 ```
 
-and the tolerances
+Now that we have a covariate in the model, we can think of including species' correlations as a way to "correct" the coefficients for the covariates. If we assume independence, and we estimate species' environmental responses while the assumption is violated, this will likely bias our parameter estimates. That makes a JSDM often a better fit for multispecies data than (e.g.,) a VGLM(M) that does not incorporate species' correlations.
 
-```{r tol}
-tolerances(model1, sd.errors = FALSE)
+JSDMs are geard towards prediction: often on a map. Let's go ahead and do that, so we can see what our model tells us about any of the species in the data. I've already prepared a slope raste for you, it comes form the `unmarked` R-package. It is located in the "data" folder of the github repository, so we load it straight from there.
+
+```{r}
+download.file("https://raw.githubusercontent.com/BertvanderVeen/GLLVM-workshop/main/data/slope.tif", 
+              destfile = "/tmp/slope.tif", mode = "wb")
+slope <- terra::rast("/tmp/slope.tif")
+
+slp_scale = scale(X$SLOPE)
+Xnew = cbind(1, terra::values(slope)-attr(slp_scale,"scaled:center"))/attr(slp_scale,"scaled:scale")
+eta=Xnew%*%t(cbind(model2$params$beta0, model2$params$Xcoef))
+preds <- pnorm(eta)
+predrast <- terra::rast(slope, nl=ncol(model2$y))
+terra::values(predrast) <- preds
 ```
 
-manually. As expected, some optima and tolerances are very large, indicating some linear responses. Predicting with the model might make this a little easier to visualize, so let's do that.
+"predrast" now is a raster brick of our predictions for the species. Let's plot some to see where the mode predicts them to occur:
 
-```{r pred, results = "hide", echo = -1, fig.height = 5}
-par(mfrow=c(2,1))
-LVs = getLV(model1)
-newLV = cbind(LV1 = seq(min(LVs[,1]), max(LVs[,1]), length.out=1000), LV2 = 0)
-preds <- predict(model1, type = "response", newLV = newLV)
-plot(NA, ylim = range(preds), xlim = c(range(getLV(model1))), ylab  = "Predicted response", xlab = "LV1")
-segments(x0=optima(model1, sd.errors = FALSE)[,1],x1 = optima(model1, sd.errors = FALSE)[,1], y0 = rep(0, ncol(model1$y)), y1 = apply(preds,2,max), col = "red", lty = "dashed", lwd = 2)
-rug(getLV(model1)[,1])
-sapply(1:ncol(model1$y), function(j)lines(sort(newLV[,1]), preds[order(newLV[,1]),j], lwd = 2))
+```{r, fig.width = 10, echo =-1, message=FALSE}
+library(terra)
+par(mfrow = c(1,2))
+plot(predrast[[1]], main = colnames(Y)[1])
+plot(predrast[[2]], main = colnames(Y)[1])
+```
+Taking a look at their coefficients with `coefplot` that the first species is estimated to have a (small) positive response to slope, and the second species a negative response. The north of Switzerland is a plateau, so that steeper places occur in the south, so our predictions corresponds pretty well to my limited understanding of Swiss topography.
 
-newLV = cbind(LV1 = 0, LV2 =  seq(min(LVs[,2]), max(LVs[,2]), length.out=1000))
-preds <- predict(model1, type = "response", newLV = newLV)
-plot(NA, ylim = range(preds), xlim = c(range(getLV(model1))), ylab  = "Predicted response", xlab = "LV2")
-segments(x0=optima(model1, sd.errors = FALSE)[,2],x1 = optima(model1, sd.errors = FALSE)[,2], y0 = rep(0, ncol(model1$y)), y1 = apply(preds,2,max), col = "red", lty = "dashed", lwd = 2)
-rug(getLV(model1)[,2])
-sapply(1:ncol(model1$y), function(j)lines(sort(newLV[,2]), preds[order(newLV[,2]),j], lwd = 2))
+## Tasks
+
+1) Fit the models, you can also try using random effects instead of fixed effects for "slope"
+2) Try to understand the code for predicting on the map. We can also use the `predict` function in the package, but that is still a bit of a construction site; especially for models with species-specific random effects it will be extended in the next months.
+
+# Part II
+
+There are two directions we can take this now: add species-specific effects (fixed or random), or species-common effects (fixed or random), or try to go through a procedure of selecting the optimal number of latent variables to represent the associations, with `AIC`, `BIC`, `goodnessOfFit`. `?goodnessOfFit` helps you to calculate some metrics for the predictive performance of the model, such as Tjur's $R^2$:
+
+```{r}
+goodnessOfFit(Y, object = model1, measure = "TjurR2")
 ```
 
-We can also calculate turnover for these two estimated gradients, although that is a little difficult when we have unequal tolerances.
+this is used in distribution modeling to quantify "discriminative power"; if observations (presence or absence) can perfectly be classified by the model, it will equal 1. With more latent variables, or by adding covariates, it will probably improve.
 
-```{r grad_length}
-# Extract tolerances
-tol <- tolerances(model1, sd.errors = FALSE)
-gradLength <- 4/apply(tol, 2, median)
-```
-
-```{r grad_length_res}
-cat("Gradient length:", gradLength)
-```
-
-As expected, the second gradient is -very- short; we might even be able to drop it from the model. Let's have a look:
-
-```{r compare}
-model2<-update(model1, num.lv=1)
-AIC(model1, model2)
-BIC(model1, model2)
-```
-
-It depends on how you look at it. We can just stick with the same model for now. Finally, we can calculate the median turnover:
-
-```{r turn}
-turn <- 2*qnorm(.999, sd = apply(tol, 2, median))
-cat("Turnover rate:", turn)
-```
-
-and as expected, turnover is slow on the second latent variable, as also reflected by the short gradient length.
-
-Suggestions for continuing this practical:
-
-1) Compare to the information provided by DCA (axis length)
-2) Try a different dataset
-3) Explore repeated fitting of the models with `n.init`, `n.init.max`, also the option `diag.iter` as well as `start.struc` (the last one is only applicable to unimodal response models in the package)
+1. Explore the model with latent variables displayed above; fit it in your own R session, extract the associations, and visualize them with the `corrplot` function
+2. Fit models with different number of latent variables, and perform comparison. Here, I want you to use `goodnessOfFit` to try and find the model with the highest discriminative power
+3. Combine the latent variable approach with what you learned in the previous exercise: add some of the covariates ("DDEG0": growing degree days above zero, "SLOPE", "MIND": moisture index, "SOLRAD": total solar radiation in a year, "TPI": a topography index)
+4. Use `coefplot`, `randomCoefPlot`, `summary` to try and draw conclusions about the main drivers of species' presence for this dataset, and to assess if species' environmental effects have changed when incorporating the latent variables.
