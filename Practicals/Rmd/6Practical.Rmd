@@ -1,109 +1,176 @@
 ---
-title: "Practical: ordination with covariates"
-subtitle: "Physalia workshop on GLLVMs"
+title: "Model-based ordination"
 author: "Bert van der Veen"
+date: "2025-04-07"
 output: html_document
 ---
 
-# Description
+# Background
 
-On the second day of the workshop, we have focused on implementing unconstrained ordinations with a linear or unimodal response model. Today, we will focus on models that also include covariates. This practical will include covariates in a GLLVM, either in the ordination or outside ("covariate-adjusted" or "residual" ordination). This is helpful if we want to get a better impression of the meaning that can be attributed to ordination axes.
+Yesterday, we learned that JSDMs are usually implemented using a latent variable approach, the <tt>gllvm</tt> R-packagebeing no exception. Although latent variable models serve as a technical solution to implemented JSDMs, they lend themselves much better for performing ordination. In this setting, latent variable models are an improved (parametric) way to do all kinds of ordination, that allow us to utilize both tools from regression, and from ordination, to do our analysis.
 
-# Data
+With model-based ordination, we assume that there are underlying **ecological gradients** that have generated the data. These gradients can be represented completely without measured variables (unconstrained ordination), fully with mesaured variables (constrained ordination), or both; assuming that it is difficult to find the right variables to represent the ecological gradient, so that there always may be an unmeasured component.
 
-I collected some datasets that we can work with, but if you have your own data you can start by analyzing that instead. <tt>mvabund</tt> has a few datasets included that we can play with:
+From a more statistical angle, model-based ordination is a way of fitting complex models to sparse data: we attempt to reduce dimensions of the effects so that we can still fit the models we want, even if we do not have so much data. This is a bit different than "classical" ordination methods, because model-based ordination retains connection with the original data, and therefore can also visualize species-specific responses (i.e., we have a lot more information from the model than just an ordination plot, such as correlations between species).
 
-1. "tasmania": abundances of Copepod and Nematode species in a blocked design under a disturbance treatment
-2. "antTraits": abundance of 41 ant species, with environmental data
-3. "solberg": abundance of benthic invertebrate species with a variable of organic enrichment
-4. "spider": abundance of 12 wolf spider species with environmental variables
-5. "tikus":  abundance of coral species over time
+## Part I
 
-and there are more datasets (e.g., "dune", "pyrifos", "mite", and "BCI") in the <tt>vegan</tt> R-package. These are even more datasets in the "data" folder of the workshop that you can use for this practical:
+I will explore fitting model-based ordination using a (restoration) vegetation dataset by [Mehlhoop et al. (2022)](https://onlinelibrary.wiley.com/doi/full/10.1111/avsc.12673). We can read it in as follows:
 
-1. Beetles (abundance)
-2. Birds (abundance)
-3. wadden (abundance)
-4. wadden (biomass)
-4. fungi (presence-absence)
-5. eucalypt (presence-absence)
-
-My suggestion is to try a few different data types in this exercise (e.g., presence-absence (alpine, eucalypt), ordinal (dune, Skabbholmen), abundance (take your pick), biomass (wadden) to get an impression of what it takes to analyse such datatypes. For some of these response types (e.g., ordinal, biomass) it might be more difficult to find software for multispecies modeling that also supports a suitable response distribution (don't worry, <tt>gllvm</tt> has it all).
-
-# Tasks
-
-Start by choosing a dataset, I will again start with the waddensea (abundance) data. This time I will also load the accompanying covariate data.
-
-```{r data}
-Y <- read.table("../../data/waddenY.csv", sep="," ,header=TRUE, row.names = 2)[,-1]
-X <- read.table("../../data/waddenX.csv", sep="," ,header=TRUE, row.names = 2)[,-1]
-# the temperature covariate has some NAs: I need to remove those rows before fitting models
-Y <- subset(Y, !is.na(X$temperature))
-X <- subset(X, !is.na(X$temperature))
-# some species now lack any observations
-Y <- Y[,colSums(Y)>0]
-```
-
-When implementing models that are fitted using numerical optimisation methods (such as in <tt>gllvm</tt> but also <tt>glmmTMB</tt>) it is good practice to center and scale the covariates. This improves our chances of successful convergence. In <tt>gllvm</tt> especially the constrained ordination methods can be prone to convergence issues if we do not do this. The following code standardizes the covariates:
-
-```{r standardising}
+```{r}
+Y <- read.csv("../../data/roadY.csv")[,-1]
+Y <- Y/100 # Beta responses should be in the range 0,1
+X <- read.csv("../../data/roadX.csv")[,-1]
+X$site <- as.factor(X$site)
 X <- data.frame(lapply(X, function(x)if(is.numeric(x)){scale(x)}else{as.factor(x)}))
 ```
 
-categorical covariates are not usually standardised, and it is also not always necessary. What we need to keep in mind is that we choose a sensible reference category. <tt>R</tt> will by default choose the category that comes first alphabetically, but if this does not have many observations, or causes extreme results for some other reason, this can mess-up the convergence of our models too. Occasionally, it can help to choose a different type of contrast, but I will not go into that here.
+The response data are percentage cover, and there are 282 rows and 188 columns (species). We are mostly reducing dimensions (ordination) here, and could choose to retain also species with few observations. The main issue with that, is that it makes for very poor ordination plots: species that have few observations are usually placed at the extremes of the ordination, very far away from everything else. That is because we have probably observed a species at the edge of its distributional limits, and on the outskirts of the environment that most of the species in our data are comfortable with.
 
-We fit a (fixed-effects) constrained ordination in <tt>gllvm</tt> using the following code:
+To demonstrate the effect of these infrequently sampled species, I will fit an ordination to two datasets: one with those species, and one while omitting all species that have fewer observations than a certain threshold. This may be a difficult dataset to analyse, so feel free to work with a different dataset.
 
-```{r co1, message=FALSE}
+```{r}
+Y2 <- Y[,colSums(ifelse(Y==0,0,1))>3]
+ncol(Y2)
+```
+
+In the subsetted dataset we end up excluding 90 species that were observed less than 3 times. There are also a few covariates in the data: "method": the restoration treatment (pn: planted natural, nat: naturally re-vegetated, ref: pristine vegetation, seed: seeded plots), dis_int_veg": distance to road, "caco": canopy cover, "slope", "grain_size_stand_f": soil grain size, "years_since_n": time since restoration, "gf": ecosystem type, "loi": loss on ignition (organic content), and "site": indicating that there were replications for each location. Here, we will focus on fitting unconstrained ordination, in the next practical we will bring in those covariates.
+
+Cover data can be tricky to deal with: the observation process can be difficult to disentangle from the ecological process. [Korhonen et al. (2024)](https://besjournals.onlinelibrary.wiley.com/doi/full/10.1111/2041-210X.14437) discuss this to some extend, but there is a wide body of literature available on this issue. Some ecologists record presence-absences of species in subplots, and collate those to proportions at the plot-level. In that case, we might just as well model the data as binary responses, while accounting for pseudoreplication in the model, as it is not "truly" a cover process. We could do something similar with abundances; record them as percentages, or we could use a pin-point observation process. The point being, when it comes to percentages we have to think hard if a model truly based on percentages makes sense (besides the fact that there is usually loads of measurement error in percentages; the difference between 81-82% cover tends to be hard to guesstimate).
+
+In any case, the <tt>gllvm</tt> R-package offers various option for fitting "true" percentage cover models. If you do not observe "true" cover (e.g., the presence-absence case, or classes), we should fit a different model (binomial or ordinal, respectively). The percentage cover models usually focus on the way to deal with full absence or presence. There are few statistical distributions that can deal with data on a limied scale (0-1); the beta distribution being one of the few, but that does not include 0 or 1. Hence, we need to use a "Hurdle" model, or an ordered beta model; the details are covered in the aforementioned publication. We will just continue with an ordered beta model here.
+
+There are different philosophies to fitting ordinations, some people prefer starting with an unconstrained ordination. My philosophy is that, if you are interested in species-environment relationships, doing an unconstrained ordination does not make much sense. However, for pedagogical reasons, we will here start with unconstrained ordination anyway. The following model may be a bit fussy with convergence: if you get a message that the model has converged to infinity, just re-run until it does work! (this is not always a valid strategy, but here it is OK). 
+
+Repeatedly re-running the model essentially what the `n.init` argument does in the below code. This is good practice, because different model runs often result in a (somewhat) different result. You can set `seed` to ensure you get the same model every time, or use `starting.val = "zero"` instead (the latter option might be suboptimal in many cases, see [Niku et al. (2019)](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0216129)).
+
+To further facilitate the low number of observations for some species, we collect all dispersion parameters for this model using the same, via the `disp.formula` argument. By default this is species-specific, but for this dataset that simply requires more information than we have available.
+
+```{r, cache = TRUE, warning=FALSE, message=FALSE}
 library(gllvm)
-model1 <- gllvm(Y, X = X, lv.formula = ~season+temperature+elevation+silt_clay+Chl.a, num.RR = 2, family = "negative.binomial")
-gllvm::ordiplot(model1, symbols = TRUE, s.colors = X$season)
+TMB::openmp(parallel::detectCores()-1, autopar = TRUE, DLL = "gllvm")
+model1  <- gllvm(y = Y, num.lv = 2, family = "orderedBeta", disp.formula = rep(1,ncol(Y)), starting.val = "zero")
+model2  <- gllvm(y = Y2, num.lv = 2, family = "orderedBeta", disp.formula = rep(1,ncol(Y2)), starting.val = "zero")
 ```
 
-The arrows in the plot are drawn using the canonical coefficients, unlike in most classical constrained ordination methods. They are also rescaled, so that the covariate with the largest coefficients is the longest arrow. Note, that it means that all effects of covariates could be small, and still seem like they are influential in the plot. The statistical uncertainty of these effects is incorporated by turning the arrows pink if the confidence interval for the coefficients crosses zero, and we are unsure if the effect is positive or negative. We can inspect the canonical coefficients themselves with the `coef` function:
+Sometimes, especially for "difficult" datatypes like percentage cover, and for sparse data, this might require fiddling around a bit with the starting values and `n.init`. 
 
-```{r cancoef}
-coef(model1, "Cancoef")
-```
-note that the `ordiplot` function by default rotates the solution, so to compare these coefficients to the plot we need to add the `rotate=FALSE` argument to the plot, or instead use the `summary` function of the model, as that has a  `rotate` argument that defaults to TRUE:
+There are two functions that can help you to make your own ordination plot; `getLV` and `getLoadings` extract the coordinates of sites and species in the ordination. Note, that `ordiplot` rotates the ordination, so that if you make your own it might look slightly different. This has no consequences for its interpretation, and your results do not change. In model-based ordination, the axes have no "maximum variance" rotation, so that you can rotate them whatever way you want!
 
-```{r summary}
-summary(model1)
-```
+Let's have a look at the two ordination plots:
 
-so that this output we can compare to the plot.
-
-Unlike in classical constrained ordination methods, we can also extract the species-specific responses to the covariates. This is because the constrained ordination method is really a type of multivariate regression that uses latent variables to perform a (reduced-rank) approximation of these effects. We use the `coefplot` function to do so:
-
-```{r coefplot}
-coefplot(model1, which.Xcoef = c("seasonsummer", "temperature"))
+```{r, fig.width = 10, fig.height = 10, echo = -1, message = FALSE}
+library(gllvm)
+par(mfrow = c(2, 2))
+ordiplot(model1, symbols = TRUE, biplot = TRUE)
+ordiplot(model2, symbols = TRUE, biplot = TRUE)
+ordiplot(model1, symbols = TRUE)
+ordiplot(model2, symbols = TRUE)
 ```
 
-These effects are a function of the species loadings in the ordination, as well as of the canonical coefficients. 
+If the plot looks odd in your R session, make sure that your plot window is expanded before you costruct the plots. We see that the two ordination actually look pretty similar; with and without the species that (technically) have too few observations. We can use the `procrustes` function from the <tt>vegan</tt> R-package to double check how similar exactly they are:
 
-ter Braak (1986) notes that the canonical coefficients in constrained ordination methods tend to be affected by issues of multicollinearity, and can bounce around a lot. Here, we can improve that by treating them as random effects; this penalizes them a little. 
-
-```{r co2, message=FALSE}
-model2 <- gllvm(Y, X = X, lv.formula = ~season+temperature+elevation+silt_clay+Chl.a, num.RR = 2, randomB="LV", family = "negative.binomial", starting.val = "zero")
-gllvm::ordiplot(model2, symbols = TRUE, s.colors = X$season)
+```{r}
+vegan::procrustes(getLV(model1), getLV(model2), symmetric = TRUE)
 ```
 
-Uncertainty of the arrows is now based on prediction intervals instead, which can be turned off using the `arrow.ci` argument in the plotting function. The coefficients no longer appear in the summary of the model; that is reserved for fixed effects. Their prediction can still be extracted with the `coef`function, and their prediction errors using the `getPredictErr` function:
+This function compares two ordinations; if the error is close to zero it tells us that the ordinations are the same. If it is close to one the ordinations are completely different. Let's continue and compare with some more classical ordination methods:
 
-```{r cancoef2}
-coef(model2, "Cancoef")
-getPredictErr(model2)$b.lv # think of these as SEs for the REs
+```{r, warning=FALSE, message=FALSE}
+NMDS <- vegan::metaMDS(Y, trace = 0)
+CA <- vegan::cca(Y)
+DCA <- vegan::decorana(Y)
+vegan::procrustes(getLV(model1), vegan::scores(NMDS, choices = 1:2), symmetric = TRUE)
+vegan::procrustes(getLV(model1), vegan::scores(CA, choices = 1:2), symmetric = TRUE)
+vegan::procrustes(getLV(model1), vegan::scores(DCA, choices = 1:2), symmetric = TRUE)
 ```
 
-Finally, we can use the `randomCoefPlot` function to make a caterpillar plot again:
+Ok, so the ordinations are pretty different. There are all kinds of reasons for that; it is unclear to me whether classical ordination methods actually give a good result for percentage cover data, but it can also be that we have misspecified our model. Feel free to play around and see if you can find something a little more similar to one of the classical ordination methods.
 
-```{r randomcoefplot}
-randomCoefplot(model2, which.Xcoef = c("seasonsummer", "temperature"))
+In the `ordiplot` function there are a range of arguments that can help you adjust the look of the ordination plot, see `?gllvm::ordiplot`. The "biplot" argument in particular adds species into the plot. Sometimes, it can help to just display sites (or just species) because ordination diagrams tend to get a bit cluttered. There are many options for changing the ordination diagram, see `?ordiplot`. Sometimes, if you load the vegan package before you load the gllvm package, you can get an error. This is because vegan also has an `ordiplot` function that "overrules" gllvm in those instances.
+
+Everything from the first two practicals still applies: we can include random effects in `formula` or `row.eff` if we wish, we can fit the models in parallel or speed them up using the same tricks. We can visualize species associations via `corrplot` and `getResidualCor`. This particular dataset includes pseudo replication of sites, which we should probably account for. In essence, we will condition the ordination on a random effect of "site", to get the sampling variation out of the ordination:
+
+```{r, cache = TRUE}
+model3  <- gllvm(y = Y2, num.lv = 2, 
+                 family = "orderedBeta", disp.formula = rep(1,ncol(Y2)), 
+                 starting.val = "res", row.eff = ~(1|site), studyDesign = X, 
+                 sd.errors = FALSE)
+
+model4  <- gllvm(y = Y2, X = X, num.lv = 2, 
+                 family = "orderedBeta", disp.formula = rep(1,ncol(Y2)), 
+                 starting.val = "res", formula = ~diag(1|site), randomX.start = "zero",
+                 Ab.struct = "diagonal", optim.method = "L-BFGS-B", sd.errors = FALSE)
 ```
 
-Suggestions for continuing this practical:
+The fourth model includes many more random effects (20*98) than the third model (20) , as we conditioned the ordination on species-specific random effects with site-specific variances. In the third model we assume the random effects for all species are the same, and the variance of the random effects is the same for all sites. The latter is much closer to what `Condition` does in classical ordination methods. Comparing some of our ordinations again:
 
-1) Compare to CCA or another constrained ordination method
-2) Apply a `concurrent` ordination instead using the `num.lv.c` argument
-3) Combine the code here with the code from yesterday: fit a unimodal constrained or concurrent ordination using the `quadratic` argument
-4) Add a random site effect with the constrained ordination using `row.eff`
+```{r, cache =TRUE}
+vegan::procrustes(getLV(model3), getLV(model4), symmetric = TRUE)
+vegan::procrustes(getLV(model1), getLV(model4), symmetric = TRUE)
+```
+
+We can also compare the species' loadings:
+
+```{r}
+vegan::procrustes(getLoadings(model3), getLoadings(model4), symmetric = TRUE)
+vegan::procrustes(getLoadings(model2), getLoadings(model4), symmetric = TRUE)
+```
+
+Overall, the ordination does not seem to have changed a whole lot due to the conditioning, here. Comparing with AIC, we can find the model that best predicts our data:
+
+```{r}
+AIC(model3, model4)
+```
+
+And we conclude that the fourth model fits the data best. I purposefully did not compare with the second model that omits all random effects; we would be comparing a boundary case. Technically, the third model is a simplified version of the fourth model, so those are probably fine to compare in this manner.
+
+Now, we have only fitted models with two latent variables, or ordination axes. For inference, and if our only goal is to make a two-dimensional ordination plot, this is probably fine. The model tries to fit as much information on the first two axes, in a way that best represents the data. In this it is a little different than (for example) eigenvector-based ordination methods, because here we find the ordination axes by "best fit".
+
+## Tasks I
+
+1. Fit an unconstrained ordination, have a look at the help page for `ordiplot` and see if you can clean-up your plot a little bit.
+2. Try to find an ordination that you are "satisfied". Try conditioning on random or fixed effects, and perhaps perform model selection via `AIC` or `BIC`.
+3. Make sure to check the residual diagnostics of the model: a nice looking ordination plot does not make for a valid model! (and a poor looking ordination plot does not make for an invalid model)
+
+## Part II
+
+The ordinations we have fitted in the first part are defined at the observation-level, while we might want to have it at the site-level, instead. There are two ways of doing that: the "lvCor" argument accepts (at the moment) a single variable for the level at which the (unconstrained) ordination is defined. We can also use the `num.RR` argument and `lv.formula`, which we will learn more about in the next practical. For now, let's stick to using "lvCor".
+
+```{r, cache = TRUE, warning=FALSE, message=FALSE, fig.width = 10}
+model5  <- gllvm(y = Y2, num.lv = 2, family = "orderedBeta", n.init = 10, lvCor = ~(1|site), studyDesign = X[,"site",drop=FALSE], disp.formula = rep(1, ncol(Y2)))
+gllvm::ordiplot(model5)
+```
+
+We only have 20 "sites" in this dataset, so the model is much quicker to fit. We have gone from `num.lv*nrow(Y)` random effects in the model to `num.lv*20` random effects (i.e., from $2*282$ to $2*20$). There is a problem with this model though: previously our ordination incorporated the variation due to the repeated observations of sites. At the moment, there is no ordination effect in the model except the ordination, so that all that sampling variation is left in the residuals.
+
+```{r}
+resi <- residuals(model5)$resi
+fitted <- predict(model5)
+xxx <- boxplot(c(fitted), outline = FALSE, plot = FALSE)$stats
+plot(c(resi) ~ c(fitted), xlim = c(min(xxx), max(xxx)), col = rep(X$site, times = ncol(model5$y)), xlab = "Linear predictor", ylab = "Dunn-Smyth residuals")
+```
+
+In this figure, where residuals are colored by site, we do see that there is variation in the replicates for each site. Ignoring this variation may become a problem when we start doing inference. We should incorporate this information into the model, so we will label the replicates within the sites as "plots" and include this as a random effects.
+
+```{r, cache = TRUE}
+X$plot<- factor(ave(seq_along(X$site), X$site, FUN = seq_along))
+
+model6  <- gllvm(y = Y2, num.lv = 2, family = "orderedBeta", n.init = 10, lvCor = ~(1|site), studyDesign = X[,c("plot","site"),drop=FALSE], disp.formula = rep(1, ncol(Y2)), row.eff = ~(1|site/plot))
+
+# this draws way too much memory
+# model7  <- gllvm(y = Y2, X = X[,c("site","plot")], num.lv = 2, family = "orderedBeta", lvCor = ~(1|site), studyDesign = X[,c("site"),drop=FALSE], disp.formula = rep(1, ncol(Y2)), formula = ~diag(1|site/plot), randomX.start = "res", Ab.struct = "diagonal", sd.errors = FALSE)
+```
+The random effect in the seventh model expands to `diag(1|site) + diag(1|site:plot)`, which has a total of 20+20*12 levels for each of the species in the data, and as many variance parameters. That's a very large number of effects to estimate. It is doable to fit, but only if you have a bigger computer at your disposal with a lot of RAM. To keep things quick and manageable, we will stick to having a nested random row effect instead.
+
+```{r}
+resi <- residuals(model6)$resi
+fitted <- predict(model6)
+xxx <- boxplot(c(fitted), outline = FALSE, plot = FALSE)$stats
+plot(c(resi) ~ c(fitted), xlim = c(min(xxx), max(xxx)), col = rep(X$site, times = ncol(model6$y)), xlab = "Linear predictor", ylab = "Dunn-Smyth residuals")
+```
+
+
+## Tasks II
+
+1. Fit an ordination at the site-level.
