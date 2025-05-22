@@ -1,5 +1,5 @@
 ---
-title: "Practical: Tools, tips and tricks"
+title: "Practical: Unimodal response models in gllvm "
 subtitle: "Physalia workshop on GLLVMs"
 author: "Bert van der Veen"
 output: html_document
@@ -7,46 +7,34 @@ output: html_document
 
 # Description
 
-The models generally fitted with the <tt>gllvm</tt> R-package are complex, and sometimes require carefully tuning the arguments in the model to get an improved solution. In this practical, we will go through some of the arguments that control model fitting, including repeated fits with different starting values.
+If a response model is truly unimodal, fitting a linear model will poorly retrieve the latent variables, and can lead to poor estimation of species associations. That is something community ecologists have understood for decades, because it is a subject that has been at the basis of choosing an ordination method. 
 
-# Data
+However, there has been no ordination methods that actually implement a unimodal response model. NMDS gained in popularity as it is said to be "robust" to the response model, but the only reason for that is because it completely ignores any species-specific information. That makes it a poor ordination method if you are interested in species, which we usually are in community ecology.
 
-I collected some datasets that we can work with, but if you have your own data you can start by analyzing that instead. <tt>mvabund</tt> has a few datasets included that we can play with:
+In <tt>gllvm</tt> we can truely implement an ordination where species respond quadratically to the latent variables. We explicitly estimate species' optima, and we estimate species' tolerances. This makes it the most complex ordination method for community ecology to date, and it is that complexity that keeps it from being suitable to all datasets; it is a little bit more "data hungry" than an ordination method with a linear response model.
 
-1. "tasmania": abundances of Copepod and Nematode species in a blocked design under a disturbance treatment
-2. "antTraits": abundance of 41 ant species, with environmental data
-3. "solberg": abundance of benthic invertebrate species with a variable of organic enrichment
-4. "spider": abundance of 12 wolf spider species with environmental variables
-5. "tikus":  abundance of coral species over time
+In this practical, we will apply the first ordination method that is explicitly based on a unimodal response model.
 
-and there are more datasets (e.g., "dune", "pyrifos", "mite", and "BCI") in the <tt>vegan</tt> R-package. These are even more datasets in the "data" folder of the workshop that you can use for this practical:
+# Part I
 
-1. Beetles (abundance)
-2. Birds (abundance)
-3. wadden (abundance)
-4. wadden (biomass)
-4. fungi (presence-absence)
-5. eucalypt (presence-absence)
-
-My suggestion is to try a few different data types in this exercise (e.g., presence-absence (alpine, eucalypt), ordinal (dune, Skabbholmen), abundance (take your pick), biomass (wadden) to get an impression of what it takes to analyse such datatypes. For some of these response types (e.g., ordinal, biomass) it might be more difficult to find software for multispecies modeling that also supports a suitable response distribution (don't worry, <tt>gllvm</tt> has it all).
-
-# Tasks
-
-Start by choosing a dataset, I will again start with the waddensea (abundance) data.
+Here, I will work with the wadden data. The mathematics for implementing the unimodal response model is very complex, and we have yet to figure out how to do it for beta responses (i.e., that is the only not supported response type for this model in the package). Hence, we cannot continue with the data from the last exercise.
 
 ```{r data}
 Y <- read.table("../../data/waddenY.csv", sep="," ,header=TRUE, row.names = 2)[,-1]
 ```
 
-The model is fitted similarly as before, but instead we add the "quadratic" argument which takes the options TRUE, LV, and FALSE as explained in the presentation. The model is more complex, so it also takes longer to fit it. I will fit it straight away with a negative-binomial distribution, since that was is also what this dataset required in the last exercise. We could also just include more latent variables, because that has a similar effect of accounting for residual variation (just within the model, instead of in the distribution). One thing to keep in mind, is the increased complexity of the unimodal response model, i.e., there are more parameters to estimate, for which there needs to be enough information in the data. 
+The model is fitted similarly as before, but instead we add the "quadratic" argument which takes the options TRUE, "LV", and FALSE. As covered in the lecture, these correspond to assuming species-specific (TRUE) and species-common ("LV") tolerances, while FALSE corresponds to equal or common tolerances only if we use a random row effect at the same level as the ordination (`row.eff = "random"` if the ordination is specified as random effect and at the observation-level, `row.eff = "fixed"` for a observation-level ordination with fixed effects).
+
+Because the model is more complex, so it also takes longer to fit it. I will fit it straight away with a negative-binomial distribution, since that was is also what this dataset required in the last exercise. We could also just include more latent variables, because that has a similar effect of accounting for residual variation (just within the model, instead of in the distribution). One thing to really keep in mind, is the increased complexity of the unimodal response model, i.e., there are more parameters to estimate, for which there needs to be enough information in the data. 
 
 ```{r uo, cache = TRUE, message=FALSE}
 library(gllvm)
-model1 <- gllvm(Y, num.lv = 2, family = "negative.binomial", quadratic = TRUE, n.init = 3)
+TMB::openmp(parallel::detectCores()-1, autopar = TRUE, DLL = "gllvm")
+model1 <- gllvm(Y, num.lv = 2, quadratic = TRUE, n.init = 3, family = "negative.binomial", disp.formula = rep(1, ncol(Y)))
 gllvm::ordiplot(model1, biplot = TRUE)
 ```
 
-The `n.init` option is very necessary: the GLLVM with unimodal response is even more prone to finding a suboptimal solution than usually. That also means that fitting the model is much slower, so using <tt> gllvm</tt> its (new) option for parallel computation could help. `ordiplot` will plot the species optima, and if the optima are too far away from the estmated latent variable, it will plot the species effects as arrows instead.
+The `n.init` option is very necessary: the GLLVM with unimodal response is even more prone to finding a suboptimal solution than usually. That also means that fitting the model is much slower, so using <tt> gllvm</tt> its (new) option for parallel computation could help. `ordiplot` will plot the species optima, and if the optima are too far away from the estimated latent variable, it will plot the species effects as arrows instead.
 
 ```{r uo2, message=FALSE, results="hide", echo = -1}
 library(gllvm)
@@ -65,9 +53,9 @@ and the tolerances
 tolerances(model1, sd.errors = FALSE)
 ```
 
-manually. As expected, some optima and tolerances are very large, indicating some linear responses. Predicting with the model might make this a little easier to visualize, so let's do that.
+manually. As expected, some optima and tolerances are very large, indicating that a few species respond linearly to the latent variable rather than unimodally. Predicting with the model might make this a little easier to visualize, so let's do that.
 
-```{r pred, results = "hide", echo = -1, fig.height = 5}
+```{r pred, results = "hide", echo = -1, fig.height = 10, fig.width = 10}
 par(mfrow=c(2,1))
 LVs = getLV(model1)
 newLV = cbind(LV1 = seq(min(LVs[,1]), max(LVs[,1]), length.out=1000), LV2 = 0)
@@ -114,8 +102,10 @@ cat("Turnover rate:", turn)
 
 and as expected, turnover is slow on the second latent variable, as also reflected by the short gradient length.
 
-Suggestions for continuing this practical:
+## Tasks I
 
-1) Compare to the information provided by DCA (axis length)
-2) Try a different dataset
-3) Explore repeatd fitting of the models with `n.init`, `n.init.max`, also the option `diag.iter` as well as `start.struc` (the last one is only applicable to unimodal response models in the package)
+1. Fit the model with species-specific tolerances and go through the code.
+2. Also try fitting a model with species-common tolerances, a model without quadratic responses, and a model with `row.eff`.
+3. Compare the ordinations, are the estimated latent variables very different? You can do this via the `procrustes` function as demonstrated in the first practical today, or via `cor`.
+4. Use information criteria, or hypothesis testing, to determine which model is best.
+5. Add covariates into the ordination of the quadratic response model with `lv.formula`, `num.RR` or `num.lv.c` and perhaps the random effects formulation with `randomB``
