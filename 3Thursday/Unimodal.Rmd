@@ -580,7 +580,7 @@ model6 <- gllvm(Y, num.lv = 2, family = "binomial", sd.errors = FALSE, optim.met
 
 The ordination can differ significantly depending on the specified model; it can miss the main gradient.
 
-\footnotesize
+\tiny
 
 ```{r, echo = FALSE}
 res <- rbind(cbind(data.frame(model = "quadratic unequal"), cor(getLV(model3), X)),
