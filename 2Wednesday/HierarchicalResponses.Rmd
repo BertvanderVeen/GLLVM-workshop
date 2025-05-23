@@ -689,7 +689,7 @@ summary(model3)
 corrplot::corrplot(cov2cor(model3$params$sigmaB), type = "lower", diag = FALSE)
 ```
 
-Correlated effects: trait syndroms. Fungi with a particular preference in temperature range, miight also have a preference for less precipitation.
+Correlated effects: trait syndromes. Fungi with a particular preference in temperature range, might also have a preference for less precipitation.
 
 ## Example with fungi data
 

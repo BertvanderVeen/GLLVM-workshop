@@ -423,7 +423,7 @@ We can treat the canonical coefficients as random effects with `randomB` (with c
 
 - This is usually faster
 - Treats the "bouncing beta" problem
-- Models associations of species due to environment (extracted with `getResidualCov/r`)
+- Models associations of species due to environment (extracted with `getEnvironCov/r`)
 
 \begin{enumerate}
 \itemsep-0.5em
