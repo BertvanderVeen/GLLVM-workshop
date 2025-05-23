@@ -61,7 +61,7 @@ A fourth-corner model in <tt>gllvm</tt> is fitted by providing environment and t
 
 Niku et al. used only a few covariates, so I will do the same here:
 
-```{r traits, cache = TRUE}
+```{r traits, cache = TRUE, message=FALSE}
 library(gllvm)
 model1 <- gllvm(y = Y, X = X, TR = TR, 
                 formula = ~ Management + Elevation + pH + Moist + (Management + Elevation + pH + Moist):(LPH+ LTL + OVE2 + BRE2 + BRE3), 
@@ -71,10 +71,10 @@ model1 <- gllvm(y = Y, X = X, TR = TR,
 This first model fits rather quickly: there are only a few coefficients included as it excludes species-specific responses to the environment. It corresponds to the equation:
 
 \begin{equation}
-\symbf{\beta}_j = \symbf{\beta}_k + \text{tr}_j\textbf{B}_{x,tr}
+\boldsymbol{\beta}_j = \boldsymbol{\beta}_k + \text{tr}_j\textbf{B}_{x,tr}
 \end{equation}
 
-This means that there is still a common component to species' environmental responses, $\symbf{\beta}_k$, but that the deviation from that for every species is fully determined by the traits $\text{tr}_j\textbf{B}_{x,tr}$. 
+This means that there is still a common component to species' environmental responses, $\boldsymbol{\beta}_k$, but that the deviation from that for every species is fully determined by the traits $\text{tr}_j\textbf{B}_{x,tr}$. 
 
 We can extract the **fourth-corner** coefficients and have a look at them:
 
@@ -139,6 +139,7 @@ randomCoefplot(model2)
 and, our fourth-corner coefficients may have changed, so we want to recreate our plot of those:
 
 ```{r, fig.width = 10}
+fourth <- gllvm:::getFourthCorner(model2)
 # extract standard errors
 model2temp <- model2
 model2temp$params$B <- model2$sd$B
@@ -164,6 +165,8 @@ for (cell in 1:nrow(cells_to_outline)){
 polygon(x_vals, y_vals, col = NA, border = "black", lwd = 2)
 }
 ```
+The effects have changed a little bit; can you spot the differences?
+
 Finally, we can use `anova` to test if our species' responses really depend on these traits. So, we fit a VGLMM similarly to last exercise, without the trait effects, and compare to the model that we just fitted:
 
 ```{r traits3, cache = TRUE, warning=FALSE}
