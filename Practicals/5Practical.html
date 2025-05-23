@@ -508,7 +508,7 @@ preds &lt;- pnorm(eta)
 predrast &lt;- terra::rast(slope, nl=ncol(model2$y))
 terra::values(predrast) &lt;- preds</code></pre>
 <p>“predrast” now is a raster brick of our predictions for the species.
-Let’s plot some to see where the mode predicts them to occur:</p>
+Let’s plot some to see where the model predicts them to occur:</p>
 <pre class="r"><code>par(mfrow = c(1,2))
 plot(predrast[[1]], main = colnames(Y)[1])
 plot(predrast[[2]], main = colnames(Y)[2])</code></pre>

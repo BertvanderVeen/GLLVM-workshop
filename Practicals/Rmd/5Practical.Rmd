@@ -95,7 +95,7 @@ predrast <- terra::rast(slope, nl=ncol(model2$y))
 terra::values(predrast) <- preds
 ```
 
-"predrast" now is a raster brick of our predictions for the species. Let's plot some to see where the mode predicts them to occur:
+"predrast" now is a raster brick of our predictions for the species. Let's plot some to see where the model predicts them to occur:
 
 ```{r, fig.width = 10, echo =-1, message=FALSE}
 library(terra)
