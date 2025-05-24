@@ -7,7 +7,7 @@ TMB::openmp(7, DLL="gllvm", autopar=TRUE)
 model2 <- gllvm(Y, X, 
                 formula = ~ SampleType + (scale(Depth)|1) + (scale(age)|1),
                 row.eff = ~(1|PlatformID), studyDesign = X,
-                family = "negative.binomial", num.lv = 0, sd.errors=FALSE, Ab.struct="diagonal", optim.method="L-BFGS-B")
+                family = "negative.binomial", num.lv = 0, sd.errors=TRUE, Ab.struct="diagonal", optim.method="L-BFGS-B")
 
 model3 <- gllvm(y = Y, X = X, formula = ~diag(0+SampleType|1)+(0+scale(Depth) +I(scale(Depth)^2) | 1), family = "negative.binomial", num.lv = 0, 
                 studyDesign = X, row.eff = ~(1 | PlatformID), sd.errors = FALSE, 
@@ -78,12 +78,12 @@ model3 <- gllvm(y = Y, X = X, studyDesign = X,
 
 # Create plot of quadratic curve
 ### Predicting manually, bug in predict.gllvm ###
-newX <- data.frame(Year = 0, Elevation = seq(min(X$Elevation), max(X$Elevation), length.out = 100))
+newX <- data.frame(Elevation = (seq(min(X$Elevation), max(X$Elevation), length.out = 100)-mean(X$Elevation))/sd(X$Elevation), Year = 0)
 eta = matrix(model3$params$beta0, ncol = ncol(model3$y),byrow=TRUE,nrow=nrow(newX))
 newLV = as.matrix(newX)%*%model3$params$LvXcoef
 eta = eta + newLV%*%t(model3$params$theta[,1:2])+(newLV^2)%*%t(model3$params$theta[,-c(1:2)])
 preds = pnorm(model3$params$zeta[2]-eta)-pnorm(model3$params$zeta[1]-eta)
 #################################################
-plot(NA, ylim = range(preds), xlim = range(X$Elevation), ylab  = "Predicted response", xlab = "Elevation")
-rug(X$Elevation)
-sapply(1:ncol(model3$y), function(j)lines(sort(newX[,2]), preds[order(newX[,2]),j], lwd = 2))
+plot(NA, ylim = range(preds), xlim = range(scale(X$Elevation)), ylab  = "Predicted response", xlab = "Elevation")
+rug(scale(X$Elevation))
+sapply(1:ncol(model3$y), function(j)lines(sort(newX[,1]), preds[order(newX[,1]),j], lwd = 2))
