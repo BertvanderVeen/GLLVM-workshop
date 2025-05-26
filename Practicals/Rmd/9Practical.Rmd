@@ -93,7 +93,7 @@ betaPost=Hmsc::getPostEstimate(run, "Beta")
 plotBeta(model2, post = betaPost) # heatmap of covariate coefficients
 ```
 
-Note that there is much more that Hmsc can do than I have shown here: you can fit fourth-corner models, with Phylogenetic rando effects as well, add additional random effects, specify the plot/sample level at which the latent variables are estimated, and incorporate spatial/temporal autocorrelation in the models. The package has a good set of vignettes that can help you figure out how to specify models.
+Note that there is much more that Hmsc can do than I have shown here: you can fit fourth-corner models, with Phylogenetic random effects as well, add additional random effects, specify the plot/sample level at which the latent variables are estimated, and incorporate spatial/temporal autocorrelation in the models. The package has a good set of vignettes that can help you figure out how to specify models.
 
 Variance partitioning can be done with the following code.
 
