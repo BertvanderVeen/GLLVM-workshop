@@ -40,7 +40,7 @@ model1  <- gllvm(y = Y, X = X,
 ordiplot(model1)
 ```
 
-where `num.RR` specifies the number of constrained ordination axes in the model, and `lv.formula` specifies the effects for in the ordination. The arrows in the ordination show the association of environmental effects with the ordination axes. These are always scaled so that the largest effect has the longest arrow, so even if all effects are small the arrows may be relatively long; you cannot read "relative importance" out of the length of the arrows. To get a better impression of the magnitude of the canonical coefficients (that are used to draw the arrows) we can extract them with `coef` or `summary`.
+where `num.RR` specifies the number of constrained ordination axes in the model, and `lv.formula` specifies the effects for in the ordination. `disp.formula` is added to collect the dispersion parameters for the beta distribution to a single parameter, in order to reduce the information burden on the dataset. `n.init` is set to 3 to repeatedly fit the model and safeguard that we find a good fit. The arrows in the ordination show the association of environmental effects with the ordination axes. These are always scaled so that the largest effect has the longest arrow, so even if all effects are small the arrows may be relatively long; you cannot read "relative importance" out of the length of the arrows. To get a better impression of the magnitude of the canonical coefficients (that are used to draw the arrows) we can extract them with `coef` or `summary`.
 
 ```{r, fig.width = 10}
 summary(model1)
@@ -65,6 +65,8 @@ model2  <- gllvm(y = Y, X = X,
                  row.eff = ~(1|site/plot), studyDesign = X, 
                  family = "orderedBeta", disp.formula = rep(1,ncol(Y)))
 ```
+Here, the difference with the first model is in the specified `row.eff`, which includes a nested random effect of plots in sites, to accommodate the study design. This expands into two terms "under the hood": `~(1|site) + (1|site:plot)`, each of which gets their own variance parameter.
+
 The thing with constrained ordinations, is that if you include the wrong environmental effects that hold no or little importance to the species response data, you will get a poor ordination, because all excess variation not due to the covariates is discarded in a constrained ordination. Concurrent ordination includes an extra term in the ordination, so that all ordination axes are always optimally represented. In essence, all variation due to the species response data is included in the ordination, even if the covariates are not helpful in explaining the community. This type of ordination is unique to model-based methods, and we call it a **concurrent** ordination. Concurrent, because we can think of it as simultaneously performing constrained and unconstrained ordination: we include covariates, but also variation due to the community. The covariates are thus used to inform the ordination, rather than to constrained it. We fit this with the `num.lv.c` argument:
 
 ```{r mod3, cache = TRUE}
@@ -73,7 +75,7 @@ model3  <- gllvm(y = Y, X = X,
                  row.eff = ~(1|site/plot), studyDesign = X, 
                  family = "orderedBeta", disp.formula = rep(1,ncol(Y)), n.init = 10)
 ```
-You may get some warnings here; the model has trouble "starting", and from the 10 times that we try, some of the starts do not work out. We do manage to fit the model, after repeatedly trying.
+So that the only difference with the second model, is that we changed `num.RR = 2` to `num.lv.c = 2`, and set `n.init` a little higher. You may get some warnings here; the model has trouble "starting", and from the 10 times that we try, some of the starts do not work out. We do manage to fit the model, after repeatedly trying.
 
 Aspects from both unconstrained and constrained ordination apply: we have canonical coefficients and environmental effects in the ordination, we can reconstruct the species-specific effects with `coefplot`, but now we can also again extract the species associations, as it combines aspects of both JSDM and ordination. This makes the ordination plot is a very efficient visualization of the co-occurrence patterns due to both environmental effects as in constrained ordination, and residual associations as in a JSDM. Unlike a correllogram, we can include both components here.
 
@@ -94,6 +96,8 @@ model5  <- gllvm(y = Y, num.lv = 2,
 anova(model3, model5)
 anova(model2, model3)
 ```
+
+Here, the fourth model represents a fixed effects unconstrained ordination. This can be fitted in <tt>gllvm</tt> by including the level of the ordination as an additional variable in the covariate matrix (here "obs"), and by including it in `lv.formula`. This is in contrast to when we use `num.lv`, which treats the ordination as random effects. We could also specify the random effect unconstrained ordination of `num.lv` via the `num.RR` interface (the `num.RR` argument was introduced later, and is in principle not meant for unconstrained ordination, but we can use it like that anyway if we really want to), by keeping `lv.formula` the same as in the fourth model, but adding `randomB = "LV"`. If you try it, you would see that this gives the same result (note, starting values are calculated bit different so this can cause minor differences between multiple fits) as the fifth model.
 
 ## Tasks I
 
