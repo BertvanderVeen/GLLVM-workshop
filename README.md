@@ -51,9 +51,9 @@ Sessions from 14:00 to 20:00 (Tuesday to Friday). Sessions will consist of a mix
 # Detailed schedule
 |   Day   |Time         |Subject                                                         |
 |---------|-------------|:---------------------------------------------------------------|
-|Tuesday  |14:00 - 14:45| Introduction <!-- the gllvm R-package? -->                     |
-|         |14:45 - 15:05| Brainstorming: challenging properties of community data        | <!--maybe do a menti or smt..-->
-|         |14:05 - 15:30| Key concepts in modeling community data                        | <!--sampling variation, properties, estimator, confidence interval, sample size / amount of samples, the things that classicla analysis usually forgets -->
+|Tuesday  |14:00 - 14:45| Introduction                                                   |
+|         |14:45 - 15:05| Brainstorming: challenging properties of community data        |
+|         |14:05 - 15:30| Key concepts in modeling community data                        |
 |         |15:30 - 15:45| Break                                                          |
 |         |15:45 - 16:45| Vector Generalised Linear Models (VGLM)                        |
 |         |16:45 - 17:45| Practical 1: Fitting vector GLMs                               | 
@@ -68,9 +68,9 @@ Sessions from 14:00 to 20:00 (Tuesday to Friday). Sessions will consist of a mix
 |         |16:45 - 17:45| Practical 4: traits and phylogeny                              |
 |         |17:45 - 18:30| Break                                                          |
 |         |18:30 - 19:15| Incorporating species' correlation                             |
-|         |19:15 - 20:00| Practical 5: Joint Species Distribution Models                 |<!-- maybe something about prediction here and checking predictive performance and maps-->
+|         |19:15 - 20:00| Practical 5: Joint Species Distribution Models                 |
 |---------|-------------|----------------------------------------------------------------|
-|Thursday |14:00 - 14:45| Model-based ordination <!-- vs. JSDM and classical ordination-->|
+|Thursday |14:00 - 14:45| Model-based ordination                                         |
 |         |14:45 - 15:45| Practical 6: Comparing ordinations                             |<!-- eg ca and dca and nmds, but also residual vs ordiplot -->
 |         |15:45 - 16:00| Break                                                          |
 |         |16:00 - 16:45| Ordination with predictors                                     | 
@@ -80,46 +80,70 @@ Sessions from 14:00 to 20:00 (Tuesday to Friday). Sessions will consist of a mix
 |         |19:15 - 20:00| Practical 8: Quadratic GLLVM                                   |
 |---------|-------------|----------------------------------------------------------------|
 |Friday   |14:00 - 14:45| Other R packages for fitting GLLVM and JSDMs                   |
-|         |14:45 - 15:45| Practical 9: Fit a model with various R packages               |
+|         |14:45 - 15:45| Practical 9: Fit a model with various R packages               |<!--alternatively, live-coding session to reiterate things-->
 |         |15:45 - 16:00| Break                                                          |
-|         |16:00 - 16:45| Beyond vanilla GLLVMs <!--maybe a little about correlated lvs and HO-->|
+|         |16:00 - 16:45| Beyond vanilla GLLVMs                                          |
 |         |16:45 - 17:45| Practical 10: Article reanalysis                               | 
 |         |17:45 - 18:30| Break                                                          |
 |         |18:30 - 20:00| Wrapping up - questions, requests, own analysis                |
 |---------|-------------|----------------------------------------------------------------|
 
+
+## Formula interface table
+
+<table>
+  <thead>
+    <tr>
+      <th>gllvm argument</th>
+      <th>Function</th>
+      <th>Accepted structures</th>
+      <th>Data</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><code>formula</code></td>
+      <td>Fixed and random species-specific effects</td>
+      <td><tt>lme4</tt> -type formula (e.g. <code> ~ x1 + (0+x2|1)</code>)</td>
+      <td><code>X</code>: environmental variables</td>
+    </tr>
+    <tr>
+      <td><code>lv.formula</code></td>
+      <td>Specifies fixed or random effect in the ordination</td>
+      <td><tt>lme4</tt>-type formula (e.g., <code> ~x1 + x2</code> or <code> ~(0+x1 + x2|1)</code></td>
+      <td><code>X</code>: covariates for the latent variables</td>
+    </tr>
+    <tr>
+      <td><code>row.eff</code></td>
+      <td>Includes fixed and random species-common effects</td>
+      <td><tt>glmmTMB</tt>type formula, alternatively "fixed" or "random"</td>
+      <td><code>studyDesign</code>: any categorical or continuous covariates</td>
+    </tr>
+    <tr>
+      <td><code>lvCor</code></td>
+      <td>For group-level unconstrained ordination or to introduce correlation structure among unconstrained latent variables</td>
+      <td><tt>lme4</tt>-type formula</td>
+      <td><code>studyDesign</code></td>
+    </tr>
+  </tbody>
+</table>
+
+
 ## Bonus
 
 ![](ord.gif)
 
-<!--
-# TODO
-- consider if we can demonstrate the mean-variance issue from the warton paper when we focus on ordination
-- present from a concurrent ordination perspective: one framework to rule them all
-  - unconstrained, constrained, and concurrent ordination
-  - group-level ordination
-  - fixed effects unconstrained ordination
-  - much, much, more.
-- grey meadow data from gauch
-- Consider Wed on ordination, Tues on JSDM, expanding 4th corner and Phylo effects; ordination as a more complex type of jsdm
-- remove ML methods
-- "partial ordination" might be more familiar to people that use vegan
+<!-- suggestions
+- table on the formula stuff
+- maybe poll in advance about background.
+- pace could be a bit slower; maybe add an extra day, and friday only 4 hours
+- The first day was good, but the second (Wednesday) could see separate presentations on diagnostics and comparison
+- and separate presentations for fourth-corner and phylo
+- phylo could focus separately on phylogenetic independent random effects, or first intercepts, then random slopes, and then correlation
+- that iterates random effects definitions on the first day, but also takes the idea of correlations between species slowly
+- day 2/most of Wednesday the first part was too high pace
+- add more smaller breaks
+- different dataset for unimodal model; one that has more optima in range of the LVs
+- swap cover data for something else; too many issues with convergence
 - table of sensible combinations for gllvm formulas!
-- consider small exercises that people can do by themselves
-- use menti on the first days to boost interaction or a notepad where people can anonmously write things they dont understand
-- num.lv.c fits concurrent ordination, num.lv unconstrained,  num.RR constrained
-- consider cutting the presentations up in 30 minute chunks
-- after each chunk or model a short exercise, and then a bit about ecological inference
-- ordination pres should start on monday, and then finish with "but we want to do multispecies modeling"
-- perhaps just start with gllvm on covariates without REs
-- second part with gllvm REs and interpretation thereof (so pres stays the same but we use gllvm instead of glmmtmb)
-
-- first ex; get people to use the swiss birds or the wetlands data to try vglm
-
-for friday:
-- different r package
-- hierarchical ordination
-- correlated LVs
-- hybrid/multiple ordinations in the same model
-- self-analysis or own data
 -->
