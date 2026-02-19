@@ -6,7 +6,7 @@
 *BCI*: in <tt>vegan</tt>.<br>
 *Beetles*: via [Niku et al. (2022)](https://onlinelibrary.wiley.com/doi/10.1002/env.2683). Originally by [Ribera et al. (2001)](https://esajournals.onlinelibrary.wiley.com/doi/10.1890/0012-9658%282001%29082%5B1112%3AEOLDAS%5D2.0.CO%3B2) <br>
 *Birds*: [from CANOCO 5 datasets](http://regent.prf.jcu.cz/maed2/) <br>
-*Coolen*: data originally from [Coolen et al. (2020)](https://academic.oup.com/icesjms/article/77/3/1250/5057660#205124878)
+*Coolen*: data originally from [Coolen et al. (2020)](https://academic.oup.com/icesjms/article/77/3/1250/5057660#205124878) <br>
 *Dune*: in <tt>vegan</tt>. Originally from Jongman et al. (1995) <br>
 *Eucalypt*: from [Pollock et al. (2015)](https://besjournals.onlinelibrary.wiley.com/doi/pdfdirect/10.1111/2041-210X.12180) <br>
 *Fungi*: originally by [Abrego et al. (2018)](https://doi.org/10.1111/1365-2745.13839) <br>
@@ -22,4 +22,4 @@
 *Tikus*: in <tt>mvabund</tt>.<br>
 *Wadden*: originally by [Dewenter et al. (2023)](https://onlinelibrary.wiley.com/doi/full/10.1002/ece3.10815). <br>
 *Wetlands*: by [Pina and Lougheed 2022](https://link.springer.com/article/10.1007/s13157-022-01647-2#Sec50). <br>
-*SwissBirds*: retrieved via [Zurell et al. (2019)](https://datadryad.org/dataset/doi:10.5061/dryad.k88v330), but originally by [Schmid et al. (1998)]. <br>
+*SwissBirds*: retrieved via [Zurell et al. (2019)](https://datadryad.org/dataset/doi:10.5061/dryad.k88v330), but originally by [Schmid et al. (1998)](). <br>
