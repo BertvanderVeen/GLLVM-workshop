@@ -1,7 +1,7 @@
 ---
-title: "Hiearchically modelling species responses"
+title: "Hierarchically modelling species responses"
 subtitle: "with functional traits and phylogeny"
-institute: "Department of Mathematical Sciences, NTNU"
+institute: "University of Bayreuth"
 author: "Bert van der Veen"
 output: 
   beamer_presentation:
@@ -206,13 +206,13 @@ outbox/.style = {rectangle, draw=red, densely dashed, rounded corners,
 
 For a long time, 4th-corner analysis was a recurring problem
 
-- Traditionally solved by ordination \footnotesize Legendre et al. 1997, Dolédec et al. 1996) \normalsize
+- Traditionally solved by ordination \footnotesize (Legendre et al. 1997, Dolédec et al. 1996) \normalsize
 - Environment-trait effects are tested with permutation \footnotesize (Dray and Legendre 2008, ter Braak et al. 2012) \normalsize
 - Statistical models can tackle the problem \footnotesize (Jamil et al. 2012, Brown et al. 2014) \normalsize
 - Dray et al. (2014) think the two complementary
 - ter Braak et al. (2018) introduce a doubly constrained ordination method
 - GLM-based methods have inflated error \footnotesize (ter Braak et al. 2017) \normalsize
-- Ovaskainen et al. (20177), Niku et al. (2021) combine with random effects (JSDM)
+- Ovaskainen et al. (2017), Niku et al. (2021) combine with random effects (JSDM)
 
 ## Often used trait-based analysis
 
@@ -228,7 +228,7 @@ For a long time, 4th-corner analysis was a recurring problem
 \begin{column}{0.4\textwidth}
 
 ```{r echo=F, fig.align="center", fig.cap="Quadriplot \\newline \\footnotesize \\textit{ter Braak et al. (2018)} \\normalsize", dpi=300, out.width="99%"}
-knitr:::include_graphics("quadriplot.jpg")
+knitr::include_graphics("quadriplot.jpg")
 ```
 \end{column}
 \end{columns}
@@ -369,7 +369,7 @@ Bxtr
 \footnotesize
 
 High plants with thin leaves occur more in flat areas, and small plants with thick leaves least. \newline
-High plants with thick leaves occur more in steep places, while small plants with thin leavs occur more in flat places.
+High plants with thick leaves occur more in steep places, while small plants with thin leaves occur more in flat places.
 
 \tiny (but there is only enough evidence for slope and slope:SLA) to conclude an effect; thicker leaves in steep places
 
@@ -416,7 +416,7 @@ axis(2, at = 1:ncol(Y), labels = colnames(Y), las = 1, cex.axis = 0.5)
 anova(model1, model2)
 ```
 
-There are a lot more "free" parameters in the VGLM. The second model is either "constrained", or alternative; we provide is (much) more information.
+There are a lot more "free" parameters in the VGLM. The second model is either "constrained", or alternative; we provide it (much) more information.
 
 # Hierarchical responses
 
@@ -524,7 +524,7 @@ Species can (stably) co-occur, if they segregate their resource use.
 
 ## Phylogenetic random effects
 
-- In the 4th corner model $\textbf{b}_j$ cab be structured by Phylogeny
+- In the 4th corner model $\textbf{b}_j$ can be structured by Phylogeny
 - More closely related species have similar responses to the environment
 
 \vspace*{2\baselineskip}
@@ -618,7 +618,7 @@ The latter results in negative correlations, but no corresponding model for trai
 \footnotesize
 
 ```{r, echo = FALSE}
-Y = read.csv("../data/fungiY.csv",)[,-1]
+Y = read.csv("../data/fungiY.csv")[,-1]
 X = read.csv("../data/fungiX.csv")[,-1]
 tree = ape::read.tree("../data/fungiTree.txt")
 ```
@@ -661,7 +661,7 @@ distMat <- distMat[species, species]
 
 \tiny
 
-```{r fita, cache = TRUE, message = FALSE, warnings=FALSE, results="hide"}
+```{r fita, cache = TRUE, message = FALSE, warning=FALSE, results="hide"}
 TMB::openmp(parallel::detectCores()-1, autopar = TRUE, DLL = "gllvm")
 model3 <- gllvm::gllvm(y = Y, X=X, family = "binomial", num.lv = 0, beta0com = TRUE,
       row.eff = ~(1 | REGION/RESERVE), studyDesign = X[,c("REGION","RESERVE")],
@@ -707,7 +707,7 @@ Of course, this might be covariate dependent (`colMat.rho.struct = "term"`)
 
 # Summary
 
-- JSDMs is a framework for analysing species co-occurrence data
+- JSDM is a framework for analysing species co-occurrence data
 - Focussed on prediction, but also suitable for inference
 - We can also fit models with non-binary data (e.g., counts or biomass)
 - The GLLVM framework is used here to implement JSDM efficiently

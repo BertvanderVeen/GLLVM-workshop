@@ -1,7 +1,7 @@
 ---
 title: "Incorporating species' correlations"
 subtitle: "with Joint Species Distribution Models"
-institute: "Department of Mathematical Sciences, NTNU"
+institute: "University of Bayreuth"
 author: "Bert van der Veen"
 output: 
   beamer_presentation:
@@ -57,14 +57,6 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 
-<!--# Still need something on how traits can induce co-occurrence; site-specific trait effect can be captured by the lvs-->
-
-# Outline 
-
-- JSDM
-- GLLVMs background
-- \texttt{gllvm} \texttt{R}-package
-
 ## Questions so far?
 
 \center
@@ -85,7 +77,7 @@ y_{ij} = \alpha + \textbf{x}_i^\top\symbf{\beta}
 - $\textbf{x}_i$ is usually a bioclimatic variable
 - Then you want to predict where a species may occur
 - Potentially based on future climate scenarios
-- Similar to the model from yesterday; it requires
+- Similar to the model from yesterday
 
 ## Co-occurrence of Swiss birds
 
@@ -349,7 +341,7 @@ Realized niche: the space occupied due to other species
 
 ![[Poggiato et al. (2021)](https://doi.org/10.1016/j.tree.2021.01.002)](niche.jpg){width=50%}
 
-Niches are shaped more than by environment and interactions; historical limitations, dispersal, and other processess prevent us from estimating the fundamental niche.
+Niches are shaped more than by environment and interactions; historical limitations, dispersal, and other processes prevent us from estimating the fundamental niche.
 
 \tikzset{
   mybox/.style={
@@ -443,7 +435,7 @@ The aim of JSDMs is to incorporate \textit{species associations}
 - Due to similar environmental preferences
 - Or because they have a similar history
 
-Either how, it results in correlations between responses
+Either way, it results in correlations between responses
 
 ## Joint Species Distribution Model (JSDM)
 
@@ -474,7 +466,7 @@ g\{\mathams{E}(\textbf{y}_i \vert \symbf{\epsilon}_i)\} = \symbf{\beta}_0 + \tex
 - $\tikzmarknode{n1}{\highlight{gray}{\text{The stuff from yesterday}}}$
 - $\tikzmarknode{n2}{\highlight{yellow}{\symbf{\epsilon}_i \sim \mathcal{N}(0,\symbf{\Sigma})}}$
 - $\symbf{\Sigma}$ is the matrix of \textit{species associations}
-- So we expect a positive values of species co-occur, and negative if they do not
+- So we expect positive values if species co-occur, and negative if they do not
 
 \begin{tikzpicture}[overlay,remember picture]
         \draw[->] (n1) -| (t3);
@@ -538,7 +530,7 @@ glmer(abundance ~ species + x:species + (0+species|sites), data = data)
 
 \pause
 
-\textcolor{red}{Which software is most suitable on your aim, data type, and model.}
+\textcolor{red}{Which software is most suitable depends on your aim, data type, and model.}
 
 # Example 1
 
@@ -687,7 +679,7 @@ knitr::include_graphics("MathCaution.png")
 - $\tikzmarknode{n1}{\highlight{gray}{\text{The stuff from yesterday}}}$
 - \alt<2>{$\tikzmarknode{n2}{\highlight{yellow}{\symbf{\epsilon}_i = \textbf{u}_i^\top\symbf{\Gamma}^\top \sim \mathcal{N}(0,\symbf{\Gamma}\symbf{\Gamma}^\top)}}$}{$\tikzmarknode{n2}{\highlight{yellow}{\symbf{\epsilon}_i \sim \mathcal{N}(0,\symbf{\Sigma})}}$}
 - $\symbf{\Sigma}$ is the matrix of \textit{species associations}
-- So we expect a positive values of species co-occur, and negative if they do not
+- So we expect positive values if species co-occur, and negative if they do not
 
 \begin{tikzpicture}[overlay,remember picture]
         \draw[->] (n1) -|  (t3);
@@ -940,20 +932,4 @@ The prediction to use depends on your ecological question.
 - There are different types of predictions possible, to target particular ecological questions
 
 
-<!-- Let's fit a new model to predict: -->
-
-<!-- \footnotesize -->
-
-<!-- ```{r mod7, cache = TRIE} -->
-<!-- # get some bioclim variables -->
-<!-- bio <- geodata::worldclim_country("che", "bio", path = tempdir(), res = 2.5) -->
-<!-- bio <- terra::project(bio, terra::crs(swiss)) -->
-<!-- bio <- terra::crop(bio, swiss, mask = TRUE) -->
-<!-- names(bio) <- paste0("bio", 1:19) -->
-<!-- Xnew <- terra::extract(bio, pts) -->
-<!-- model8 <- gllvm(Y, X = Xnew, formula = ~bio1 + bio4 + bio12, num.lv = 2, family = "binomial", sd.errors = FALSE, diag.iter = 0, optim.method = "L-BFGS-B") -->
-<!-- goodnessOfFit(Y, object = model8, measure = "RMSE") -->
-<!-- ``` -->
-
-<!-- ## Example: conditional prediction -->
 
