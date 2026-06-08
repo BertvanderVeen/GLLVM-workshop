@@ -1,6 +1,6 @@
 ---
 title: "Ordination with covariates"
-institute: "Department of Mathematical Sciences, NTNU"
+institute: "University of Bayreuth"
 author: "Bert van der Veen"
 output: 
   beamer_presentation:
@@ -56,16 +56,6 @@ knit_hooks$set(
 
 knitr::opts_chunk$set(echo = TRUE)
 ```
-
-# Outline
-
-- Studying gradients more deeply
-- Constrained ordination
-- Concurrent ordination
-
-\pause
-
-\textbf{Many bells and whistles to present}
 
 ## Questions so far?
 
@@ -329,7 +319,7 @@ The model is flexible, $\tikzmarknode{n1}{\textbf{u}_i}$ can be all kinds of thi
 
 \begin{center}
 \textcolor{red}{Essentially a linear mixed-effects model of the latent variable $\textbf{u}_i$}
-\scriptsize{(hiearchcally)}
+\scriptsize{(hierarchically)}
 \end{center}
 
 \pause 
@@ -409,7 +399,7 @@ gllvm::ordiplot(model3, type = "residual", rotate = FALSE)
 
 ## The bouncing beta problem
 
-When there is collinearity, and we resample the data, the covariate effect my change a lot (and thus the arrows in the ordination plot). Also if we change the model.
+When there is collinearity, and we resample the data, the covariate effect may change a lot (and thus the arrows in the ordination plot). Also if we change the model.
 
 - This is due to estimation instability
 - Due to identifiability problems (two covariate effects cannot be separated)

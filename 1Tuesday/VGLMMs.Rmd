@@ -1,9 +1,9 @@
 ---
 title: "Generalised Linear Mixed Models"
 subtitle: "for data of multiple species"
-institute: "Department of Mathematical Sciences, NTNU"
+institute: "University of Bayreuth"
 author: "Bert van der Veen"
-output: 
+output:
   beamer_presentation:
     toc: false
     slide_level: 2
@@ -11,7 +11,7 @@ output:
     includes:
       in_header: ../header.tex
 urlcolor: orange
-editor_options: 
+editor_options:
   chunk_output_type: console
 header-includes:
   - \usepackage{ulem}
@@ -50,30 +50,40 @@ knit_hooks$set(
   }
 )
 
+library(knitr)
+hook_output <- knit_hooks$get("output")
+knit_hooks$set(output = function(x, options) {
+  lines <- options$output.lines
+  if (is.null(lines)) {
+    return(hook_output(x, options))  # pass to default hook
+  }
+  x <- unlist(strsplit(x, "\n"))
+  more <- "..."
+  if (length(lines)==1) {        # first n lines
+    if (length(x) > lines) {
+      # truncate the output, but add ....
+      x <- c(head(x, lines), more)
+    }
+  } else {
+    x <- c(more, x[lines], more)
+  }
+  # paste these lines together
+  x <- paste(c(x, ""), collapse = "\n")
+  hook_output(x, options)
+})
+
 knitr::opts_chunk$set(echo = TRUE)
 library(gllvm)
 TMB::openmp(parallel::detectCores()-1, autopar = TRUE, DLL = "gllvm")
 ```
 
-# Outline
+# Background 
 
 ## Questions so far?
 
 \center
 
 ![](../questions.jpg){width=40%}
-
-## Outline
-
-- GLMs assume independence
-- Mixed-effects can relax that assumption
-- Also allow to incorporate correlation (between species)
-  - I.e., JSDM
-
-# Background
-
-- We can formulate the same models
-- But now, parameters come from a distribution
 
 ## Random-effects
 
@@ -84,6 +94,47 @@ When to include a random effect:
 - Nuisance
 - To induce correlation
 - Shrinkage
+
+## Why "random" effects?
+
+"Random" is in contrast to "fixed":
+
+\begin{itemize}
+\item Fixed effects are \textbf{maximised}: the likelihood is optimised directly over $\hat{\boldsymbol{\beta}}$
+\item Random effects are \textbf{marginalised}: $\textbf{u}$ is integrated out of the likelihood
+\end{itemize}
+
+\pause
+
+Random effects are stochastic: like the data, they come from a distribution $\mathbf{u} \sim \mathcal{N}(\mathbf{0}, \boldsymbol{\Sigma})$.  \textcolor{red}{A \textbf{mixed-effects model} contains both.}
+
+## Our new likelihood
+
+\begin{equation}
+\mathcal{L}(\textbf{y};\symbf{\Sigma}) = \displaystyle \int \prod \limits^n_i f(y_i \vert \textbf{u}) \mathcal{N}(\textbf{u};\symbf{\Sigma}) d\textbf{u}
+\end{equation}
+
+We approximate with:
+
+- Penalized quasi-likelihood methods
+- Adaptive GH quadrature
+- Laplace approximation (gllvm)
+- Variational approximations (gllvm)
+
+## Estimation and $\textbf{u}\vert \textbf{y}$
+
+The posterior can be skewed for non-Gaussian responses (right); mode-based methods (Laplace) and mean-based methods (Variational) then give different results:
+
+```{r, echo=F, eval=T, fig.show="hold", out.width="40%", fig.align="center"}
+library(ggplot2)
+
+ggplot(data.frame(x=0), aes(x=x))+stat_function(fun = dnorm, n = 101, args = list(mean = 0, sd = 1))+theme_classic()+geom_vline(aes(xintercept=0), col="red",lty="dashed")+theme(text = element_text(size=24))+xlim(c(-3,3))+xlab("Random effect")+ylab("Likelihood")
+
+ggplot(data.frame(x=0), aes(x=x))+stat_function(fun = dgamma, n = 101, args = list(shape = 2, scale = 2))+theme_classic()+geom_vline(aes(xintercept=2), col="red",lty="dashed")+geom_vline(aes(xintercept=4), col="red",lty="dashed")+theme(text = element_text(size=24))+xlim(c(0,14))+ xlab("Random effect")+ylab("Likelihood")
+#gamma mode is (k-1)*theta so here 2
+
+
+```
 
 ## The mixed-effects model
 
@@ -96,9 +147,9 @@ When to include a random effect:
  \tikz[baseline,remember picture]{
               \node[fill=blue!20,anchor=base] (t1)
               {$\text{E}(\textbf{y} \vert \textbf{u})$};
-            } 
+            }
             \}
-            = 
+            =
             \tikz[baseline,remember picture]{
             \only<2>{
               \node[fill=purple!20,anchor=base] (t3)
@@ -119,7 +170,7 @@ When to include a random effect:
               {$\beta$};
             }
             }
-            + 
+            +
             \tikz[baseline,remember picture]{
             \only<2>{
              \node[dotted,fill=gray!20,anchor=base] (t5)
@@ -129,7 +180,7 @@ When to include a random effect:
             \node[rectangle,draw,dotted,fill=gray!20,anchor=base] (t5)
               {$\textbf{Z}$};
             }
-            } 
+            }
              \tikz[baseline,remember picture]{
              \only<2>{
              \node[rectangle,draw,solid,fill=gray!20,anchor=base] (t6)
@@ -162,43 +213,6 @@ When to include a random effect:
         \path[->]<2> (n4) edge [bend right] (t6);
 \end{tikzpicture}
 
-## Likelihood formulation: independence
-
-\begin{equation}
-\mathcal{L}(\textbf{y};\Theta) = \prod \limits^n_i f(y_i;\Theta)
-\end{equation}
-
-We just multiply! (assumes independence)
-
-## Our new likelihood
-
-\begin{equation}
-\mathcal{L}(\textbf{y};\symbf{\Sigma}) = \displaystyle \int \prod \limits^n_i f(y_i \vert \textbf{u}) f(\textbf{u};\symbf{\Sigma}) d\textbf{u}
-\end{equation}
-
-- Fixed effects: what we had so far
-- Random effects: new, come from a distribution
-- Mixed effects model: contains both
-
-## Estimation
-- Penalized quasi-likelihood methods
-- Adaptive GH quadrature
-- Laplace approximation (gllvm)
-- Variational approximations (gllvm)
-- Et cetera \footnotesize (see e.g., Bolker et al. 2009) \normalsize
-
-\center Measure of central tendency: Mean or Mode
-
-```{r, echo=F, eval=T, fig.show="hold", out.width="40%", fig.align="center"}
-library(ggplot2)
-
-ggplot(data.frame(x=0), aes(x=x))+stat_function(fun = dnorm, n = 101, args = list(mean = 0, sd = 1))+theme_classic()+geom_vline(aes(xintercept=0), col="red",lty="dashed")+theme(text = element_text(size=24))+xlim(c(-3,3))+xlab("Random effect")+ylab("Likelihood")
-
-ggplot(data.frame(x=0), aes(x=x))+stat_function(fun = dgamma, n = 101, args = list(shape = 2, scale = 2))+theme_classic()+geom_vline(aes(xintercept=2), col="red",lty="dashed")+geom_vline(aes(xintercept=4), col="red",lty="dashed")+theme(text = element_text(size=24))+xlim(c(0,14))+ xlab("Random effect")+ylab("Likelihood")
-#gamma mode is (k-1)*theta so here 2
-
-
-```
 
 ## There are many \texttt{R}-packages
 
@@ -227,134 +241,116 @@ ggplot(data.frame(x=0), aes(x=x))+stat_function(fun = dgamma, n = 101, args = li
 \end{itemize}
 \columnsend
 
-\center 
 
-\textbf{\texttt{lme4} and \texttt{glmmTMB} are most commonly used.}
-
-## \texttt{lme4} \footnotesize (Bates et al. 2015) \normalsize
+## \texttt{glmmVA} \footnotesize (gllvm) \normalsize
 
 \begin{center}
 
 \begin{itemize}
-\item Correlation between random effects
-\item Sparse matrices
-\item Modern matrix algebra libraries
-\item Likelihood profiling
-\item Uses Laplace approximation
+\item Long-format interface for multispecies data
+\item Species-specific fixed and random effects
+\item \texttt{lme4}-style formula for random effects
+\item Uses variational approximation \footnotesize (same as \texttt{gllvm}) \normalsize
+\item Familiar syntax; bridges VGLMs to VGLMMs
 \end{itemize}
 
 \end{center}
 
-\textcolor{red}{Can be fussy about convergence \footnotesize (and cannot fit VGLMMs)} 
-
-## \texttt{glmmTMB} \footnotesize (Brooks et al. 2017) \normalsize
-
-\begin{center}
-
-\begin{itemize}
-\item Very versatiile
-\item Correlation between and within random effects (e.g., spatial)
-\item Uses state-of-the art AD software  \footnotesize (TMB, Kristensen et al. 2015) \normalsize 
-\item Many supported distributions
-\begin{itemize}
-  \item Tweedie
-  \item Conway-Maxwell-Poisson
-  \item Zero-inflation
-\end{itemize}
-\item Double hierarchical GLMs
-\item Uses Laplace approximation
-\end{itemize}
-
-\end{center}
-
-\textcolor{red}{Can fit VGLMMs and GLLVMs}
-
-## gllvm
-
-\begin{itemize}
-\item Geared to multispecies data
-\item Correlation between random effects and (some) within (spatial, temporal)
-\item Uses state-of-the art AD software  \footnotesize (TMB, Kristensen et al. 2015) \normalsize 
-\item Random-effects matrix if assumed the same for all species
-\item Many supported distributions (not as many as \texttt{glmmTMB} yet)
-\item Uses Variational (default), Laplace, or a combination (EVA)
-\end{itemize}
-
-\textcolor{red}{Least fussy in convergence}
-
-# VGLMM
-
-VGLMMs are GLMMs on steroids
-
-- We have extra dispersion parameters
-- There are many random effects
-- The covariance matrix is the same across responses
-- Things can get quite slow
-- Optimization tends to be (even) more sensitive
 
 ## Random effects in \texttt{gllvm}
 
 In the \texttt{gllvm} \texttt{R}-package there are three formula interfaces:
 
-- `row.eff` \only<2->{: for species-common fixed/random effects}
-- `formula` \only<3->{: for species-specific fixed/random effects}
-- `lv.formula` \only<4->{: for effects in the ordination}
+- `glmmVA` \only<2->{: for ordinary GLM(M)s}
+- `row.eff` \only<3->{: for species-common fixed/random effects}
+- `formula` \only<4->{: for species-specific fixed/random effects}
+- `lv.formula` \only<5->{: for effects in the ordination}
 
-\only<4->{For now, we focus on `formula`}
-
-## Random effects in \texttt{gllvm}
-
-Our model is of the form:
-
-\begin{equation}
-\eta_{ij} = \textbf{x}_i^\top\symbf{\beta}_j
-\end{equation}
-
-but now, $\symbf{\beta}_j$ is a random effect (intercept or slope). Specifically, $\symbf{\beta}_j \sim \mathcal{N}(\symbf{\mu}, \Sigma)$
-
-\pause 
-
-- $\symbf{\mu}$: the "common effect" from before
-- $\symbf{\Sigma}$: variation in species random effects
-
-## The "common effect" from before
-
-These are controlled with `row.eff`
-
-- `row.eff` is a mixed-effects formula
-- `row.eff = ~1` omits the common effects
-- `row.eff = "random` incorporates row-specific random effects
-- `row.eff = (1|group) + NO3` is a random effect and a fixed effect
-- Can also incorporate spatial or temporal random effects
-
-## Random effects \texttt{R} formula in \texttt{gllvm}
+## Random effects syntax in \texttt{gllvm::glmmVA}
 
 Now some examples of how it works in \texttt{R}. Generally:
 
-`formula = ~ (0 + continuous | categorical)` \newline \hfill \tiny (the 0 is to omit an intercept term) \normalsize
+`formula = ~ (0 + covariate | grouping)` \newline \hfill \tiny (the 0 is to omit an intercept term) \normalsize
 
 "Nested":
 
 `formula = ~ (1|a/b)` is the same as `formula = ~ (1|a:b + b)`
- 
+
 "Crossed":
 
 `y ~ (1|a) + (1|b)`
 
 Effects within the same brackets are assumed to be correlated
 
+## Random effects syntax: implications
+
+LHS determines the size of $\boldsymbol{\Sigma}$; RHS the number of draws per $1 \ldots n$ site ($p$ species).
+
+\vspace{0.5em}
+
+\begin{center}
+\footnotesize
+\begin{tabular}{lccc}
+\toprule
+Formula & $\boldsymbol{\Sigma}$ & REs per site & Total REs \\
+\midrule
+\texttt{(1|Site)} & $1 \times 1$ & $1$ & $n$ \\
+\texttt{(0+Species|Site)} & $p \times p$ & $p$ & $p \cdot n$ \\
+\texttt{(Species|Site)} & $(p+1) \times (p+1)$ & $p+1$ & $(p+1) \cdot n$ \\
+\bottomrule
+\end{tabular}
+\normalsize
+\end{center}
+
+
+# GLMMs for community ecology
+
+- Hierarchical study designs are easily accommodated
+- Quantify variation in species environmental responses
+- Rare species borrow strength from the community: shrinkage to the mean
+- Variance components summarize community-level structure: ICC and repeatability
+- Covariance components can summarize niche attributes
+- Correlation relaxes vital assumptions; species independence
+
+\centering
+
+\textcolor{red}{Some examples follow}
+
+```{r wetlands-long, echo=FALSE, message=FALSE, warning=FALSE}
+dat <- read.csv("../data/Wetlands.csv")
+y <- dat[,tail(1:ncol(dat),14)][,-14]
+X <- dat[,head(1:ncol(dat),-14)][,-1]
+X$Hydro <- as.factor(X$Hydro)
+X$Water_Type <- as.factor(X$Water_Type)
+X <- data.frame(sapply(X, function(x) if(is.numeric(x)) scale(x) else x, simplify=FALSE))
+long <- data.frame(y, X, Site=factor(1:nrow(y)))
+long <- reshape(long, varying=colnames(y), v.names="Count",
+                idvar="Site", timevar="Species", direction="long")
+long$Species <- factor(long$Species, labels=colnames(y))
+```
+
+## What VGLMMs add
+
+A VGLM estimates one fixed effect per species: it describes species' mean responses but cannot say how much they vary.
+
+\begin{itemize}
+\item \textbf{Variance components} ($\sigma^2$): how large is between-species variation in responses? Quantifies environmental filtering and niche variation.
+\item \textbf{Shrinkage}: rare species borrow strength from the community mean; estimates are regularized rather than fit freely to noise.
+\item \textbf{ICC and repeatability}: translate variance components into interpretable fractions. How much variation is explained by site? By species identity?
+\end{itemize}
+
 ## Variation in mean abundance
 
-$y_{ij} = \alpha_j, \qquad \text{with } \alpha_j \sim \mathcal{N}(\mu_\alpha,\sigma^2_\alpha)$
+$y_{ij} = \mu_\alpha + \alpha_j, \qquad \text{with } \alpha_j \sim \mathcal{N}(0,\sigma^2_\alpha)$
 
 ```{r, eval = FALSE}
-formula = ~ (1|1), beta0com = TRUE
+y ~ (1|Species)
 ```
 
 \columnsbegin
 \column{0.5\textwidth}
 
-```{r, echo = FALSE, fig.height = 7, cache = TRUE}
+```{r, echo = FALSE, fig.height = 9, cache = TRUE}
 mu <- rnorm(1)
 a <- rnorm(5, mu, sd = 0.5)
 
@@ -389,10 +385,10 @@ abline(h = mu, col = "gray", lty = "dashed", lwd = 3)
 
 ## Variation in environmental responses
 
-$y_{ij} = \mu_\alpha + x_i\beta_j, \qquad \text{with } \beta_j \sim \mathcal{N}(\mu_\beta,\sigma^2_\beta)$
+$y_{ij} = \mu_\alpha + x_i\mu_\beta + x_i\beta_j, \qquad \text{with } \beta_j \sim \mathcal{N}(0,\sigma^2_\beta)$
 
 ```{r, eval = FALSE}
-formula= ~ (0+covariate|1), beta0com = TRUE
+y ~ covariate + (0+covariate|Species)
 ```
 
 \columnsbegin
@@ -438,21 +434,21 @@ abline(a = mu, b = mub, col="grey", lty = "dashed", lwd = 3)
 
 ## \small  Variation of mean abundance and environmental responses
 
-$y_{ij} = \alpha_j + x_i\beta_j, \text{  with } \left( \begin{array}{c}
+$y_{ij} = \mu_\alpha + \alpha_j + x_i(\mu_\beta + \beta_j), \text{  with } \left( \begin{array}{c}
     \alpha_j \\
     \beta_j\\
-    \end{array} \right) \sim \mathcal{N}\biggl\{\begin{array}{c}
-    \mu_\alpha \\
-    \mu_\beta\\
+    \end{array} \right) \sim \mathcal{N}\biggl(\begin{array}{c}
+    0 \\
+    0\\
     \end{array},
-    \left( \begin{array}{cc}
+    \begin{array}{cc}
     \sigma^2_\alpha & 0 \\
     0 & \sigma^2_\beta \\
-    \end{array} \right)\biggr\}$
+    \end{array}\biggr)$
 
-\footnotesize 
+\footnotesize
 ```{r, eval = FALSE}
-formula= ~ (1|1)+(0+covariate|1), beta0com = TRUE
+y ~ covariate + (covariate||Species)
 ```
 \normalsize
 
@@ -488,23 +484,23 @@ abline(a = mu, b = mub, col="grey", lty = "dashed", lwd = 3)
 
 \columnsend
 
-## \small Correlation of mean abundance and enviromental responses
+## \small Correlation of mean abundance and environmental responses
 
-$y_{ij} = \alpha_j + x_i\beta_j, \small \text{  with } \left( \begin{array}{c}
+$y_{ij} = \mu_\alpha + \alpha_j + x_i(\mu_\beta + \beta_j), \small \left( \begin{array}{c}
     \alpha_j \\
     \beta_j\\
-    \end{array} \right) \sim \mathcal{N}\biggl\{\begin{array}{c}
-    \mu_\alpha \\
-    \mu_\beta\\
+    \end{array} \right) \sim \mathcal{N}\biggl(\begin{array}{c}
+    0 \\
+    0\\
     \end{array},
-    \left( \begin{array}{cc}
-    \sigma^2_\alpha & \sigma_\alpha\sigma_\beta \rho \\
-    \sigma_\beta \sigma_\alpha\rho & \sigma^2_\beta \\
-    \end{array} \right)\biggr\}$
+    \begin{array}{cc}
+    \sigma^2_\alpha &  \sigma_{\alpha,\beta} \\ %\sigma_\alpha\sigma_\beta \rho
+    \sigma_{\beta,\alpha} & \sigma^2_\beta \\
+    \end{array}\biggr)$
 
-\footnotesize 
+\footnotesize
 ```{r, eval = FALSE}
-formula= ~ (covariate|1), beta0com = TRUE
+y ~ covariate + (covariate|Species)
 ```
 \normalsize
 
@@ -552,37 +548,45 @@ abline(a = mu, b = mub, col="grey", lty = "dashed", lwd = 3)
 In typical mixed-effects models, the rule of thumb is 5 levels to estimate a variance \newline
 
 - Here, the species are our "levels" (so we usually have many)
-- Few species: not a good variance estimate
-- Fewer species: not a good correlation estimate
+- Few species: not a good correlation estimate
+- Fewer species: not a good variance estimate
+
+## Species correlation: from $\sigma^2$ to $\Sigma$
+
+$\beta_j \sim \mathcal{N}(\mu_\beta, \sigma^2)$ independently for each species $j$:
+
+\begin{itemize}
+\item All species share the same variance $\sigma^2$
+\item All species share the same mean $\mu_\beta$
+\item Species responses are independent draws from this distribution
+\end{itemize}
+
+\pause
+
+To model \textbf{correlation} between species responses, we need a full covariance matrix:
+
+\begin{equation}
+\symbf{\beta} \sim \mathcal{N}(\symbf{\mu}, \symbf{\Sigma}), \quad \symbf{\Sigma} \text{ is } p \times p
+\end{equation}
+
+\begin{itemize}
+\item $\symbf{\Sigma}$ allows $\text{cov}(\beta_j, \beta_k) \neq 0$: some species respond similarly
+\item Estimating $\symbf{\Sigma}$ requires $p(p+1)/2$ parameters: infeasible when $n \ll p$
+\end{itemize}
 
 # Example 1
 
 Remember: we have 14 species. Enough for variances, not for correlations.
 
-In the previous presentation, we saw that NO3 had no statistically significant effect. We thus expect **shrinkage** (inverse related to variance - so low variance) from a random effects model.
+In the previous presentation, we saw that NO3 had no statistically significant effect. A small estimated variance produces strong **shrinkage** toward the community mean: species-specific estimates are regularized rather than fit freely to noisy data.
 
 ## Wetland macroinvertebrates
 
-```{r, echo = FALSE}
-dat <- read.csv("../data/Wetlands.csv")
-# data2018<-data[data$Year=="2018",]
-# row.names(data2018) <- data2018$Site
-y <- dat[,tail(1:ncol(dat),14)]
-X <- dat[,head(1:ncol(dat),-14)][,-1]
-X$Hydro<-as.factor(X$Hydro)
-X$Water_Type<-as.factor(X$Water_Type)
-```
-\tiny
-
-Always standardise (center, scale) your covariates with numerical optimisation, and for comparison of effects.
-
-```{r X}
-X <- data.frame(sapply(X,function(x)if(is.numeric(x)){scale(x)}else{x}, simplify = FALSE))
-```
-
 ```{r glmm, warning=FALSE, cache = TRUE}
-model1 <- gllvm(y, X = X, formula = ~NO3, beta0com = TRUE, family = "negative.binomial", num.lv = 0)
-model2 <- gllvm(y, X = X, formula = ~(0+NO3|1), beta0com = TRUE, family = "negative.binomial", num.lv = 0)
+model1 <- glmmVA(Count~NO3:Species,
+          family = "negative.binomial", data = long)
+model2 <- glmmVA(Count~(0+NO3|Species), 
+          family = "negative.binomial", data = long)
 ```
 
 ## Wetlands: summary
@@ -591,49 +595,88 @@ model2 <- gllvm(y, X = X, formula = ~(0+NO3|1), beta0com = TRUE, family = "negat
 ```{r sum2, echo = FALSE}
 summary(model2)
 ```
+\normalsize
+\texttt{Random effects} gives $\hat{\sigma}^2 = 0.023$ for the NO3 slope, near-homogeneous species responses.
 
 ## Results: plots
 
 \columnsbegin
 \column{0.5\textwidth}
 
-\tiny
-
-```{r sum2b, fig.height = 9}
-plot(summary(model2))
+```{r sum2b, fig.height = 9, echo = FALSE}
+plot(summary(model1))
 ```
 
 \column{0.5\textwidth}
 
-\tiny
-
-```{r rcoef2, fig.height = 9}
-randomCoefplot(model2)
+```{r rcoef2, fig.height = 9, echo = FALSE}
+par(mar = c(4,7,2,1))
+REs <- ranef(model2, condVar = TRUE)
+UI <- REs+qnorm(1-0.05/2)*sqrt(attr(REs,"condVar")[[1]])
+LI <- REs-qnorm(1-0.05/2)*sqrt(attr(REs,"condVar")[[1]])
+plot(x = REs, y = 1:length(REs), xlab = "Estimate", xlim = range(UI,LI), type = "n", yaxt = "n", ylab = NA)
+col = rep("black", length(REs))
+col[sign(LI)!=sign(UI)] <- "gray"
+points(x = REs, y = 1:length(REs),pch = "x", col = col)
+segments(x0 = LI, x1 = UI, y0 = 1:length(REs), y1 = 1:length(REs), col = col)
+abline(v=0)
 ```
-
 
 \columnsend
 
-## Results: comparison
+Random slopes (right) are pulled toward zero relative to fixed effects (left): species with limited data borrow strength from the community mean rather than tracking noise.
+
+## \texttt{glmmVA}: random slope for all species
+
+$\beta_j \sim \mathcal{N}(\mu_\beta, \sigma^2_\beta), \quad j = 1, \ldots, p$
+
+\footnotesize
+
+```{r mva, cache=TRUE, warning=FALSE}
+model2b <- glmmVA(Count ~ NO3 + (0+NO3|Species),
+                  family = "negative.binomial", data = long)
+```
+
+```{r mva-sigma, echo=FALSE}
+model2b$params$sigma
+```
+
+\normalsize
+
+\begin{itemize}
+\item Each species gets its own NO3 effect
+\item All effects drawn from the same $\mathcal{N}(\mu_\beta, \sigma^2_\beta)$
+\item Small $\hat\sigma^2$: species NO3 responses are near-homogeneous; consistent with the non-significant fixed effect
+\item Same model as \texttt{formula = \textasciitilde(0+NO3|1)} in \texttt{gllvm}
+\end{itemize}
+
+## Average community NO3 response
 
 \columnsbegin
 \column{0.5\textwidth}
 
-
-```{r coef1, fig.height = 9, echo = FALSE}
-coefplot(model1, xlim = list(c(-10,10)))
+```{r psum2b, fig.height = 9, echo = FALSE}
+plot(summary(model2b))
 ```
 
 \column{0.5\textwidth}
 
-
-```{r rcoef1, fig.height = 9, echo = FALSE}
-randomCoefplot(model2, xlim = list(c(-10,10)))
+```{r resmod2b, fig.height = 9, echo = FALSE}
+par(mar = c(4,7,2,1))
+REs <- ranef(model2b, condVar = TRUE)
+UI <- REs+qnorm(1-0.05/2)*sqrt(attr(REs,"condVar")[[1]])
+LI <- REs-qnorm(1-0.05/2)*sqrt(attr(REs,"condVar")[[1]])
+plot(x = REs, y = 1:length(REs), xlab = "Estimate", xlim = range(UI,LI), type = "n", yaxt = "n", ylab = NA)
+col = rep("black", length(REs))
+col[sign(LI)!=sign(UI)] <- "gray"
+points(x = REs, y = 1:length(REs),pch = "x", col = col)
+segments(x0 = LI, x1 = UI, y0 = 1:length(REs), y1 = 1:length(REs), col = col)
+abline(v=0)
 ```
 
 \columnsend
 
-We see: the "extreme" results (CI but also estimates) have been reigned in.
+Community-mean NO3 effect (left); species-specific deviations from that mean (right). All deviations are near zero: species respond similarly to NO3, consistent with the small estimated $\hat{\sigma}^2$.
 
 ## Wetlands: two effects
 
@@ -642,122 +685,118 @@ Let's add more effects
 \footnotesize
 
 ```{r mod3, cache = TRUE}
-model3 <- gllvm(y, X = X, formula = ~(1|1)+(0+NO3|1)+(0+SO4|1),
-                beta0com = TRUE, family = "negative.binomial", num.lv = 0)
+model3 <- glmmVA(Count ~(1|Species)+(0+NO3|Species)+(0+SO4|Species),
+                family = "negative.binomial", data = long)
 ```
 
-## Intraclass correlation
+## Variance components
 
-Here, we did not incorporate correlation. But, we can represent similarity of species in terms of (partial) *intraclass* correlation
-
-\begin{equation}
-ICC_p = \frac{\text{\text{var}(SO4)}}{\text{var}(I+NO3+SO4)}
-\end{equation}
+What fraction of between-species variation is due to SO4?
 
 \footnotesize
 ```{r ic1}
-(sigma <- diag(model3$params$sigmaB))
-sigma[2]/sum(sigma)
+(sigma <- model3$params$sigma)
+sigma[grep("SO4", names(sigma))] / sum(sigma)
+```
+\normalsize
+
+SO4 is a stronger environmental filter than NO3: sulphate availability structures macroinvertebrate community composition.
+
+## Full species covariance: not yet
+
+\footnotesize
+
+```{r mva-full, eval=FALSE}
+# 13 species on LHS: need a 13x13 covariance from 14 sites
+m_full <- glmmVA(Count ~ NO3 + (0+Species|Site),
+                 data = long, family = "negative.binomial",
+                 sd.errors = FALSE)
 ```
 
+\normalsize
 
-<!-- ## Results: turnover -->
+$13 \times 13 \to 13*(13+1)/2 = 91$ variance parameters from $14*13 = 182$ observations: computationally expensive. \newline
 
-<!-- \columnsbegin -->
-<!-- \column{0.5\textwidth} -->
-<!-- \tiny -->
-
-<!-- ```{r} -->
-<!-- S <- model1$params$sigmaB -->
-<!-- x <- matrix(c(0, 1, 0,0,1,1), ncol = 2) -->
-<!-- corrplot::corrplot(cov2cor(t(x)%*%S%*%x)) -->
-<!-- ``` -->
-
-<!-- \normalsize -->
-
-<!-- \column{0.5\textwidth} -->
-
-<!-- \vspace{2\baselineskip} -->
-
-<!-- So, regardless of the water type, we expect to see the same community. \newline -->
-
-<!-- We'll give you something more interesting to look at in the exercise! -->
-
-<!-- \columnsend -->
-
-
-# Variation
-
-## What this all means ecologically
-
-We usually assume that an effect with higher variance, has a larger impact on the composition of a community.
+\textcolor{red}{Often doesn't converge, or is terribly slow.}
 
 \pause
 
-We can connect these statistical concepts to more familiar ecological concepts \footnotesize (pub. in prep.)
+\textcolor{red}{Ordination reduces residual species covariance to a few latent dimensions. More tomorrow.}
 
-- Alpha diversity: (average) within-site variation
-- Beta diversity: between-site variation
-- Gamma diversity: total variation
+# From \texttt{glmmVA} to \texttt{gllvm}
 
-And formulate our model accordingly.
+- \texttt{glmmVA} calls \texttt{gllvm} internally wrapping \texttt{row.eff}
+- The \texttt{formula} interface provides species-specific random effects in wide format (with mean effects)
+- VGLMMs: the covariance structure is shared across all species, but own dispersion
+- Potentially species-specific response types
 
-## Alpha diversity: within sites
+## \texttt{glmmVA} is a wrapper around \texttt{row.eff}
 
-$y_{ij} = \alpha_{j}+x_i\beta_j$
+\texttt{glmmVA} internally calls \texttt{gllvm(..., row.eff = formula, ...)}:
 
-\begin{equation}
-\begin{aligned}
-\text{var}(\alpha_i+x_i\beta_j) &= \mathbb{E}(\alpha^2)+\mathbb{E}(\beta_j^2) \\
-&= \sigma_\alpha^2 + x_i^2\sigma_\beta^2
-\end{aligned}
-\end{equation}
+\footnotesize
 
-## Gamma diversity: across sites
+```{r bridge, eval=FALSE}
+glmmVA(Count ~ Species + (0+NO3|Species), ...)
+# strips the response, passes the formula as row.eff:
+gllvm(y, studyDesign=X, row.eff=~(0+NO3|Species), ...)
+```
 
-$y_{ij} = \alpha_{ij}+x_i\beta_j$
+\normalsize
 
-\begin{equation}
-\begin{aligned}
-\text{var}_{ij}(\alpha_j+x_i\beta_j) &= \mathbb{E}_j\{\text{var}_i(\eta_{ij})\} + \text{var}_j\{\mathbb{E}_i(\eta_{ij})\} \\ &= \sigma^2_\alpha+\sigma^2_\beta\{\bar{x}+\text{var}(x_i)\}
-\end{aligned}
-\end{equation}
+\pause
 
-## Beta diversity: between sites
+\texttt{gllvm}'s \texttt{formula} interface is the wide-format equivalent:
 
-$y_{ij} = \alpha_{j}+x_i\beta_j$
+\footnotesize
 
-$\text{cov}(\alpha_j+x_i\beta_j,\alpha_j+x_k\beta_j) = \sigma^2_\alpha + x_kx_i\sigma^2_\beta$
+```{r bridge2, eval=FALSE}
+gllvm(y, X=X, formula=~(0+NO3|1), beta0com=TRUE, ...)
+```
 
-So, the change in beta diversity is:
+\normalsize
 
-$\text{cov}(\alpha_j+x_i\beta_j,\alpha_j+x_k\beta_j) - \text{cov}(\alpha_j+x_i\beta_j,\alpha_j+x_l\beta_j) = x_i(x_k - x_l)\sigma^2_\beta$
+\texttt{|Species} (long format) $\equiv$ \texttt{|1} (wide format): one $\mathcal{N}(\mu, \sigma^2)$ for all species. \newline
+\texttt{formula} gives species-specific $\beta_j$; \texttt{row.eff} gives site-level effects shared across species.
 
+## \texttt{gllvm}: the VGLMM engine
 
-## $R^2_{GLMM}$ and repeatability
+\texttt{glmmVA} covers the long-format case. \texttt{gllvm} is the underlying engine and exposes the full model directly.
 
-![](Nakagawa_Schielzeth.png)
+\begin{itemize}
+\item Wide-format (matrix) data: species $\times$ sites
+\item Species-specific distributions and dispersion parameters
+\item All three formula interfaces simultaneously
+\end{itemize}
 
-![](Repeatability.png)
+\footnotesize
+```{r, eval=FALSE}
+# Long format: single data frame
+glmmVA(Count ~ Species + (0+NO3|Species), data = long, ...)
+# Wide format: response matrix and covariate matrix, no data= argument
+gllvm(y, X = X, formula = ~(0+NO3|1), ...)
+```
+\normalsize
 
+\textcolor{red}{For VGLMMs we use \texttt{gllvm} directly from here on}
 
-## Correlation and diversity
+## \texttt{row.eff}: common effects in \texttt{gllvm}
 
-When calculating diversity, we need to take the correlation into consideration. For beta diversity:
+In \texttt{glmmVA}, the formula interface covers all random effects. In \texttt{gllvm}, \texttt{row.eff} is the interface to effects for the rows of the response matrix.
 
-\begin{equation}
-\text{cov}(\alpha_j + \textbf{x}_i^\top\symbf{\beta}_j, \alpha_j + \textbf{x}_k^\top\symbf{\beta}_j) = \textbf{x}_i^\top\Sigma\textbf{x}_k
-\end{equation}
+\pause
 
-The correlation parameters represent parallel change in the community on gradients
-
-and similarly for the change in beta diversity.
+- `row.eff` is a mixed-effects formula
+- `row.eff = ~1` omits the common effects
+- `row.eff = "random"` incorporates row-specific random effects
+- `row.eff = (1|group) + NO3` is a random effect and a fixed effect
+- Can also incorporate spatial or temporal random effects
 
 # Example 2
 
 For the Swiss birds, we have 56 species, so we can do a little more.
 
-In the previous presentation, we saw that the effect of slope was a statistically significant. Treated as random, it is not.
+In the previous presentation, we saw that the effect of slope was statistically significant. Treated as random, it is not.
 
 ```{r swiss, echo  =FALSE, message=FALSE, warning=FALSE}
 avi_dat <- read.csv('../data/SwissBirds.csv')
@@ -767,48 +806,31 @@ X <- X[rowSums(y)>0, ]
 y <- y[rowSums(y)>0,]
 X<-X[,-which(apply(X,2,anyNA))]
 X <- data.frame(sapply(X,function(x)if(is.numeric(x)){scale(x)}else{x}, simplify = FALSE))
-# data <- data.frame(y, X)
-# datalong <- reshape(data, 
-#                     varying = colnames(y), 
-#                     v.names = "occ", 
-#                     idvar = "Site", 
-#                     timevar = "Species", 
-#                     direction = "long")
-# 
-# datalong$Species <- factor(datalong$Species, 
-#                            labels = colnames(y))
-
-# invisible(TMB::openmp(7,autopar=TRUE, DLL = "gllvm"))
-# system.time(model4 <- gllvm(y, X = X, formula = ~(0+slp|1), family = "binomial", num.lv = 0))
-# options(glmmTMB.cores=7,autopar=TRUE)
-# system.time(model5 <- glmmTMB::glmmTMB(occ~0+Species + slp + (0+slp|Species), family=binomial(link='probit'), data = datalong))
 ```
 
-\scriptsize 
-
-## Example 2: correlated effects
+## Example 2: fitting correlated effects
 
 \footnotesize
 
 ```{r cor, cache = TRUE}
-model6 <- gllvm(y, X = X, formula = ~(slp+asp|1), 
-                family = "binomial", num.lv = 0, 
+model6 <- gllvm(y, X = X, formula = ~(bio_1+bio_12|1),
+                family = binomial(), num.lv = 0,
                 beta0com = TRUE)
 ```
 
-Perhaps, birds prefer flat areas in the sun.
+Birds that prefer warm conditions also prefer drier conditions?
 
-## Example 2: correlated effects
+## Example 2: summary
 
 \scriptsize
 
-```{r corsum, echo = FALSE}
+```{r corsum, echo = FALSE, output.lines = 14:30}
 summary(model6)
 ```
 
-Birds with a high(er) baseline occurrence tend to respond more positively to canopy cover.
+Indeed! Coupled climatic filtering in community assembly.
 
-## Example 2: correlated effects
+## Example 2: coefficient plot
 
 \footnotesize
 
@@ -818,195 +840,125 @@ randomCoefplot(model6)
 
 \vspace{-\baselineskip}
 
-## Intraclass correlation
+Sorting along temperature and precipitation: joint filtering.
 
-We can also do this with correlated effects. \hfill \footnotesize var(a+b) = var(a)+var(b) + 2cov(a+b)
+# ICC
 
-\scriptsize
+\begin{itemize}
+\item How much does community composition vary between sites relative to within sites?
+\item How consistent is a species' environmental response across contexts?
+\item Niche concepts, ICC and repeatability answer these questions from variance components directly.
+\end{itemize}
 
-\begin{equation}
-ICC_p = \frac{\text{\text{var}(slope)}}{\sum \Sigma_\beta}
-\end{equation}
+## ICC and repeatability in community ecology
 
-\pause
+Common in behavioral ecology and animal breeding.
 
-\footnotesize
+\begin{itemize}
+\item VGLMMs produce variance components naturally: ICC and repeatability give these an ecological interpretation
+\item Neither requires additional modelling: they follow directly from $\hat{\symbf{\Sigma}}$ and $\hat{\sigma}^2$
+\item Applicable wherever there is a grouping structure: sites, reserves, years
+\end{itemize}
 
-```{r ic2}
-Sigma <- model6$params$sigmaB
-sigma <- diag(model6$params$sigmaB)
-sigma[2]/sum(Sigma)
-```
+\centering
+![](repeatability.png){width=80%}
 
-The model predicts that 26% of the change in community composition is due to slope.
+## Intraclass correlation in community ecology
 
-Steeper areas have lower species richness (due to the negative average effect).
+\textbf{ICC}: correlation between two observations from the same class:
 
-## Predicting diversity
+\begin{equation*}
+\text{ICC}_p = \frac{\sigma^2_p}{\sigma^2_1 + \sigma^2_p + \cdots} = \text{corr}(u_{jp}, u_{kp})
+\end{equation*}
 
-As we have explicit equations for diversity, we can predict is using the model.
+\begin{itemize}
+\item \textbf{(1|Site)}: ICC$_\text{site}$: what fraction of variation is explained by site? High ICC: site effects dominate community composition; species co-respond to shared environmental conditions.
+\item \textbf{(1|Species)}: ICC$_\text{sp}$: what fraction is explained by species identity? High ICC: species differ strongly in mean abundance.
+\item Correlated random effects: total variance is $\text{sum}(\symbf{\Sigma})$, not the diagonal alone; ICC is still computable but the off-diagonal must be included
+\end{itemize}
 
-We take the parameter estimates for the variances, plug-in new values for the covariates (account for scaling), and put it on a map.
+## Repeatability in community ecology
 
-\footnotesize
+\textbf{Repeatability} is a special case of ICC where the denominator also includes the observation-level (residual) variance, the within-group variation attributable to sampling noise. For a binomial logit model (Nakagawa \& Schielzeth 2010):
 
-```{r maprep, echo = FALSE, warning=FALSE, message=FALSE}
-slp_scale <- scale(avi_dat$slp)
-asp_scale<-scale(avi_dat$asp)
-source("switzerland/slope.R")
-x = as.matrix(data.frame(1,(values(slope)-attr(slp_scale,"scaled:center"))/attr(slp_scale,"scaled:scale"),(values(aspect)-attr(asp_scale,"scaled:center"))/attr(asp_scale,"scaled:scale")))
-alpha = slope
-terra::values(alpha) = rowSums(x*(x%*%model6$params$sigmaB))
-```
+\begin{equation*}
+R = \frac{\sigma^2_\text{group}}{\sigma^2_\text{group} + \pi^2/3}
+\end{equation*}
 
-## Predicting alpha diversity
+\begin{itemize}
+\item \textbf{Site repeatability}: how similar is community composition on two plots from the same site? Answers: how strongly does site structure the community?
+\item \textbf{Species repeatability}: how consistent is a species' environmental response across contexts? Answers: how \textit{fixed} is a species' niche across sites?
+\end{itemize}
 
-```{r map, dpi = 300, echo = FALSE, cache = TRUE, warning=FALSE,message=FALSE}
-library(ggplot2)
-library(tidyr)
-library(dplyr)
-dat <- as.data.frame(alpha,xy=TRUE) %>%
-  pivot_longer(cols = -c(x, y), names_to = "layer", values_to = "value")
+# Example 3
 
-plt<-ggplot() +         # layer 3
-  theme_classic()+theme(axis.text=element_blank(), axis.ticks=element_blank())+scale_fill_viridis_c(name="Alpha diversity", na.value="white")+geom_raster(data=dat, aes(x=x, y=y, fill = value), interpolate=TRUE)+coord_fixed()+xlab(NULL)+ylab(NULL)+ggtitle("Bird alpha diversity (due to mean abundance, aspect and slope)")
-plt
-```
+59 wood-decaying fungal species on 1666 dead logs across 53 Scandinavian nature reserves (Abrego 2021). Dead wood volume, tree type, and reserve connectivity are key habitat drivers.
 
-## Alpha diversity
+Logs (plots) nested within reserves (sites): a natural hierarchical structure for ICC and repeatability.
 
-\footnotesize
-
-Alpha diversity can more flexibly be estimated as:
-
-```{r bigmodel1, cache = TRUE, echo = -1, eval = FALSE}
-# will take a while to run
-model7 <- gllvm(y, X = cbind(X, Site = factor(1:nrow(y))), 
-                formula = ~diag(1|Site)+(slp+asp|1), 
-                family = "binomial", num.lv = 0, 
-                beta0com = TRUE, Ab.struct = "diagonal",
-                optim.method = "L-BFGS-B", sd.errors = FALSE)
-```
-
-but note that site-specific variance is not equal to alpha diversity.
-
-## Gamma diversity
-
-\footnotesize
-
-Gamma diversity can be more flexibly estimated as:
-
-```{r bigmodel2, cache = TRUE, echo = -1, eval = FALSE}
-# will take a while to run
-model8 <- gllvm(y, X = cbind(X, Site = factor(1:nrow(y))), 
-                formula = ~(1|1) + diag(1|Site)+(slp+asp|1), 
-                family = "binomial", num.lv = 0, beta0com = TRUE, 
-                Ab.struct = "diagonal", optim.method = "L-BFGS-B",
-                sd.errors = FALSE)
-```
-
-but also nicely corresponds to `row.eff = ~(1|site)` perhaps
-
-
-## Philosophy
-
-So, our attitude becomes a little different. We can adjust the model, to formulate a certain measure of diversity.
-
-<!-- ## Turnover -->
-
-<!-- - Turnover (i.e., community change) is a represent by intraclass correlation \newline -->
-<!-- - Variances of slopes represent the pace of change in the community as we move through the landscape -->
-<!-- - Variances of intercepts represent the  -->
-
-<!-- # Species correlation -->
-
-<!-- If we fit a GLM to data of multiple species, we assume \textbf{independence} -->
-
-<!-- \textcolor{red}{But, observations of the same species form groups. Co-occurring species have  more similar observations than for other species} -->
-
-<!-- In GLMM language: \textbf{observations of species exhibit correlation} -->
-
-<!-- 1) Part of this can be explained by shared environmental responses -->
-<!-- 2) The other part remains -->
-
-<!-- ## Joint Species Distribution Model (JSDM) -->
-
-<!-- - For community data, we want to incorporate correlation of species -->
-<!-- - We have \textcolor{red}{Multivariate} data (in contrast to multivariable) -->
-<!--   - Each species is a response variable -->
-
-<!-- \begin{equation} -->
-<!-- g\{\mathams{E}(\textbf{y}_i \vert \symbf{\epsilon}_i)\} = \symbf{\beta}_0 + \textbf{x}_i^\top\symbf{\beta} + \symbf{\epsilon}_i -->
-<!-- \end{equation} -->
-
-<!-- - $\symbf{\epsilon}_i$ is our error -->
-<!-- - The error takes care of the left-over variation between species -->
-<!-- - so we assume $\symbf{\epsilon}_i \sim \mathcal{N}(\textbf{0}, \symbf{\Sigma})$ -->
-<!-- - $\symbf{\Sigma}$ is the matrix of species associations -->
-
-<!-- ## Spiders: JSADM -->
-
-<!-- \footnotesize -->
-
-<!-- ```{r, echo  =FALSE} -->
-<!-- data(spider,package="mvabund") -->
-<!-- data <- data.frame(spider$abund, spider$x, total = rowSums(spider$abund)) -->
-<!-- datalong <- reshape(data,  -->
-<!--                     varying = colnames(spider$abund),  -->
-<!--                     v.names = "Count",  -->
-<!--                     idvar = "Site",  -->
-<!--                     timevar = "Species",  -->
-<!--                     direction = "long") -->
-
-<!-- datalong$Species <- factor(datalong$Species,  -->
-<!--                            labels = colnames(spider$abund)) -->
-<!-- ``` -->
-<!-- ```{r, cache = TRUE} -->
-<!-- model <- lme4::glmer(Count ~ Species + Species*soil.dry + (0+Species|Site),  -->
-<!--                      family = "poisson", data = datalong) -->
-<!-- ``` -->
-
-<!-- \normalsize -->
-
-<!-- ## Species associations: strategies -->
-
-<!-- There few different methods for dealing with this:  -->
-
-<!-- 1) "Reduced rank" or "Factor analytic" approach (GLLVMs, tomorrow) -->
-<!-- 2) Penalize the matrix \footnotesize [Pichler and Hartig 2023](https://doi.org/10.1111/2041-210X.13687) -->
-<!-- 3) ? -->
-
-<!-- So, we do not usually (explicitly) fit JSDMs unconstrainedly -->
-
-# Summary
-
-Everything gets more difficult when we use mixed-effects models:
-
-- Wald-statistic and p-values no longer (really) apply
-- Hypothesis test does not always work well (on the boundary)
-- Model selection does not usually work well
-- Residuals are harder to define
-- We should test extra (random effect) assumptions
-
-\pause
-
-\textcolor{red}{And even more so for VGLMMs}
-
-## Take away tips
-
-\begin{center}
-\textcolor{red}{\href{https://en.wikipedia.org/wiki/No_free_lunch_theorem}{No free lunch in statistics}}
-\end{center}
-
-- There are loads of fun things to do with VGLMMs
-- Particularly for diversity calculations
-- Keep your model as simple as possible, but not simpler
-- Different packages have different benefits
-  - \texttt{gllvm} vs. \texttt{glmmTMB} vs. \texttt{lme4}
+## Wood-decaying fungi (Abrego 2021)
 
 \centering
 
-\textcolor{red}{There are many uses for random effects for community ecology}
+![](Abrego.png){width=80%}
+
+\flushleft \footnotesize Does community composition differ more \textit{within} reserves (log-level variation) or \textit{between} reserves (reserve-level variation)?
+
+## Fungi: model
+
+```{r fungi-data, echo=FALSE, message=FALSE, warning=FALSE}
+fy <- read.csv("../data/fungiY.csv", row.names=1)
+fX <- read.csv("../data/fungiX.csv", row.names=1)
+fy <- fy[, colMeans(fy > 0) > 0.05]
+```
+
+\footnotesize
+
+```{r fungi-rep, cache=TRUE, warning=FALSE}
+m_rep <- gllvm(fy, X=fX,
+               studyDesign=data.frame(RESERVE=fX$RESERVE),
+               formula=~(0+DBH.CM|1),
+               row.eff=~(1|RESERVE),
+               family="binomial", num.lv=0,
+               beta0com=FALSE)
+```
+
+\normalsize
+
+\begin{itemize}
+\item \texttt{formula}: species-specific random DBH slope ($\sigma^2_\text{DBH}$) --- species vary in how strongly they filter by log size
+\item \texttt{row.eff}: reserve-level random effect ($\sigma^2_\text{res}$) --- shared reserve context affects all species
+\end{itemize}
+
+## Species repeatability
+
+\footnotesize
+
+How consistent is a species' DBH (log diameter) response across reserves?
+
+```{r fungi-icc-sp}
+sigma_dbh <- as.numeric(m_rep$params$sigmaB)
+sigma_dbh / (sigma_dbh + pi^2/3)
+```
+
+\normalsize
+
+A high value would mean a species' sensitivity to log diameter is a stable niche attribute; a low value means it varies unpredictably across reserves.
+
+## Site repeatability
+
+\footnotesize
+
+How similar is community composition on two logs from the same reserve?
+
+```{r fungi-icc-site}
+sigma2_site <- m_rep$params$sigma["(Intercept)|RESERVE"]^2
+sigma2_site / (sigma2_site + pi^2/3)
+```
+
+\normalsize
+
+A high value means reserve identity is the dominant driver of community composition; a low value means within-reserve log-to-log variation dominates. Both use $\pi^2/3$ as the latent-scale residual for binomial data.
 
 # End
 

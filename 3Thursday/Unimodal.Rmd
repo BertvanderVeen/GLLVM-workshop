@@ -1,6 +1,6 @@
 ---
 title: "The unimodal response model"
-institute: "Department of Mathematical Sciences, NTNU"
+institute: "University of Bayreuth"
 author: "Bert van der Veen"
 output: 
   beamer_presentation:
@@ -80,7 +80,7 @@ There has been a lot of research on the unimodal response model in multivariate 
 
 \pause
 
-\textcolor{red}{\textbf{There has been no succesful ordination method that explicitly incorporates a response model}}
+\textcolor{red}{\textbf{There has been no successful ordination method that explicitly incorporates a response model}}
 
 ## The consensus
 
@@ -289,7 +289,7 @@ rug(c(seq(-2,-0.5,length.out=20),0,0.5,0.9,0.9), ticksize = 0.05, lwd = 2)
 ## Consequences
 
 - Unconstrained Quadratic Ordination (UQO) is a very complex method
-- The most complex ecological ordinaiton method to date
+- The most complex ecological ordination method to date
   - \footnotesize Still, it assumes a symmetric curve, which some deem an unrealistic ecological model
   - \footnotesize But, no one has done better
 - Unequal tolerances is not achievable for most datasets
@@ -550,7 +550,7 @@ Note: we are working on a new framework that might incorporate a different defin
   
 \pause
 
-If we misspecify the model as linear, we can miss the dominat gradient altogether.
+If we misspecify the model as linear, we can miss the dominant gradient altogether.
 
 # Example 2
 

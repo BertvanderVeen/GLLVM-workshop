@@ -1,0 +1,340 @@
+---
+title: "Extensions: spatial/temporal autocorrelation and mixed response types"
+institute: "University of Bayreuth"
+author: "Bert van der Veen"
+output:
+  beamer_presentation:
+    toc: false
+    slide_level: 2
+    latex_engine: lualatex
+    includes:
+      in_header: ../header.tex
+urlcolor: orange
+editor_options:
+  chunk_output_type: console
+header-includes:
+  - \usepackage{ulem}
+  - \usepackage{booktabs}
+  - \usepackage{longtable}
+  - \usepackage{bm}
+---
+
+```{r setup, include=FALSE}
+library(knitr)
+
+default_source_hook <- knit_hooks$get('source')
+default_output_hook <- knit_hooks$get('output')
+
+knit_hooks$set(
+  source = function(x, options) {
+    paste0(
+      "\n::: {.codebox data-latex=\"\"}\n\n",
+      default_source_hook(x, options),
+      "\n\n:::\n\n")
+  }
+)
+
+knit_hooks$set(
+  output = function(x, options) {
+    paste0(
+      "\n::: {.codebox data-latex=\"\"}\n\n",
+      default_output_hook(x, options),
+      "\n\n:::\n\n")
+  }
+)
+
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Questions so far?
+
+\center
+
+![](../questions.jpg){width=40%}
+
+# Part I: Spatial and temporal autocorrelation
+
+*Lecture content adapted from Pekka Korhonen (University of Jyväskylä)*
+
+## The residual covariance matrix
+
+A core output of JSDMs and GLLVMs is the residual covariance matrix:
+
+$$\Sigma \approx \Gamma \Gamma^\top$$
+
+which captures co-occurrence patterns among species after accounting for environmental effects.
+
+```{r, eval=FALSE}
+library(corrplot)
+Sigma <- getResidualCor(fit)
+corrplot(Sigma, type="lower", diag=FALSE, order="AOE", tl.srt=45)
+```
+
+## Example corrplot output
+
+\centering
+
+\includegraphics[width=0.9\linewidth]{figs/corrplot_rev_1.png}
+
+## What if correlations are not static?
+
+So far we have assumed species co-occurrence patterns are fixed across space and time. But what if they:
+
+- Change across seasons or years?
+- Vary between geographic regions?
+- Are structured by the nested study design (e.g., transects within sites)?
+
+\pause
+
+We can accommodate this by introducing \textbf{structured covariance} into the row effects ($\alpha_i$) or the latent variables ($\mathbf{u}_i$).
+
+## Why this matters ecologically
+
+Structured covariance allows us to:
+
+- Account for yearly variation in overall species abundances
+- Examine how community composition changes in space or time
+- Study underlying ecological processes more completely
+- Make predictions and infer long-term trends in community change
+
+## The baseline GLLVM
+
+$$g(\mu_{ij}) = \eta_{ij} = \alpha_i + \beta_{0j} + \mathbf{x}_i^\top \boldsymbol{\beta}_j + \mathbf{u}_i^\top \boldsymbol{\gamma}_j$$
+
+where:
+
+- $\alpha_i \sim \mathcal{N}(0, \sigma^2)$ — independent row effects
+- $\mathbf{u}_i \overset{\text{iid}}{\sim} \mathcal{N}(\mathbf{0}, \mathbf{I}_d)$ — independent LV scores
+
+\pause
+
+For correlated effects, instead:
+
+- $\boldsymbol{\alpha} \sim \mathcal{N}(\mathbf{0}, \Sigma_\alpha)$
+- $\mathbf{u}_{.q} \sim \mathcal{N}(\mathbf{0}, \Sigma_q)$, for $q = 1, \ldots, d$
+
+## Covariance structures in gllvm
+
+Arguments `row.eff` and `lvCor` accept structured covariance via:
+
+| Argument | Structure |
+|---|---|
+| `corAR1` | Order-1 autoregressive (temporal) |
+| `corExp` | Exponential kernel (spatial) |
+| `corMatern` | Matérn kernel (spatial) |
+| `corSym` | Compound symmetry (grouped) |
+
+`corWithin` specifies whether correlations are assumed between or within groups.
+
+## Compound symmetry
+
+Equal variances and equal covariances between any two units:
+
+$$\Sigma = \begin{bmatrix}
+\sigma^2 & \sigma_{cs} & \cdots & \sigma_{cs} \\
+\sigma_{cs} & \sigma^2 & \cdots & \sigma_{cs} \\
+\vdots & \vdots & \ddots & \vdots \\
+\sigma_{cs} & \sigma_{cs} & \cdots & \sigma^2
+\end{bmatrix}$$
+
+Useful within nested sampling designs where all units in a group are equally correlated.
+
+## Order-1 autoregressive (AR(1))
+
+Dependence on the immediate previous time point:
+
+$$\Sigma = \sigma^2 \begin{bmatrix}
+1 & \rho & \rho^2 & \cdots & \rho^{T-1} \\
+\rho & 1 & \rho & \cdots & \rho^{T-2} \\
+\vdots & \vdots & \vdots & \ddots & \vdots \\
+\rho^{T-1} & \rho^{T-2} & \rho^{T-3} & \cdots & 1
+\end{bmatrix}, \quad \rho \in (-1, 1)$$
+
+The parameter $\rho$ controls how quickly correlations decay over time.
+
+## Fitting a GLLVM with AR(1) latent variables
+
+Using kelp forest data (binary, presence-absence of species across years):
+
+```{r, eval=FALSE}
+fit_AR1 <- gllvm(y = Y, X = Xenv, family = "binomial",
+                 num.lv = 2,
+                 formula = ~logKELP + PERCENT_ROCKY,
+                 studyDesign = Xenv[, c("SITE","TRANSECT","YEAR")],
+                 row.eff = ~(1|SITE/TRANSECT),
+                 lvCor = ~corAR1(1|YEAR))
+
+fit_AR1$params$rho.lv  # estimated AR(1) correlation
+```
+
+A strong $\rho$ (near 1) indicates persistent community structure across years.
+
+## AR(1) residual covariance
+
+Without temporal structure, species covariance at any time is:
+$$\text{Cov}[i,j] = \boldsymbol{\gamma}_i^\top \boldsymbol{\gamma}_j$$
+
+With AR(1) LVs, covariance between species at different time points $t, t'$ is:
+$$\text{Cov}[i(t), j(t')] = \sum_{q=1}^d \gamma_{iq}\gamma_{jq} \cdot \text{Cov}[u_{.q}(t), u_{.q}(t')]$$
+
+## AR(1) latent variables: example output
+
+\centering
+
+\includegraphics[width=0.9\linewidth]{figs/AR1_LV2.png}
+
+## Yearly trends in species loadings
+
+\centering
+
+\includegraphics[width=0.9\linewidth]{figs/AR1lv_loadings_1.png}
+
+## Spatial covariance: correlation kernels
+
+For spatial data, the covariance between two locations $s$ and $s'$ depends on distance $d = \text{dist}(s, s')$:
+
+$$\Sigma[s, s'] = K(s, s')$$
+
+Two conditions for a valid kernel:
+
+1. Symmetry: $K(s, s') = K(s', s)$
+2. Positive semi-definiteness
+
+## Exponential covariance kernel
+
+A stationary kernel where covariance depends only on distance:
+
+$$K(d) = \sigma^2 \exp\!\left(-\frac{d}{\rho}\right)$$
+
+- $\sigma^2$: marginal variance
+- $\rho > 0$: range parameter — controls how quickly correlations decay with distance
+
+## Fitting a spatial model with corExp
+
+Coordinates must be supplied via `distLV`:
+
+```{r, eval=FALSE}
+fit_spatial <- gllvm(Y, Xenv,
+                     formula = ~treatment + productivity + type,
+                     num.lv = 2,
+                     studyDesign = Xenv[, c("site", "year")],
+                     lvCor = ~corExp(1|site),
+                     family = "betaH",
+                     distLV = sitexy,
+                     Lambda.struc = "UNN", NN = 10,
+                     row.eff = ~corAR1(1|year))
+```
+
+Can combine spatial LVs with temporal row effects.
+
+## Variance partitioning for spatial models
+
+\centering
+
+\includegraphics[width=0.85\linewidth]{figs/varPart.png}
+
+## Correlation vs. distance
+
+\centering
+
+\includegraphics[width=0.85\linewidth]{figs/corExp_dist.png}
+
+## Spatial species effects
+
+\centering
+
+\includegraphics[width=0.85\linewidth]{figs/spatial_effects.png}
+
+## corExp paths are not smooth
+
+\centering
+
+\includegraphics[width=0.85\linewidth]{figs/corExpGP.png}
+
+The exponential kernel produces continuous but not differentiable paths — appropriate for some applications but not others.
+
+## The Matérn family
+
+Strikes a balance between smoothness and flexibility:
+
+$$K(d) = \sigma^2 \frac{2^{1-\nu}}{\Gamma(\nu)}\left(\frac{\sqrt{2\nu}\, d}{\rho}\right)^\nu \mathcal{K}_\nu\!\left(\frac{\sqrt{2\nu}\, d}{\rho}\right)$$
+
+- $\nu > 0$ controls smoothness ($\nu = 1/2$ recovers `corExp`)
+- Dubbed the "most natural" covariance function for 2D spatial data
+- $\nu$ is often fixed (notoriously hard to estimate)
+
+## Matérn sample paths
+
+\centering
+
+\includegraphics[width=0.85\linewidth]{figs/GPmatern.png}
+
+Increasing $\nu$ produces smoother spatial fields.
+
+## Estimation challenges
+
+Spatial/temporal GLLVMs are computationally demanding:
+
+- Variational log-likelihood involves $\Sigma_q$ inverses — expensive for large $n$
+- Number of variational parameters increases to accommodate structured covariances
+- Both memory and computation increase substantially
+
+\pause
+
+\textbf{Sparse approximations} are required in practice.
+
+## Sparse approximations in gllvm
+
+Two options for the variational covariance matrix $A = LL^\top$:
+
+- `Lambda.struc = "bdNN"`: block-diagonal nearest neighbour sparse Cholesky
+- `Lambda.struc = "UNN"`: Kronecker product of unstructured with NN sparse Cholesky
+
+The number of neighbours `NN` controls the approximation quality — more neighbours is more accurate but slower.
+
+## Current state and future directions
+
+In `gllvm`:
+
+- NNGP (nearest-neighbour Gaussian process) for spatial models — in development
+- Gaussian process with inducing points — planned
+
+Related packages:
+
+- **HMSC**: community-level basis functions for spatial effects
+- **sdmTMB**: spatial GLMMs using SPDE approach
+
+# Part II: Mixed response types
+
+## Mixed response types *(placeholder)*
+
+In many community datasets, different species are recorded on different scales:
+
+- Some species: binary (presence-absence)
+- Other species: counts (abundances)
+- Other species: cover percentages or biomass
+
+\pause
+
+Multispecies models that accommodate \textbf{mixed response types} — different distributions for different species within a single joint model — are a newer development in `gllvm`.
+
+\pause
+
+\textcolor{red}{Content for this section will be developed separately. See the practical for available functionality.}
+
+## Summary
+
+**Spatial/temporal:**
+
+- Classical GLLVMs assume independent sampling units
+- Structured covariance (`corAR1`, `corExp`, `corMatern`, `corSym`) relaxes this
+- Applied via `row.eff` (community-level) or `lvCor` (latent variable-level)
+- Enables temporal trend analysis, spatial pattern detection, variance partitioning
+- Computationally demanding — sparse approximations are essential
+
+\vspace*{\baselineskip}
+
+**Mixed responses:**
+
+- An active development area in `gllvm`
+- Allows different distributions per species within a single model

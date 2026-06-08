@@ -1,7 +1,7 @@
 ---
 title: "Generalised Linear Models"
 subtitle: "for data of multiple species"
-institute: "Department of Mathematical Sciences, NTNU"
+institute: "University of Bayreuth"
 author: "Bert van der Veen"
 output: 
   beamer_presentation:
@@ -47,30 +47,7 @@ knit_hooks$set(
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-# Outline
-
-- Data collection and common data types
-- Generalised Linear Models background
-  - Assumption checking 
-- "Vector" models
-- GLMMs
-  - Estimating variation in species responses
-  - Estimating correlation in species responses
-- Model diagnostics and selection
-
-- Building on some material from [the GLM workshop](https://github.com/BertvanderVeen/GLM-workshop)
-
-## Statistical modeling
-
-Instead of a focus on data, we consider the \textit{data generating process}
-
-- We collect data
-- Decide on a research question for \textit{the population}
-- Learn about the variation in the data
-  - Which requires formulating a model
-- Work out distribution of the estimates
-  - And find the "best" estimate
-- Conclude if our answer is robust for the population
+# GLM background
 
 ## Sampling data
 
@@ -79,8 +56,6 @@ Instead of a focus on data, we consider the \textit{data generating process}
 A meadow in the Dutch dunes.  \newline
 
 How do we find the total number of species?
-
-# Sampling
 
 ## How many plant species are there in this meadow?
 
@@ -147,13 +122,6 @@ We resample the dune meadow, and find different numbers of species: 3, 3, 6, 2. 
 
 ## Sampling variation
 
-1) Each time we sample, we have a slightly different sample
-2) Each time we estimate a parameter, it might be slightly different due to this sampling variation
-3) The more data we sample, the better we can represent this variability of our estimate
-4) And the better we can represent the true richness/cover in the meadow
-
-## Sampling variation
-
 ```{r, cache = TRUE, echo = FALSE, fig.height = 5, fig.width = 5, out.width = "5%", fig.align = "center", fig.show = "hold"}
 for(i in 1:100){
 plot(0:10,0:10,xaxt="n",yaxt="n", type="n", xlab = NA, ylab=NA, xlim=c(0,10),ylim=c(0,10), yaxs="i", xaxs="i")
@@ -164,17 +132,6 @@ points(sample(seq(0,10,length.out=1000), 20, replace = TRUE),sample(seq(0,10,len
 ```
 
 If we sample many times, we have an accurate picture of the whole meadow (and variability in the number of species in a quadrat that we might find).
-
-## Sampling variation
-
-```{r, cache = TRUE, echo = FALSE, fig.height = 3.5, fig.width = 3.5, fig.align = "center"}
-plot(0:100,0:100,xaxt="n",yaxt="n", type="n", xlab = NA, ylab=NA, xlim=c(0,100),ylim=c(0,100), yaxs="i", xaxs="i")
-box(lwd=3)
-abline(h=seq(0,100,2), lwd = 0.5);abline(v=seq(0,100,2), lwd = 0.5)
-points(sample(seq(0,100,length.out=1000), 2000, replace = TRUE),sample(seq(0,100,length.out=1000), 2000, replace = TRUE), pch = 16, col = sample(1:6, 2000, replace = TRUE), cex = 0.5)
-```
-
-If we sample in one large (field-sized) quadrat we also have an accurate picture of the whole meadow (and variability in the number of species in a quadrat that we might find).
 
 ## Statistical modeling
 
@@ -188,68 +145,6 @@ Instead of a focus on data, we consider the \textit{data generating process}
   - And find the "best" estimate
 - Conclude if our answer is robust for the population (e.g., fields like this have more than 6 species)
 
-# Species-environment
-
-## The ecological process
-
-What do we know of the processes that generate these data?
-
-- Meta-community theory
-- Assembly processes (filtering)
-- Ecological gradient theory
-
-\pause
-
-Multispecies models provide a statistical connection to these ecological frameworks. We do not just use a fancy tool, we use a fancy tool because we believe it aligns well with our understanding of the ecological process.
-
-## The ecological process (2)
-
-![Figure 2 from Ovaskainen et al. (2017)](Ovaskainen_et_al_2017_2.png){height=60%}
-
-## On ecological communities
-
-The concept of an ecological community is of limited use. By definition:
-
-**An ecological community is a group or association of two or more species occupying the same geographical area at the same time**
-
-- We often think of ecological communities as groups
-- We can also think of a community as a continuum that changes along a gradient \tiny (Austun 1985) \normalsize
-- We can also think of them as the species in our data
-
-\pause
-
-Connecting model outputs to ecological concepts requires some deep thoughts
-
-## An ecological gradient
-
-![Whittaker (1956)](smoky_mountains_schematic_picture2.jpg)
-
-## Response curves
-
-![Whittaker (1956)](Whittaker_1956_quadratic.png)
-
-## Multispecies models
-
-There are multiple statistical frameworks for studying the processes:
-
-- Generalised Linear Models
-- Generalised Linear Mixed-effects Models
-- Generalised Additive Models \tiny (not covered here) \normalsize
-- Generalised Linear Latent Variable Models
-
-\pause
-
-Or ecologically:
-
-- Species distribution models
-- Joint Species Distribution Models
-- Ordination
-
-\pause
-
-and more. Each method has its limitations (assumptions). It is up to us to assess which are appropriate.
-
-# GLM background
 
 ## Generalised linear models (GLMs)
 
@@ -264,10 +159,12 @@ GLMs as a framework were introduced by Nelder and Wedderburn (1972) uniting many
 
 ## Generalised Linear Models
 
-For when the assumptions of linear regression fail.
+For when the assumptions of linear regression fail; GLMs extend the framework to address bounded responses and mean-dependent variance.
 
 \columnsbegin
 \column{0.5\textwidth}
+
+Assumptions of linear regression:
 
 \begin{itemize}
 \item Linearity (straight line)
@@ -276,49 +173,45 @@ For when the assumptions of linear regression fail.
 \item Normality (distribution of errors)
 \end{itemize}
 
-\column{0.5\textwidth}
+\pause
 
-![](normal.jpeg)
-\columnsend
-
-## Generalised linear models (2)
-
-\columnsbegin
-\column{0.5\textwidth}
-
-GLMs extend the linear model framework
-to address:
+GLMs address:
 
 \begin{itemize}
 \item Variance changes with the mean
 \item Range of \textbf{y} is bounded
 \end{itemize}
+
 \column{0.5\textwidth}
 
-![](data.jpg){width=80%}
+![](normal.jpeg)
 
 \columnsend
+
 \textbf{The basis of many statistical models in Biology}
 
 ## Components of a GLM
 
+\columnsbegin
+\column{0.5\textwidth}
+
 - \textcolor{red}{Systematic component: $\eta$}
-- \textcolor{blue}{Random component: data/distribution)}
-- The link function: connects these components
-  - This is not a data transformation
+- \textcolor{blue}{Random component: data/distribution}
+- The link function: connects these components (not a data transformation)
 - The variance function
 
-**But no explicit error term**
 
-## GLM Likelihood
+\column{0.5\textwidth}
 
-- We use MLE for estimation
-- With a distribution in the "exponential family" (for fixed $\phi$)
+**No explicit error term; parameters estimated by MLE from the exponential family likelihood:**
 
-All GLMs have the likelihood:
+
+\columnsend
+
+\pause
 
 \begin{equation}
-\mathcal{L}(y_i;\Theta) = \text{exp}\{\frac{y_i\textcolor{red}{\eta_i}-b(\textcolor{red}{\eta_i})}{a(\phi)} + c(y_i,\phi)\}
+\mathcal{L}(y_i;\Theta) = \text{exp}\left\{\frac{y_i\textcolor{red}{\eta_i}-b(\textcolor{red}{\eta_i})}{a(\phi)} + c(y_i,\phi)\right\}
 \end{equation}
 
 ## Generalised linear model
@@ -336,27 +229,28 @@ $\text{g}(\cdot)$ is the **link function**
 
 <!-- A smooth function with an inverse. -->
 
+\begin{columns}[onlytextwidth]
+\column{0.5\textwidth}
+\begin{itemize}
+\item Is a smooth/monotone function
+\item Has an inverse $g^{-1}(\cdot)$
+\item Restricts the scale
+\item $\text{g}(\cdot)$ can be e.g.
+\end{itemize}
+\column{0.5\textwidth}
 \columnsbegin
 \column{0.5\textwidth}
-- Is a smooth/monotone function
-- Has an inverse $g^{-1}(\cdot)$
-- Restricts the scale
-- $\text{g}(\cdot)$ can be e.g.
 
-\column{0.5\textwidth}
-
-```{r, echo = FALSE, out.height="90%"}
+```{r, echo = FALSE, out.height = "26%"}
+par(mar=c(2,0,4,0))
 x<-seq(binomial(link=logit)$linkinv(-5),binomial(link=logit)$linkinv(5),length.out=1000)
 plot(x=binomial()$linkfun(x),x, cex.main = 5, cex.lab = 5, ylim = c(0,1), xlim = c(-5,5), type = "l", xlab=NA, ylab=NA, xaxt="n", yaxt="n")
 abline(v=0,h=0,lty="dashed")
 text(-3,.8,"Logit", cex=5)
 ```
-\columnsend
-\vspace*{-1.840\baselineskip}
-\columnsbegin
-\column{0.5\textwidth}
 
-```{r, echo = FALSE, fig.align="center"}
+```{r, echo = FALSE, out.height = "26%"}
+par(mar=c(2,0,4,0))
 x<-seq(poisson(link=log)$linkinv(-5),poisson(link=log)$linkinv(5),length.out=1000)
 plot(x=poisson(link=log)$linkfun(x),x, cex.main = 5, xlim = c(-5,5), type = "l", xlab=NA, ylab=NA, xaxt="n", yaxt="n")
 abline(v= 0, h = 0, lty="dashed")
@@ -365,7 +259,13 @@ text(-3,125,"Log", cex=5)
 
 \column{0.5\textwidth}
 
-```{r, echo = FALSE, fig.align="center"}
+```{r, echo = FALSE, out.height = "26%"}
+par(mar=c(2,0,4,0))
+plot.new()
+```
+
+```{r, echo = FALSE, out.height = "26%"}
+par(mar=c(2,0,4,0))
 x<-seq(-5,5,length.out = 1000)
 plot(x=x, 1/x, cex.main = 5, xlim =  c(-5,5),type = "l", xlab=NA, ylab=NA, xaxt="n", yaxt="n")
 abline(v= 0, h = 0, lty="dashed")
@@ -373,71 +273,21 @@ text(-3,125,"Inverse", cex=5)
 ```
 
 \columnsend
+\end{columns}
 
 \vfill
 
 ## Variance function
 
-Perhaps most critically, variance changes with the mean:
+Variance changes with the mean:
 
 $$
-\text{var}(y_i;\mu_i,\phi) = \frac{\partial^2g(\eta_i)}{\partial\eta_i^2} a(\phi)
+\text{var}(y_i;\mu_i,\phi) = \frac{\partial^2 b(\eta_i)}{\partial\eta_i^2} a(\phi)
 $$
 
 - $\phi$: the dispersion parameter, constant over observations
   - Fixed for some response distributions
 - $a(\phi)$ is a function of the form $\phi/w_i$ \tiny (McCullagh and Nelder 1989)
-
-## Fitting GLMs
-
-Parameters in GLMs need to be estimated **iteratively**.
-
-- More difficult to fit
-- Requires numerical *optimisation*
-- Susceptible to local convergence
-
-\center
-
-\textcolor{red}{Holds for GLLVMs too}
-
-## Estimating GLMs
-
-```{r, echo = FALSE}
-set.seed(12345)
-p.orchid = 0.4
-n.picks = 100
-n.times <- 50
-y <- rbinom(n.times, size = n.picks, prob = p.orchid) # Collecting data
-```
-
-
-```{r, cache = TRUE, echo = FALSE, fig.height = 6}
-par(mfrow=c(2,2))
-ll <- function(p, n.picks, y)sum(dbinom(y, n.picks,p, log = TRUE))
-phat <- seq(0.35,0.45,length.out=1000)
-lls <- sapply(phat, ll, n.picks = n.picks, y = y)
-grad.dbinom=function(y, n.picks, prob) {
-    sum(y/prob - (n.picks - y)/(1-prob))
-}
-
-p = c(0.36,0.38,0.40, 0.42)
-for(i in p){
-b<-grad.dbinom(y,n.picks,i)
-a<--b*i+ll(i,n.picks,y)
-pphat <- phat[order(abs(phat-i),decreasing=FALSE)[1:200]]
-plot(lls, x = phat, type = "l", xlab=expression(hat(pi)), ylab="log-Likelihood", lty = "dashed",main = i)
-segments(x0=i,x1 = i, y0=ll(0.1,n.picks,y), y1= ll(i,n.picks,y), col="red", lty = "dotted")
-lines(x=pphat,y=a+b*pphat, col = "red")
-}
-```
-
-We need a good algorithm to find the maximum!
-
-## Why is this important?
-
-1) A basic (mathematical) understanding helps apply methods correctly.
-2) GLMMs/GLLVMs may not always converge to the best solution immediately.
-3) This can help to diagnose your model.
 
 ## Often used distributions in ecology
 
@@ -447,6 +297,46 @@ We need a good algorithm to find the maximum!
 - Gamma: (positive) continuous. Body size or biomass
 - Ordinal (cumulative link). Cover classes
 - Beta (logit link). Cover (note: not a GLM)
+
+## The binomial GLM
+
+\begin{equation}
+p(y_{ij} = 1) = p_{ij} = g^{-1}(\eta_{ij})
+\end{equation}
+
+\pause
+
+Link functions:
+
+\begin{itemize}
+\item Logit: $\log(\frac{\pi_i}{1-\pi_i})$ and inverse $\frac{\exp(\eta_i)}{1+\exp(\eta_i)}$ - \textit{the canonical link}
+\item Probit: $\Phi^{-1}(\pi_i)$ and inverse  $\Phi(\eta_i)$
+\item Complementary log-log: $\log(-\log(1-\pi_i)$ and inverse $1-\exp(-\exp(\eta_i))$
+\item \sout{Log-log}
+\end{itemize}
+
+- Logit is canonical and easier to interpret
+- Probit is sometimes easier mathematically than Logit
+- Complementary log-log for counts
+
+## The Poisson and negative binomial GLM
+
+For count responses, the canonical link is log:
+
+\begin{equation}
+\mathams{E}(y_{ij}) = \mu_{ij} = \exp(\eta_{ij})
+\end{equation}
+
+\pause
+
+\begin{itemize}
+\item Poisson: $\text{var}(y_{ij}) = \mu_{ij}$ \quad (equidispersion)
+\item Negative binomial: $\text{var}(y_{ij}) = \mu_{ij} + \mu_{ij}^2/\phi$ \quad (overdispersion)
+\end{itemize}
+
+\pause
+
+Count data in ecology is almost always overdispersed; the negative binomial is the default choice.
 
 # Example 1
 
@@ -489,27 +379,6 @@ knitr::kable(head(X), format="latex", booktabs = T)
 - Potential evapotranspiration (PET) from solar radiation
 - Moisture index, degree days above  zero
 - Vegetation structure from LiDAR
-
-## The binomial GLM
-
-\begin{equation}
-p(y_{ij} = 1) = p_{ij} = g^{-1}(\eta_{ij})
-\end{equation}
-
-## The binomial GLM
-
-Link functions:
-
-\begin{itemize}
-\item Logit: $\log(\frac{\pi_i}{1-\pi_i})$ and inverse $\frac{\exp(\eta_i)}{1+\exp(\eta_i)}$ - \textit{the canonical link}
-\item Probit: $\Phi^{-1}(\pi_i)$ and inverse  $\Phi(\eta_i)$
-\item Complementary log-log: $\log(-\log(1-\pi_i)$ and inverse $1-\exp(-\exp(\eta_i))$
-\item \sout{Log-log}
-\end{itemize}
-
-- Logit is canonical and easier to interpret
-- Probit is sometimes easier mathematically than Logit
-- Complementary log-log for counts
 
 ## Data format
 
@@ -578,9 +447,9 @@ Is there a community-level trend?
 
 \footnotesize
 ```{r}
-model1 <- glm(occ~slp, 
-             data = datalong, family="binomial")
-coef(model1)
+model1 <- gllvm::glmmVA(occ ~ slp,
+                        data = datalong, family = "binomial")
+coef(model1, "row.params.fixed")
 ```
 
 \normalsize
@@ -590,7 +459,7 @@ Here we assume that the intercept and slp effect are the same for all species
 ## Multispecies modeling
 
 1) Is the same effect for all species realistic?
-2) Is the same (average) probabiliity of occurrence for all species realistic?
+2) Is the same (average) probability of occurrence for all species realistic?
 
 \pause
 
@@ -602,8 +471,8 @@ Here we assume that the intercept and slp effect are the same for all species
 
 \small
 ```{r}
-model2 <- glm(occ~slp*Species, 
-             data = datalong, family="binomial")
+model2 <- gllvm::glmmVA(occ ~ slp*Species,
+                        data = datalong, family = binomial)
 ```
 
 \normalsize
@@ -612,12 +481,23 @@ model2 <- glm(occ~slp*Species,
 - One slp effect per species
 - But all are relative to the first species
 
-## Swiss birds: species-specific effects
+## Swiss birds: slopes without reference
 
 \small
-```{r}
-model3 <- glm(occ ~ 0 + Species + slp:Species, 
-             data = datalong, family="binomial")
+```{r, echo = -c(1, 3:12)}
+invisible(TMB::openmp(parallel::detectCores()-1))
+model3 <- gllvm::glmmVA(occ ~ Species + slp:Species,
+                        data = datalong, family = binomial)
+
+p <- length(unique(datalong$Species))
+ints <- c(model3$params$beta0,model3$params$row.params.fixed[1:(p-1)])
+slps <- model3$params$row.params.fixed[-c(1:(p-1))]
+covs <- model3$Hess$cov.mat.mod
+row.names(covs) <- colnames(covs) <- names(model3$TMBfn$par)
+X <- model.matrix(~dummy,data.frame(dummy=factor(1:56)))
+covsi <- covs[c(which(row.names(covs)%in%"b"), 1:(p-1)), c(which(row.names(covs)%in%"b"), 1:(p-1))]
+sei <- sqrt(rowSums(X*(X%*%covsi))) # se without contrast
+ses <- model3$sd$row.params.fixed[-c(1:(p-1))]
 ```
 
 \normalsize
@@ -626,35 +506,29 @@ The same model, but a bit easier to interpret
 
 - One intercept per species
 - One slp effect per species
-- Not relative to each other (prevents post-hoc processing of tests and CI)
+- Slopes are not relative to each other (prevents post-hoc processing of tests and CI)
 
 ## Swiss birds: results
 
 ```{r, echo = FALSE, fig.height=6}
-est = coef(model3)
-# asymptotic CI because the profiling from confint took too long (I am impatient)
-CI = data.frame(UI = est+sqrt(diag(vcov(model3)))*1.96, LI = est-sqrt(diag(vcov(model3)))*1.96)
-
-par(mfrow=c(1, 2))
-
-plot(est[1:ncol(y)], 1:ncol(y), main = "Intercept", xlim = c(range(CI[1:ncol(y),])), xlab = "Estimate", ylab = "Species")
-segments(CI$LI[1:ncol(y)], 1:ncol(y), CI$UI[1:ncol(y)], 1:ncol(y))
+par(mfrow=c(1,2))
+plot(y = 1:p, ints, main = "Intercept", xlab = "Estimate", ylab = "Species", xlim = c(-5.5,3.5))
 abline(v=0,lty="dashed")
+segments(y0 =  1:p, y1 = 1:p, x0 = ints + qnorm(1-0.975)*sei, x1 = ints + qnorm(0.975)*sei)
 
-plot(est[-c(1:ncol(y))], 1:ncol(y), main = "Slope", xlim = c(range(CI[-c(1:ncol(y)),])), xlab = "Estimate", yaxt = "n", ylab = NA)
-segments(CI$LI[-c(1:ncol(y))], 1:ncol(y), CI$UI[-c(1:ncol(y))], 1:ncol(y))
+plot(y = 1:p, slps, main = "Slope", xlab = "Estimate", ylab = "Species", xlim = c(-.5,.2))
 abline(v=0,lty="dashed")
+segments(y0 =  1:p, y1 = 1:p, x0 = slps + qnorm(1-0.975)*ses, x1 = slps + qnorm(0.975)*ses)
 ```
-
 
 ## Interpreting Binomial GLM coefficients  
   
 - Below one we are more likely to not observe the species \pause
-- The likelihood of observing the species 1 at flat ground is `exp(-0.663)/(1+exp(-0.663)) = 0.34` \footnotesize (given by the intercept) \normalsize \pause
+- The likelihood of observing the species 1 at flat ground is \texttt{exp(`r round(ints[1],3)`)/(1+exp(`r round(ints[1],3)`)) = `r round(plogis(ints[1]),2)`} \footnotesize (given by the intercept) \normalsize \pause
   - At 0.5 there is equal probability to observe and not \pause
-- Odds ratio for the first species at slp 0 is `exp(-0.663) = 0.52:1` \pause
+- Odds ratio for the first species at slp 0 is \texttt{exp(`r round(ints[1],3)`) = `r round(exp(ints[1]),2)`:1} \pause
   - We are two times more likely to not observe the species on flat ground, than to observe it \pause
-- This decreases by `exp(-0.17)` for every unit of slp `0.52*exp(-0.17) = 0.52*0.84 = 0.44` \pause
+- This decreases by \texttt{exp(`r round(slps[1],3)`)} for every unit of slp \texttt{`r round(exp(ints[1]),2)`*exp(`r round(slps[1],3)`) = `r round(exp(ints[1]),2)`*`r round(exp(slps[1]),2)` = `r round(exp(ints[1])*exp(slps[1]),2)`} \pause
 
 ## Contrasts
 
@@ -665,21 +539,23 @@ There are other "contrast" treatments in R than "dummy"
   - The coefficient of the last species is set to the negative sum
 
 \tiny
-  
+
 ```{r}
-(contr <- contr.sum(levels(datalong$Species)))
+contrasts(datalong$Species) <- contr.sum(levels(datalong$Species))
+contr.sum(4)
 ```
 
-\normalsize  
+\normalsize
 
 ## Swiss birds: \footnotesize species-specific responses with common effect \normalsize
 
 \tiny
 
-```{r}
-model4 <- glm(occ~0+slp+Species + slp:Species, data = datalong, family = "binomial", 
-              contrasts = list(Species = contr))
-coef(model4)[1]
+```{r, echo = -3}
+model4 <- gllvm::glmmVA(occ ~ slp + Species + slp:Species, data = datalong,
+                        family = binomial)
+
+coef(model4, "row.params.fixed")[1]
 ```
 
 \normalsize
@@ -689,8 +565,7 @@ coef(model4)[1]
 - One slp effect per species, relative to the common effect
 
 The benefit: the average effect gets a statistical test. \newline
-By design corresponds to the result from our previous model: `mean(coef(model3)[-c(1:ncol(y))]) = ` `r mean(coef(model3)[-c(1:ncol(y))])`
-
+By design corresponds to the result from our previous model: `mean(coef(model3, "row.params.fixed")[grep("slp", names(coef(model3, "row.params.fixed")))]) = ` `r mean(coef(model3, "row.params.fixed")[grep("slp", names(coef(model3, "row.params.fixed")))])`
 
 ## Swiss birds
 
@@ -700,15 +575,38 @@ The three models have the same number of parameters, but are just differently pa
 AIC(model2, model3, model4)
 ```
 
-## Swiss birds:  \footnotesize species-specific responses with common effect \normalsize
+## Swiss birds:  \footnotesize species-specific deviations to common effects \normalsize
 
-\tiny
 
-```{r, echo  =FALSE}
-summary(model4)
+\small
+```{r, echo = FALSE}
+p <- length(unique(datalong$Species))
+ints <- model4$params$row.params.fixed[2:p]
+slps <- model4$params$row.params.fixed[(p+1):(2*p-1)]
+X <- rbind(diag(55),-1) #make it 1 entry smaller; all relative to the avg. effect
+covs <- model4$Hess$cov.mat.mod
+colnames(covs) <- row.names(covs) <- names(model4$TMBfn$par)
+covsi <- covs[2:p,2:p]
+sei <- sqrt(rowSums(X*(X%*%covsi)))
+covss <- covs[(p+1):(2*p-1),(p+1):(2*p-1)]
+ses <- sqrt(rowSums(X*(X%*%covss)))
+ints2 <- X%*%ints
+slps2 <- X%*%slps
 ```
 
-\normalsize
+```{r, echo = FALSE, fig.height=6}
+par(mfrow=c(1,2))
+plot(y = 1:p, ints2, main = "Intercept", xlab = "Estimate", ylab = "Species", xlim = c(-5.5,3.5))
+abline(v=0,lty="dashed")
+segments(y0 =  1:p, y1 = 1:p, x0 = ints2 + qnorm(1-0.975)*sei, x1 = ints2 + qnorm(0.975)*sei)
+
+plot(y = 1:p, slps2, main = "Slope", xlab = "Estimate", ylab = "Species", xlim = c(-.5,.2))
+abline(v=0,lty="dashed")
+segments(y0 =  1:p, y1 = 1:p, x0 = slps2 + qnorm(1-0.975)*ses, x1 = slps2 + qnorm(0.975)*ses)
+```
+
+\footnotesize Average intercept: `r round(model4$params$beta0, 3)`, `r round(mean(ints2), 3)`. Average slope: `r round(model4$params$row.params.fixed[1], 3)`, `r round(mean(slps2), 3)`. \normalsize
+
 
 ## Swiss birds:  conclusions
 
@@ -717,8 +615,8 @@ Most species are more negatively affected than the average \newline
 Some species are positively affected by slope, but most negatively
 
 ```{r, echo = FALSE, fig.height = 4}
-hist(coef(model4)[1]+coef(model4)[-c(1:47)], xlab = "Estimate", main = "Slope", breaks= 40)
-abline(v=mean(coef(model4)[1]+coef(model4)[-c(1:47)]), col = "red", lty = "dashed")
+hist(slps2, xlab = "Estimate", main = "Slope", breaks = 20)
+abline(v = mean(slps2), col = "red", lty = "dashed")
 ```
 
 ## Interpreting the coefficients
@@ -728,26 +626,91 @@ Or with `predict`:
 \tiny
 
 ```{r}
-predict(model3, newdata = 
-          data.frame(Species = factor("Falco_subbuteo", levels = colnames(y)), slp = 1), 
+predict(model3, newX =
+          data.frame(Species = factor("Falco_subbuteo", levels = colnames(y)), slp = 1),
         type = "response")
 ```
+
+# Species-environment
+
+## The ecological process
+
+What do we know of the processes that generate these data?
+
+- Meta-community theory
+- Assembly processes (filtering)
+- Ecological gradient theory
+
+\pause
+
+Multispecies models provide a statistical connection to these ecological frameworks. We do not just use a fancy tool, we use a fancy tool because we believe it aligns well with our understanding of the ecological process.
+
+## The ecological process (2)
+
+![Figure 2 from Ovaskainen et al. (2017)](Ovaskainen_et_al_2017_2.png){height=60%}
+
+## On ecological communities
+
+The concept of an ecological community is of limited use. By definition:
+
+**An ecological community is a group or association of two or more species occupying the same geographical area at the same time**
+
+- We often think of ecological communities as groups
+- We can also think of a community as a continuum that changes along a gradient \tiny (Austin 1985) \normalsize
+- We can also think of them as the species in our data
+
+\pause
+
+In the models we fit: each species gets its own intercept (baseline occurrence or abundance) and its own slope (response to the gradient). The community is the collection of those species-level curves, estimated jointly.
+
+## An ecological gradient
+
+![Whittaker (1956)](smoky_mountains_schematic_picture2.jpg)
+
+## Response curves
+
+![Whittaker (1956)](Whittaker_1956_quadratic.png)
+
+## Estimating response curves
+
+Whittaker's curves show each species has its own optimum and tolerance along an environmental gradient. In a statistical model:
+
+\begin{itemize}
+\item The intercept captures the species' baseline abundance
+\item The slope captures how it responds to the gradient
+\item Together: one response curve per species
+\end{itemize}
+
+\pause
+
+When data are sufficient, we estimate these directly: one GLM per species, or a VGLM for all species simultaneously.
+
+\pause
+
+\textcolor{red}{When data are too sparse to estimate one curve per species, ordination is the tool of choice}: that is Day 3.
+
+The common effect is the Whittakerian community signal; species-specific deviations are the Gleasonian individual responses \tiny (see Roberts, 2020) \normalsize.
 
 # Example 2
 
 ## Example: macroinvertebrate counts in USA desert
 
-**Observation** process: count of macroinvertebrates in three "dips" \newline
-**Alternatively**: The proportion of a species in a dip \newline
-**Alternatively**: Was this species found in the dip
-
-## Example: macroinvertebrate counts in USA desert
-
 - Data by [Pina and Lougheed 2022](https://link.springer.com/article/10.1007/s13157-022-01647-2#Sec50)
-- Counts of 14 species, in 2018 and 2019, in 14 wetlands
-- Main goal: assess impacts of water quality on macroinvertebrates
+- Counts of 13 macroinvertebrate species in 14 wetlands
+- NO3 concentration as an ecological gradient: species sort along it via environmental filtering
+
+\columnsbegin
+\column{0.5\textwidth}
+
+**Observation** process: count of macroinvertebrates in three "dips" \newline
+**Alternatively**: proportion of a species in a dip \newline
+**Alternatively**: presence/absence
+
+\column{0.5\textwidth}
 
 ![Daniel J. Calderon slp.usace.army.mil](tresrios.jpeg)
+
+\columnsend
 
 ## The abundance data
 
@@ -836,9 +799,10 @@ Is there a common effect?
 \tiny
 
 ```{r, echo = -c(1,3)}
-contr <- contr.sum(levels(long$Species))
-model5 <- glm(Count~0+Species+NO3+NO3:Species, data = long, family = "poisson", contrasts = list(Species = contr))
-coef(model5)
+contrasts(long$Species) <- contr.sum(levels(long$Species))
+model5 <- gllvm::glmmVA(Count ~ Species + NO3 + NO3:Species, data = long,
+                        family = "poisson")
+coef(model5, "row.params.fixed")
 ```
 
 \normalsize
@@ -847,29 +811,77 @@ coef(model5)
 
 Count data is usually overdispersed; we might want to switch to a NB.
 
-```{r, echo = -c(1,3)}
-model6<- MASS::glm.nb(Count~0+Species+NO3+NO3:Species, data = long, contrasts = list(Species = contr))
-coef(model6)
+\tiny
+
+```{r, echo = -2}
+model6 <- gllvm::glmmVA(Count ~ Species + NO3 + NO3:Species, data = long,
+                        family = "negative.binomial")
+coef(model6, "row.params.fixed")
+```
+
+\normalsize
+
+## Wetlands: response curves
+
+```{r, echo = FALSE, fig.height = 5}
+p_w <- ncol(y)
+int_devs_w <- c(model6$params$row.params.fixed[1:(p_w-1)], -sum(model6$params$row.params.fixed[1:(p_w-1)]))
+no3_devs_w <- c(model6$params$row.params.fixed[(p_w+1):(2*p_w-1)], -sum(model6$params$row.params.fixed[(p_w+1):(2*p_w-1)]))
+int_all <- model6$params$beta0 + int_devs_w
+slp_all <- model6$params$row.params.fixed[p_w] + no3_devs_w
+NO3_seq <- seq(min(long$NO3), max(long$NO3), length.out = 50)
+par(mfrow = c(3, 5), mar = c(1.5, 1.5, 1.5, 0.5), oma = c(2, 2, 0, 0))
+for(i in 1:ncol(y)){
+  fitted_curve <- exp(int_all[i] + slp_all[i] * NO3_seq)
+  plot(NO3_seq, fitted_curve, type = "l", main = colnames(y)[i],
+       xlab = "", ylab = "", cex.main = 0.6)
+  points(long[long$Species == colnames(y)[i], "NO3"],
+         long[long$Species == colnames(y)[i], "Count"],
+         pch = 16, cex = 0.5, col = "grey")
+}
+mtext("NO3", side = 1, outer = TRUE, line = 0.5)
+mtext("Count", side = 2, outer = TRUE, line = 0.5)
 ```
 
 ## Wetlands:  conclusions
 
-We can conclude that NO3 has, **on average**, a negative effect on our species pool \footnotesize (but this is not statistically significant) \normalsize \newline
-Some species are more negatively affected than the average, some more positive \newline
-Some species are positively affected by NO3, but most negatively
+Species sort along the NO3 gradient consistent with environmental filtering: some tolerate high NO3, most are negatively affected. \newline
+The average effect of NO3 is negative \footnotesize (but not statistically significant at this sample size) \normalsize \newline
+Species-specific responses are heterogeneous: some are positively affected, most negatively
 
 ## Interpreting the coefficients
 
+```{r, echo = FALSE}
+ep_idx <- which(colnames(y) == "Ephemeroptera")
+ep_int <- int_all[ep_idx]
+common_no3 <- model6$params$row.params.fixed[p_w]
+ep_no3 <- no3_devs_w[ep_idx]
+```
+
 \tiny
 ```{r, echo = FALSE}
-coef(model6)
+coef(model6, "row.params.fixed")
 ```
 
 \footnotesize
 
 - Negative means a decrease in the response and positive increase
 - More specifically here: the coefficient is multiplicative decrease in `exp(intercept)` for a unit change in `NO3`
-- E.g., for "Ephemeroptera": `exp(2.243)*exp(-0.038+ 0.062) = 9.4*1.025`
+- E.g., for "Ephemeroptera": \texttt{exp(`r round(ep_int,3)`)*exp(`r round(common_no3,3)` + `r round(ep_no3,3)`) = `r round(exp(ep_int),2)`*`r round(exp(common_no3+ep_no3),3)`}
+
+## What NO3 does not explain
+
+Species responses to NO3 account for part of the community structure. But species also co-occur in structured ways that NO3 alone does not capture:
+
+\begin{itemize}
+\item Biotic interactions
+\item Unmeasured environmental gradients
+\item Shared evolutionary history
+\end{itemize}
+
+\pause
+
+Accounting for this residual co-occurrence structure requires modelling species associations directly. That is the topic of Days 2 and 3.
 
 # Vector GLMs
 
@@ -883,7 +895,7 @@ coef(model6)
 
 \begin{itemize}
 \item One GLM per species
-\item Each gets their own dispersion parameter
+\item Each species gets its own dispersion parameter $\phi_j$ (vs.\ a shared $\phi$)
 \item Slightly more flexible than what we have done so far
 \end{itemize}
 
@@ -906,20 +918,7 @@ A few software implementations exist:
 - The \texttt{glmmTMB} \texttt{R}-package
 - The \texttt{gllvm} \texttt{R}-package
 
-Clearly, we will use the last one. 
-
-## VGLM Likelihood
-
-- We use MLE for estimation
-- With a distribution in the "exponential family" (for fixed $\phi$)
-
-All GLMs have the likelihood:
-
-\begin{equation}
-\mathcal{L}(y_{ij};\Theta) = \text{exp}\{\frac{y_{ij}\textcolor{red}{\eta_{ij}}-b(\textcolor{red}{\eta_{ij}})}{a(\phi_j)} + c(y_{ij},\phi_j)\}
-\end{equation}
-
-So, now we have $\phi_j$ instead of $\phi$
+Clearly, we will use the last one.
 
 ## \texttt{gllvm}
 
@@ -941,7 +940,7 @@ model7 <- gllvm::gllvm(y, X = X, formula = ~NO3, family = "negative.binomial", n
 gllvm::coefplot(model7)
 ```
 
-\footnotesize (the "species" covariate is implicit) \normalsize
+\footnotesize (the dummy contrasting is now implicit) \normalsize
 
 ## Does NO3 improve the model?
 
@@ -1001,13 +1000,13 @@ data.frame(VGLM = c(coef(model7, "Xcoef")), GLM = c(coef(model9, "Xcoef")))
 data.frame("VGLM" = c(model7$sd$Xcoef), "GLM" = c(model9$sd$Xcoef))
 ```
 
-## Downsides
+## Downsides of VGLMs
 
-- VGLM defaults to 1 dispersion parameter per species
+- One dispersion parameter per species: more parameters to estimate
 - VGLM assumes 1 parameter per species per covariate
 - This does not tend to work very well for real (sparse) community data
 - VGLM assumes independence of species
-- Does not include random effects (pseudoreplication, autocorrelation)
+- Does not include random effects (pseudoreplication, autocorrelation); VGLMMs address this next
 
 ## Summary
 

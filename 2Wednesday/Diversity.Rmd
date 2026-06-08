@@ -1,0 +1,445 @@
+---
+title: "Predicting species richness and diversity"
+institute: "University of Bayreuth"
+author: "Bert van der Veen"
+output:
+  beamer_presentation:
+    toc: false
+    slide_level: 2
+    latex_engine: lualatex
+    includes:
+      in_header: ../header.tex
+urlcolor: orange
+editor_options:
+  chunk_output_type: console
+header-includes:
+  - \usepackage{ulem}
+  - \usepackage{booktabs}
+  - \usepackage{longtable}
+  - \tcbuselibrary{skins}
+  - \usepackage{tikz}
+  - \usetikzlibrary{calc, fit, positioning,arrows,shapes,tikzmark}
+  - \newcommand{\highlight}[2]{\colorbox{#1!17}{$\vphantom{(^\top}#2$}}
+---
+
+```{r setup, include=FALSE}
+library(knitr)
+
+default_source_hook <- knit_hooks$get('source')
+default_output_hook <- knit_hooks$get('output')
+
+knit_hooks$set(
+  source = function(x, options) {
+    paste0(
+      "\n::: {.codebox data-latex=\"\"}\n\n",
+      default_source_hook(x, options),
+      "\n\n:::\n\n")
+  }
+)
+
+knit_hooks$set(
+  output = function(x, options) {
+    paste0(
+      "\n::: {.codebox data-latex=\"\"}\n\n",
+      default_output_hook(x, options),
+      "\n\n:::\n\n")
+  }
+)
+
+knitr::opts_chunk$set(echo = TRUE)
+library(gllvm)
+TMB::openmp(parallel::detectCores()-1, autopar = TRUE, DLL = "gllvm")
+```
+
+## Questions so far?
+
+\center
+
+![](../questions.jpg){width=40%}
+
+# Species richness
+
+## What is species richness?
+
+Species richness $SR_i$ at site $i$ is the number of species recorded:
+
+\begin{equation}
+SR_i = \sum_{j=1}^{m} y_{ij} \quad \text{(for binary data)}
+\end{equation}
+
+\pause
+
+It is by far the most common biodiversity metric: simple to calculate, intuitive to interpret, and widely used in conservation and ecology.
+
+\pause
+
+But it is a \textbf{derived quantity} from multivariate community data. Analyzing it directly means throwing away most of the data.
+
+## The typical approach
+
+Species richness is most commonly analyzed with Poisson or negative-binomial regression:
+
+\begin{equation}
+\log(\mathbb{E}(SR_i)) = \alpha + \textbf{x}_i^\top \symbf{\beta}
+\end{equation}
+
+\pause
+
+This is simple and interpretable. But it rests on four assumptions that are routinely violated in practice:
+
+1. Species are \textbf{independent} of each other
+2. All species respond \textbf{identically} to the environment
+3. The species pool is \textbf{infinite} (unbounded distribution)
+4. The Poisson or NB distribution is \textbf{appropriate}
+
+## Assumption 1: species independence
+
+Species are not independent; they share environmental responses and co-occur non-randomly. \newline
+
+\pause
+
+If species co-occurrence is positive, species richness has \textbf{less} variance than a Poisson.
+If it is negative, species richness has \textbf{more} variance.
+
+\pause
+
+A Poisson or NB regression cannot accommodate this: it will over- or underestimate uncertainty.
+
+## Assumption 2: homogeneity of niches
+
+A Poisson or NB distribution for species richness is only justified if all species respond the same way to the environment, i.e., have the same niche.
+
+\pause
+
+This is ecologically unrealistic: species have different distributions, different ranges, different optimums.
+
+\pause
+
+The consequence: estimated coefficients from a Poisson richness regression are a \textbf{weighted average} over species, with weights depending on the distribution of species' niches, usually not the average ecologists want.
+
+## Assumption 3: an infinite species pool
+
+A Poisson distribution is unbounded above: it can predict species richness larger than the number of species in your data.
+
+\pause
+
+\textbf{This is ecologically impossible.} You cannot observe more species than those you have observed. \newline
+
+Negative-binomial adds overdispersion, making the problem worse. \newline
+
+\pause
+
+Species richness is inherently bounded by the number of species in the observed pool.
+
+## The correct distribution: Poisson-Binomial
+
+Under species independence and Bernoulli responses, species richness follows a \textbf{Poisson-Binomial distribution}:
+
+\begin{equation}
+SR_i \sim \mathcal{PB}(\pi_{i1}, \pi_{i2}, \ldots, \pi_{im})
+\end{equation}
+
+with
+
+\begin{equation}
+\mathbb{E}(SR_i) = \sum_{j=1}^{m} \pi_{ij}, \qquad \text{var}(SR_i) = \sum_{j=1}^{m} \pi_{ij}(1-\pi_{ij})
+\end{equation}
+
+\pause
+
+- Mean species richness = \textbf{sum of species' occurrence probabilities}
+- Variance is bounded (cannot exceed $m/4$)
+- This is the distribution that actually generates species richness data
+- The Binomial is a special case (all $\pi_{ij}$ equal)
+
+## Why univariate analysis fails
+
+\columnsbegin
+\column{0.5\textwidth}
+
+```{r pb_vs_pois, echo=FALSE, fig.height=5, message=FALSE}
+set.seed(42)
+m <- 30
+pi_j <- rbeta(m, 2, 5)
+pb_mean <- sum(pi_j)
+pb_var <- sum(pi_j*(1-pi_j))
+
+k <- 0:m
+# Poisson-Binomial via simulation
+pb_sim <- replicate(10000, sum(rbinom(m, 1, pi_j)))
+pois_pmf <- dpois(k, pb_mean)
+
+par(mar=c(4,4,2,1))
+hist(pb_sim, breaks=seq(-0.5, m+0.5, 1), freq=FALSE,
+     col="steelblue", border="white",
+     xlab="Species richness", ylab="Probability",
+     main="Poisson-Binomial vs. Poisson")
+lines(k, pois_pmf, col="firebrick", lwd=2, type="b", pch=16)
+legend("topright", legend=c("True (Poisson-Binomial)","Poisson approximation"),
+       fill=c("steelblue", NA), lty=c(NA,1), col=c(NA,"firebrick"),
+       pch=c(NA,16), border=c("steelblue",NA), bty="n")
+```
+
+\column{0.5\textwidth}
+
+\footnotesize
+
+The Poisson distribution:
+
+- Puts probability mass on impossible values (SR > m)
+- Has the wrong shape (underdispersed here)
+- Assumes the wrong mean-variance relationship
+
+The mismatch worsens when species niches are heterogeneous.
+
+\columnsend
+
+# Multispecies modeling
+
+## Species richness as an emergent property
+
+With a multispecies model, we do not model species richness directly. \newline
+
+Instead, we model each species' response to the environment, and \textbf{species richness emerges}:
+
+\begin{equation}
+\mathbb{E}(SR_i) = \sum_{j=1}^{m} \mathbb{E}\{I(y_{ij} > 0)\} = \sum_{j=1}^{m} p(y_{ij} > 0)
+\end{equation}
+
+\pause
+
+- No separate richness model needed
+- Works for any data type: binary, counts, cover, biomass, ordinal
+- Uncertainty propagates naturally from species-level predictions
+- Assumptions are explicit and testable
+
+## Works for any data type
+
+For any distribution with zero support, the probability of presence can be derived:
+
+| Data type | Distribution | $p(y_{ij} > 0)$ |
+|---|---|---|
+| Binary | Bernoulli | $\pi_{ij}$ |
+| Count | Poisson | $1 - e^{-\mu_{ij}}$ |
+| Count | Negative-binomial | $1 - (1 + \mu_{ij}/k)^{-k}$ |
+| Biomass | Tweedie | $1 - \text{Tw}(0; \mu_{ij}, \phi_j, p)$ |
+| Cover | Ordered beta | $1 - \rho_{ij}^0$ |
+
+\pause
+
+The only requirement: the distribution must assign probability mass at zero (i.e., encode absences).
+
+## Implementation in gllvm
+
+The `predictSR()` function computes:
+
+- Expected species richness $\hat{S}_i = \sum_j \hat{p}_{ij}$
+- Full Poisson-Binomial distribution at each site
+- Prediction intervals from the distribution
+- Optionally for new predictor values
+
+```{r, eval=FALSE}
+sr_pred <- predictSR(model, newX = newdata)
+sr_pred$expected     # expected species richness
+sr_pred$lower        # lower prediction bound
+sr_pred$upper        # upper prediction bound
+
+plot(sr_pred)        # predicted vs observed
+residuals(sr_pred)   # Dunn-Smyth residuals
+```
+
+## Rare species
+
+Species with very low occurrence probability $\pi_{ij} \ll 1$ contribute negligibly to:
+
+- Expected species richness ($\pi_{ij}$ is small)
+- Variance of species richness ($\pi_{ij}(1-\pi_{ij}) \approx \pi_{ij}$)
+
+\pause
+
+This means community data can often be trimmed of the rarest species without much effect on richness predictions, but with care: rare species may define range limits and gradient lengths.
+
+\pause
+
+\textcolor{red}{This does not mean rare species are unimportant ecologically: only their contribution to predicted richness is small.}
+
+# Diversity components
+
+## Alpha, beta, gamma diversity
+
+The variance parameters from multispecies models connect to ecological diversity concepts:
+
+\vspace*{\baselineskip}
+
+**Alpha diversity**: average within-site variation, determined by $\sigma^2_\alpha$ (intercept variance) and environmental gradients
+
+**Beta diversity**: between-site variation (how much sites differ in composition); driven by $\sigma^2_\beta$ (slope variance)
+
+**Gamma diversity**: total variation across all sites, the sum of alpha and beta contributions
+
+\vspace*{\baselineskip}
+
+\pause
+
+An effect with higher variance has a larger impact on community composition.
+
+## Connecting model parameters to diversity
+
+For a simple model $\eta_{ij} = \alpha_j + x_i\beta_j$ with $\alpha_j \sim \mathcal{N}(0,\sigma^2_\alpha)$ and $\beta_j \sim \mathcal{N}(0,\sigma^2_\beta)$:
+
+\vspace*{\baselineskip}
+
+**Alpha**: $\text{var}(\eta_{ij}) = \sigma^2_\alpha + x_i^2\sigma^2_\beta$
+
+\vspace*{\baselineskip}
+
+**Beta** (turnover between sites $i$ and $k$): $\text{cov}(\eta_{ij}, \eta_{kj}) = \sigma^2_\alpha + x_i x_k \sigma^2_\beta$
+
+\vspace*{\baselineskip}
+
+**Gamma**: $\text{var}_{ij}(\eta_{ij}) = \sigma^2_\alpha + \sigma^2_\beta\{\bar{x}^2 + \text{var}(x_i)\}$
+
+\pause
+
+The variance components directly measure the ecological importance of effects on diversity.
+
+## Variation explained by the ordination
+
+For a JSDM or ordination, the residual covariance matrix captures unexplained species associations:
+
+```{r, eval=FALSE}
+getResidualCov(model)$trace   # total residual variation
+```
+
+This is the analog of "variation explained" in classical ordination. \newline
+
+\pause
+
+We can also use $R^2_{GLMM}$ and repeatability \footnotesize (Nakagawa and Schielzeth 2013) \normalsize to partition variance across model components.
+
+# Example
+
+## Example: alpine plants in Switzerland
+
+```{r alpine_dat, echo=FALSE, message=FALSE}
+Y <- read.csv("../data/alpineY.csv")[,-1]
+X <- read.csv("../data/alpineX.csv")[,-1]
+X <- X[rowSums(Y) > 0, ]
+Y <- Y[rowSums(Y) > 0, ]
+X_scaled <- data.frame(scale(X[, sapply(X, is.numeric)]))
+```
+
+- Data by [D'Amen et al. (2018)](https://nsojournals.onlinelibrary.wiley.com/doi/epdf/10.1111/ecog.03148)
+- Occurrence of 175 species at 840 plots
+- Binary data (presence-absence)
+- Sampled on an elevation gradient in Switzerland
+
+```{r}
+dim(Y)
+```
+
+## Example: fit a JSDM
+
+\footnotesize
+
+```{r jsdm_fit, cache=TRUE, message=FALSE, warning=FALSE}
+model <- gllvm(y = Y, X = X_scaled,
+               formula = ~ELEV,
+               num.lv = 2,
+               family = "binomial",
+               sd.errors = FALSE,
+               optim.method = "L-BFGS-B")
+```
+
+We include elevation as a covariate and two latent variables to capture residual species associations.
+
+## Example: predict species richness
+
+\footnotesize
+
+```{r sr_pred, cache=TRUE}
+elev_seq <- seq(min(X_scaled$ELEV), max(X_scaled$ELEV), length.out = 100)
+newX <- data.frame(ELEV = elev_seq)
+
+sr <- predictSR(model, newX = newX)
+```
+
+```{r sr_plot, echo=FALSE, fig.height=4, message=FALSE}
+obs_sr <- rowSums(Y)
+par(mar=c(4,4,1,1))
+plot(X_scaled$ELEV, obs_sr, pch=16, col=rgb(0,0,0,0.3),
+     xlab="Elevation (scaled)", ylab="Species richness",
+     main=NA)
+lines(elev_seq, sr$expected$fit, col="firebrick", lwd=2)
+lines(elev_seq, sr$expected$lower, col="firebrick", lwd=1, lty=2)
+lines(elev_seq, sr$expected$upper, col="firebrick", lwd=1, lty=2)
+legend("topright", legend=c("Observed", "Predicted (± 95%)"),
+       pch=c(16,NA), lty=c(NA,1), col=c(rgb(0,0,0,0.3),"firebrick"), bty="n")
+```
+
+## Example: residual diagnostics
+
+\footnotesize
+
+```{r sr_resid, fig.height=4, message=FALSE}
+plot(residuals(sr))
+```
+
+Quantile residuals from the Poisson-Binomial distribution: if the model is well-calibrated for species richness, these should follow a standard normal distribution.
+
+## Predicting diversity
+
+As we have explicit equations for diversity, we can predict it using the model.
+
+We take the parameter estimates for the variances, plug-in new values for the covariates (account for scaling), and put it on a map.
+
+\footnotesize
+
+```{r maprep, echo = FALSE, warning=FALSE, message=FALSE}
+avi_dat <- read.csv('../data/SwissBirds.csv')
+y_birds <- as.matrix(avi_dat[,1:56])
+X_birds <- avi_dat[,-c(1:56)]
+X_birds <- X_birds[rowSums(y_birds)>0, ]
+y_birds <- y_birds[rowSums(y_birds)>0,]
+X_birds <- X_birds[,-which(apply(X_birds,2,anyNA))]
+X_birds <- data.frame(sapply(X_birds,function(x)if(is.numeric(x)){scale(x)}else{x}, simplify = FALSE))
+model_birds <- gllvm(y_birds, X = X_birds, formula = ~(slp+asp|1),
+                     family = "binomial", num.lv = 0, beta0com = TRUE)
+slp_scale <- scale(avi_dat$slp)
+asp_scale <- scale(avi_dat$asp)
+source("../1Tuesday/switzerland/slope.R")
+x = as.matrix(data.frame(1,(values(slope)-attr(slp_scale,"scaled:center"))/attr(slp_scale,"scaled:scale"),(values(aspect)-attr(asp_scale,"scaled:center"))/attr(asp_scale,"scaled:scale")))
+alpha = slope
+terra::values(alpha) = rowSums(x*(x%*%model_birds$params$sigmaB))
+```
+
+## Predicting alpha diversity
+
+```{r map, dpi = 300, echo = FALSE, cache = TRUE, warning=FALSE,message=FALSE}
+library(ggplot2)
+library(tidyr)
+library(dplyr)
+dat <- as.data.frame(alpha,xy=TRUE) %>%
+  pivot_longer(cols = -c(x, y), names_to = "layer", values_to = "value")
+
+plt<-ggplot() +
+  theme_classic()+theme(axis.text=element_blank(), axis.ticks=element_blank())+scale_fill_viridis_c(name="Alpha diversity", na.value="white")+geom_raster(data=dat, aes(x=x, y=y, fill = value), interpolate=TRUE)+coord_fixed()+xlab(NULL)+ylab(NULL)+ggtitle("Bird alpha diversity (due to mean abundance, aspect and slope)")
+plt
+```
+
+# Summary
+
+## Summary
+
+- Univariate species richness analyses make strong and routinely violated assumptions
+- The correct distribution for species richness is the Poisson-Binomial
+- Multispecies models provide a principled framework: richness emerges from species-level predictions
+- Works for any data type; uncertainty propagates naturally
+- Variance components connect to alpha, beta, and gamma diversity
+- `predictSR()` in gllvm implements this framework
+
+\pause
+
+\centering
+
+\textbf{Modelling species richness well requires modelling species well first.}

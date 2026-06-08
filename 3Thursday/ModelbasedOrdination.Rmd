@@ -1,6 +1,6 @@
 ---
 title: "Model-based ordination"
-institute: "Department of Mathematical Sciences, NTNU"
+institute: "University of Bayreuth"
 author: "Bert van der Veen"
 output: 
   beamer_presentation:
@@ -53,16 +53,6 @@ library(gllvm)
 
 # Outline
 
-What should I cover in this workshop
-
-- Model-based ordination
-- Rotation (and post-hoc rotation)
-- Variation explained
-- Adding row-effects (and what role it plays)
-- Conditioning
-- Compositional data (or rather, different data types)
-- Double-zero problem
-
 ## Questions so far?
 
 \center
@@ -71,7 +61,10 @@ What should I cover in this workshop
 
 ## Outline
 
-...
+- Model-based ordination
+- Rotation (and post-hoc rotation)
+- Conditioning
+- Constrained, concurrent, and unconstrained ordination
 
 # Ordination
 
@@ -153,7 +146,7 @@ There are different types of gradient, for example:
 
 \vspace*{\baselineskip}
 
-Which is synonymous to saying "we can probably get a way with fitting a JSDM using only a few dimensions"
+Which is synonymous to saying "we can probably get away with fitting a JSDM using only a few dimensions"
 
 ## Ordination as latent variable model
 
@@ -207,7 +200,7 @@ Traditionally the go-to method for multivariate analysis
 
 1) Easy to use
 2) Loads of resources
-3) Isuess, artefacts, usecases are all well known
+3) Issues, artefacts, use cases are all well known
 4) Permutation testing is readily available
 5) Variance partitioning is straightforward
 
@@ -593,7 +586,7 @@ gllvm::ordiplot(model2, s.colors =  colorRampPalette(c("mediumspringgreen", "blu
 \includegraphics{ModelbasedOrdination_files/figure-beamer/duneord3-1.png}
 \columnsend
 
-## Example: conditioning or "residual" ordiantion
+## Example: conditioning or "residual" ordination
 
 \footnotesize 
 
@@ -624,9 +617,49 @@ lines(A1new, preds[10,], col = "orange", lwd = 2, lty = 5)
 
 \footnotesize
 
-Note that ordering has introduces some shapes. \newline
+Note that ordering has introduced some shapes. \newline
 Class 1-5: black with linetype 1-5 \newline
 Class 6-10: orange with linetype 6-10 \newline
+
+# Variation explained
+
+## Variation explained
+
+In classical ordination, eigenvalues tell us the variation explained by each dimension. Latent variable models are not that straightforward.
+
+- We do not estimate all axes simultaneously
+- There is no variation explained on the response scale
+- We can do model selection (similar to "stress" in NMDS)
+- Or get a relative measure of variation explained
+
+\pause
+
+\textcolor{red}{Try not to confuse variation explained with ecological importance}
+
+## (Relative) variation explained
+
+\begin{equation}
+\begin{aligned}
+\symbf{\eta}_i &= \beta_{0j} + \sum \limits^d_{q=1} z_{iq}\symbf{\gamma}_q, \qquad \text{where } \textbf{z}_i \sim  \mathcal{N}(\textbf{0},\textbf{I})\\
+&= \beta_{0j} + \symbf{\epsilon}_i, \qquad \text{where } \symbf{\epsilon}_i \sim \mathcal{N}(\textbf{0}, \sum \limits^d_{q=1}\symbf{\gamma}_q\symbf{\gamma}_q^\top)
+\end{aligned}
+\end{equation}
+
+\pause
+
+```{r, eval = FALSE}
+var.q <- getResidualCov(model1)$var.q
+var.q; var.q/sum(var.q)
+```
+
+The trace of the residual covariance matrix gives total variation explained by the latent variables. Dividing by dimension gives the relative contribution of each axis.
+
+## Importance of dimensions
+
+- Importance does not equal variation explained
+- The first dimension may or may not be most ecologically relevant
+- Dimensions with less variation may still capture important gradients
+- Measure "importance" via model fit: `AIC`, `BIC`, or `goodnessOfFit`
 
 # Good ordinations
 
@@ -753,7 +786,7 @@ plot(NMDS_minchin$points, main="NMDS",col=rep(1:4,each=12),pch=rep(1:4,each=12),
 
 ## So what if I
 
-- Have an arh(-like) effect
+- Have an arch(-like) effect
 - Have non-linear responses (later today)
 - Have data type ...?
 - Have double-zeros
@@ -763,7 +796,7 @@ plot(NMDS_minchin$points, main="NMDS",col=rep(1:4,each=12),pch=rep(1:4,each=12),
 
 \centering
 
-\textcolor{red}{You adjust to model to acommodate whatever property of the data}
+\textcolor{red}{You adjust the model to accommodate whatever property of the data}
 
 ## Unconstrained or constrained
 
