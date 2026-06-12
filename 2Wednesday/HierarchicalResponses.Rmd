@@ -60,10 +60,12 @@ knit_hooks$set(
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-# Outline
+# Outline for today
 
-- Fourth corner
-- Phylogenetic
+- Fourth corner models 
+- Phylogenetic random effects
+- Joint Species Distribution Models
+- Diversity prediction
 
 ## Questions so far?
 
@@ -274,6 +276,7 @@ Traits can enter the model "just" as an interaction. That is the model we will e
 
 - $\symbf{\beta}_{x}$ are the species-common effects
 - $\textbf{B}_{x,tr}$ are the environment-trait interaction coefficients
+- You can use \texttt{glm}, \texttt{glmmVA}, or \texttt{gllvm} to fit this
 
 ## Example: alpine plants in France
 
@@ -306,7 +309,7 @@ First recall, the VGLM:
 
 ```{r}
 model1 <- gllvm(Y, X, 
-                formula = ~Aspect + Slope, 
+          formula = ~Aspect + Slope, 
                 family = "binomial", num.lv = 0)
 ```
 
@@ -318,7 +321,7 @@ The model with traits:
 
 ```{r}
 model2 <- gllvm(Y, X, TR, 
-                formula = ~Aspect + Slope + (Aspect + Slope) : (Height + SLA), 
+          formula = ~Aspect + Slope + (Aspect + Slope) : (Height + SLA), 
                 family = "binomial", num.lv = 0)
 ```
 
@@ -420,6 +423,8 @@ There are a lot more "free" parameters in the VGLM. The second model is either "
 
 # Hierarchical responses
 
+## Accounting for unmeasured traits
+
 The model we implemented has one main limitation: it assumes species environmental responses are fully determined by the traits. But what if we measure the wrong traits?
 
 We can extend our model to incorporate "residual" information on species responses:
@@ -433,13 +438,13 @@ this is much more similar to our VGLM, except that we now have a VGLMM with trai
 ##  The full fourth corner model
 
 \begin{equation}
-\eta_{ij} = \beta_{0j} + \textbf{x}_i^\top(\tikzmarknode{t1}{\symbf{\beta}_x} + \tikzmarknode{t2}{\textbf{b}_j}) + \tikzmarknode{t4}{\textbf{tr}_j^\top} \tikzmarknode{t3}{\textbf{B}_{xtr}}\textbf{x}_i
+\eta_{ij} = \beta_{0j} + \textbf{x}_i^\top(\tikzmarknode{t1}{\symbf{\beta}_x} + \tikzmarknode{t3}{\textbf{B}_{xtr}^\top}\tikzmarknode{t4}{\textbf{tr}_j} + \tikzmarknode{t2}{\textbf{b}_j})
 \end{equation}
 
 \begin{itemize}
 \item \tikzmarknode{n1}{$\symbf{\beta}_x$ community effects}
-\item \tikzmarknode{n2}{$\textbf{b}_j$ species-specific random effects}
 \item \tikzmarknode{n3}{ $\textbf{B}_{xtr}$ 4th-corner coefficients }
+\item \tikzmarknode{n2}{$\textbf{b}_j$ species-specific random effects}
 \end{itemize}
 
 \begin{tikzpicture}[overlay,remember picture]
@@ -463,16 +468,19 @@ Niku et al. (2021) concluded that omitting $\textbf{b}_j$ leads to inflated Type
 
 Main issue: the model becomes \textbf{much} slower.
 
+\pause
+
+ter Braak (2023) concluded that fourth-corner models are often overconfident in small samples
+
 # Community Phylogenetics
 
 ## Trait evolution
 
-Traits develop by selection: you develop a trait if it increases your survival
+Traits develop when they improve fitness.
 
-- Related species might be similar
-- Their evolutionary divergence is more recent, so less time to develop different characteristics
-- Also in the environment, we might expect to see them in the same place
-
+- Related species tend to be similar due to shared evolutionary history
+- Recent divergence means less time for trait differentiation
+- Therefore, they are often found in similar environments
 
 ```{r, echo = FALSE, fig.height = 4}
 plot(ape::rtree(12))
@@ -533,7 +541,7 @@ Species can (stably) co-occur, if they segregate their resource use.
 
 \tiny (and we can predict for species without data)
 
-## Phylogenetic random effects
+## Phylogenetic random effects: the model
 
 Here I will omit traits for brevity. So our model is:
 
@@ -549,7 +557,7 @@ Here I will omit traits for brevity. So our model is:
 \centering
 \textcolor{red}{\textbf{We assume that all our random effects are structured by the Phylogeny}}
 
-## Phylogenetic random effects
+## Pagel's $\lambda$
 
 \begin{equation}
 \symbf{\Sigma}_m = \textbf{C}\rho + (1-\rho)\textbf{I}
@@ -605,6 +613,19 @@ The latter results in negative correlations, but no corresponding model for trai
 \footnotesize
 * unless species do not stably co-occur and/or evolution is still ongoing
 
+## Fitting large phylogenetic models
+
+The full $m \times m$ covariance matrix $\textbf{C}$ is infeasible for large species sets.
+
+\texttt{gllvm} uses a \textbf{Nearest Neighbour Gaussian Process (NNGP)}: each species conditions on its $k$ nearest neighbours on the tree (\texttt{nn.colMat = 15}). Species must be ordered by their phylogenetic position for the approximation to be valid.
+
+\columnsbegin
+\column{0.55\textwidth}
+\includegraphics[height=0.5\textheight]{specord-1.png}
+\column{0.45\textwidth}
+\footnotesize \texttt{gllvm:::findOrder()} computes the ordering. See \href{https://jenniniku.github.io/gllvm/articles/vignette7.html}{vignette 7}.
+\columnsend
+
 # Example 2
 
 ## Example with fungi data (Abrego 2021)
@@ -629,18 +650,15 @@ tree = ape::read.tree("../data/fungiTree.txt")
 
 ![[image from Yang et al. 2021](https://nsojournals.onlinelibrary.wiley.com/doi/10.1111/oik.08388)](fungi.png){width=90%}
 
-## Example with fungi data
+## Example with fungi data: tree
 
-```{r tree, fig.align="center", fig.height = 6, echo = FALSE}
+\vspace{-2\baselineskip}
+
+```{r tree, fig.align="center", fig.height = 4, fig.width = 4, echo = FALSE}
 plot(tree, show.tip.label = FALSE)
 ```
 
-## Example with fungi data
-
-Phylogenetic models in \texttt{gllvm} use a **nearest neighbour approximation**
-
-- We need to set the number of tips to consider on the tree
-- [The ordering of species matters!](https://jenniniku.github.io/gllvm/articles/vignette7.html)
+## Example: ordering species for the NNGP
 
 ```{r}
 covMat <- ape::vcv(tree)
@@ -653,11 +671,7 @@ covMat <- covMat[species, species]
 distMat <- distMat[species, species]
 ```
 
-## Ordering species
-
-![See vignette 7](specord-1.png){height=70%}
-
-## Example with fungi data
+## Example with fungi data: model
 
 \tiny
 
@@ -673,7 +687,7 @@ model3 <- gllvm::gllvm(y = Y, X=X, family = "binomial", num.lv = 0, beta0com = T
 
 This takes a while to fit, but is really incredibly fast (it is just a complex model)
 
-## Example with fungi data
+## Example with fungi data: summary
 
 \supertiny
 
@@ -681,25 +695,25 @@ This takes a while to fit, but is really incredibly fast (it is just a complex m
 summary(model3)
 ```
 
-## Example with fungi data
+## Example with fungi data: correlated effects
 
 \footnotesize
 
-```{r, fig.height = 5, echo = FALSE}
+```{r, fig.height = 3, fig.width = 3.5, echo = FALSE, fig.align = "center"}
 corrplot::corrplot(cov2cor(model3$params$sigmaB), type = "lower", diag = FALSE)
 ```
 
 Correlated effects: trait syndromes. Fungi with a particular preference in temperature range, might also have a preference for less precipitation.
 
-## Example with fungi data
+## Example with fungi data: \texttt{phyloplot}
 
 \footnotesize
 
-```{r heatmap, cache = TRUE, fig.height = 5, dpi = 150, fig.align="center"}
+```{r heatmap, cache = TRUE, fig.height = 2.5, fig.width = 4, dpi = 150, fig.align="center"}
 gllvm::phyloplot(model3, tree)
 ```
 
-## Conclusion:
+## Conclusion
 
 There is phylogenetic structuring; species environmental responses are more similar if they have a shared evolutionary history. \newline
 
@@ -707,10 +721,10 @@ Of course, this might be covariate dependent (`colMat.rho.struct = "term"`)
 
 # Summary
 
-- JSDM is a framework for analysing species co-occurrence data
-- Focussed on prediction, but also suitable for inference
-- We can also fit models with non-binary data (e.g., counts or biomass)
-- The GLLVM framework is used here to implement JSDM efficiently
-- We can incorporate random effects
-- Phylogenetically structure species' effects
-- Above all: we incorporate correlation of species
+## Summary
+
+- Traits explain why species respond to the environment: the fourth corner
+- Residual random effects account for unmeasured traits: hierarchical responses
+- Phylogenetic random effects structure species responses by evolutionary history
+- Large phylogenetic models are made feasible by the NNGP approximation
+- All components combine in one model: traits, phylogeny, and environment

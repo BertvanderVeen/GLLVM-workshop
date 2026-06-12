@@ -1,5 +1,5 @@
 ---
-title: "Practical: fitting multispecies GLMMs"
+title: "Practical: fitting multispecies GLMMs and model diagnostics"
 subtitle: "Physalia workshop on GLLVMs"
 author: "Bert van der Veen"
 output: html_document
@@ -13,7 +13,7 @@ What we saw during the first practical, was that some of the species' effects we
 
 Anyway, this practical is about random effects. As covered in the lecture, random effects have multiple purposes. One of them, is to "get rid" of effects that we are not interested in or consider unmeasured. This can be the case for variation in community composition due to a nested design, or variation due to repeated measurements. Random effects can also help to induce "shrinkage"; we assume that the random effects have a mean effect (the common effect for all species), so that if we do not have enough information for any particular species to estimate its effect, it reverts to the average of the whole community.
 
-Rando effects also offer great opportunities in estimating the variability or correlation of effects. Incorporating correlation into the modeling of multiple species was one of the original motivations for the introduction of GLLVMs to ecology, which you will learn more about tomorrow. In this practical we will fit GLMMs to data of multiple species, and try to make sense of the results.
+Random effects also offer great opportunities in estimating the variability or correlation of effects. Incorporating correlation into the modeling of multiple species was one of the original motivations for the introduction of GLLVMs to ecology, which you will learn more about tomorrow. In this practical we will fit GLMMs to data of multiple species, and try to make sense of the results.
 
 # Data
 
@@ -144,7 +144,7 @@ so that alpha diversity increases with elevation.
 1. Fit models with random intercepts and/or random slopes, to get a hang on the syntax.
 2. Try both standardized and centered covariates, as well as uncentered and unscaled. How does it affect the model?
 3. Experiment with fixed and random effects in the model; which one performs better for your chosen dataset?
-4. Try to build an ecological understandingg of variance parameters in term of diversity and turnover
+4. Try to build an ecological understanding of variance parameters in terms of diversity and turnover
 
 # Part II
 
@@ -167,7 +167,7 @@ randomCoefplot(model8, which.Xcoef = c("scale.silt_clay.", "scale.elevation."))
 
 We do see similarity: some of species' responses to silt_clay are almost the same as for elevation. If the correlation parameter had been very close to 1, we would have been looking at two nearly duplicate plots.
 
-We can introduce a few more correlation parameters, by removing the `diag` around the island covariate, and then construct a corellogram for a quicker overview than that `summary` gives us. If you are using the same dataset as I am, the following model will take a bit to run, as there are 10 correlation parameters now included.
+We can introduce a few more correlation parameters, by removing the `diag` around the island covariate, and then construct a correlogram for a quicker overview than that `summary` gives us. If you are using the same dataset as I am, the following model will take a bit to run, as there are 10 correlation parameters now included.
 
 ```{r}
 model9 <- gllvm(Y, X, formula = ~(0+island+scale(silt_clay)+scale(elevation)|1), row.eff =~1, family = "negative.binomial", num.lv = 0)
@@ -182,7 +182,7 @@ colnames(cors) <- row.names(cors) <- colnames(model9$params$sigmaB)
 corrplot::corrplot(cors, type = "lower", diag = FALSE)
 ```
 
-The random effects for the three islands act on the mean abundance. So, we see that the mean abundance of species on the first island is negatively correlated with that at the other two islands. We also see that the correlation of the silt_clay and elevation effects is still positive, indicating that if species' abundance increases with the cohesiveness of the sediment, it also increases with elevation (and vice verse for decreases). This may be related to the distribution of the sediment, if we plot the silt_clay covariate against elevation, we see that silt is mostly found at lower elevations.
+The random effects for the three islands act on the mean abundance. So, we see that the mean abundance of species on the first island is negatively correlated with that at the other two islands. We also see that the correlation of the silt_clay and elevation effects is still positive, indicating that if species' abundance increases with the cohesiveness of the sediment, it also increases with elevation (and vice versa for decreases). This may be related to the distribution of the sediment, if we plot the silt_clay covariate against elevation, we see that silt is mostly found at lower elevations.
 
 ```{r}
 plot(X$silt_clay, X$elevation)
@@ -192,4 +192,50 @@ plot(X$silt_clay, X$elevation)
 
 1. Include correlation parameters between some (or all) of the terms in your model
 2. Can you make ecological sense of the estimates for the correlation parameters? 
-3. Try to change the model a bit and see if different fixed and random effects, or different independent random effect terms, have a large impact on the sign (minus or plus) of the correlation parameters (i.e., a little sensitivity analysis) 
+3. Try to change the model a bit and see if different fixed and random effects, or different independent random effect terms, have a large impact on the sign (minus or plus) of the correlation parameters (i.e., a little sensitivity analysis)
+
+# Technical caveats
+
+Mixed-effects models come with technical caveats that are easy to overlook. Work through the following for your fitted models.
+
+## Hypothesis testing
+
+The Wald statistics and $p$-values reported by `summary()` are approximate. For fixed effects, they rely on a normal approximation that works well for large samples but can be misleading when random effects are estimated with few levels.
+
+**Questions:**
+
+1. Fit a model with a fixed covariate. Note its Wald $p$-value. Does it change when you switch the effect from fixed to random? What does this tell you?
+2. Try testing $H_0: \sigma^2 = 0$ using a likelihood ratio test (`anova()` or comparing `AIC`). What happens? (Hint: look up the "boundary problem" for variance testing.)
+
+## Model selection
+
+`AIC()` works for comparing models fitted with the same method, but there is a subtlety: variance components should be compared with REML, fixed effects with ML.
+
+**Questions:**
+
+3. Compare two models that differ in a fixed effect using both ML and REML. Does the ranking change? Which should you trust?
+4. What is the penalty for including a random slope vs. a fixed slope in terms of AIC? Does AIC favour the simpler model when $\hat\sigma^2 \approx 0$?
+
+# Residual diagnostics
+
+Residual diagnostics for VGLMMs are covered in depth in the **Checking** lecture and its accompanying practical. For now, a quick sanity check using simulation-based residuals:
+
+```{r, eval=FALSE}
+library(DHARMa)
+# fit your model first, then:
+res <- simulateResiduals(model)
+plot(res)
+```
+
+For VGLMMs it is also worth checking the normality of estimated random effects:
+
+```{r, eval=FALSE}
+qqnorm(ranef(model))
+```
+
+**Questions:**
+
+5. Do your simulation-based residuals show any pattern? If so, what might be missing from the model?
+6. Do the estimated random effects look normally distributed? What would a long-tailed distribution suggest about the random effects assumption?
+
+See the Checking lecture for a full treatment of conditional vs. unconditional residuals and what violations look like.

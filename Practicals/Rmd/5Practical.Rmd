@@ -1,126 +1,131 @@
 ---
-title: "Joint Species Distribution Model"
+title: "Practical: predicting species richness and diversity"
+subtitle: "Physalia workshop on GLLVMs"
 author: "Bert van der Veen"
-date: "2025-04-07"
 output: html_document
 ---
 
 # Background
 
-In the this lecture today, we learned that JSDMs relax the assumption of species' independence. The phylogenetic model already did that, but often we do not have access to a phylogeny, or just want to estimate species' correlation in an unconstrained fashion (because there are other drivers of species co-occurrence patterns). The independence assumption is one of the more critical assumptions made in VGLMMs, that tends to be ecologically unrealistic. It is unrealistic, because we often expect species to co-occur, which results in positive correlation, or the opposite of co-occurring (avoidance) results in negative correlation between species.
+In this practical we use a multispecies model to predict species richness and explore diversity components. The key ideas from the lecture are:
 
-These (residual) correlations are difficult to interpret. They can be caused by species interactions, but are confounded with all other sources of unmeasured variation. For example, if we forget to include an important covariate in the model, this will also result in residual correlations. That makes that the associations are useful for improving prediction, but perhaps not so much for inference?
+- Species richness is an emergent property of the joint species model
+- The correct distribution for species richness is the Poisson-Binomial
+- `predictSR()` computes expected richness from any fitted `gllvm` model
+- Variance components connect to alpha, beta, and gamma diversity
 
-Technically, JSDMs are models for binary data: presence-absence of species. However, we can generalize this to other data types and responses by keeping the model on the link-scale the same. In the gllvm R-package it is pretty straightforward: we just change the `family` argument to (for example) "Poisson", "ordinal", "beta" or "tweedie" (see `?gllvm`). In this exercise, we will fit JSDMs to binary data.
+We will use the alpine plant dataset (binary presence-absence) which we have used before. The goal is to fit a multispecies model, predict species richness along the elevation gradient, and explore how model components relate to diversity.
 
-## Data
+```{r setup, message=FALSE}
+library(gllvm)
+TMB::openmp(parallel::detectCores()-1, autopar = TRUE, DLL = "gllvm")
 
-We will explore fitting JSDMs using a binary dataset of alpine plants by [D'Amen et al. (2018)](https://nsojournals.onlinelibrary.wiley.com/doi/epdf/10.1111/ecog.03148), used to demonstrate GLLVMs by [van der Veen et al. (2021)](https://besjournals.onlinelibrary.wiley.com/doi/full/10.1111/2041-210X.13595). The data is available in the github repository as "Alpine", in the data folder. You are of course free to use another dataset, but for this dataset we also have a raster file so we can predict with the model, and visualize that prediction.
-
-We can read it in as follows:
-
-```{r}
 Y <- read.csv("../../data/alpineY.csv")[,-1]
 X <- read.csv("../../data/alpineX.csv")[,-1]
-# You could choose to a-priori scale covariates before fitting the model.
-# X <- data.frame(lapply(X, function(x)if(is.numeric(x)){scale(x)}else{as.factor(x)}))
+X <- X[rowSums(Y) > 0, ]
+Y <- Y[rowSums(Y) > 0, ]
+X_sc <- data.frame(scale(X[, sapply(X, is.numeric)]))
 ```
 
-you might have to change the exact working directory to make it work for your exact set-up. A good place to start an analysis, is to first examine the data a bit more, so we know what we are dealing with:
+# Part I: Fitting a model and predicting richness
 
-```{r}
-dim(Y)
-colnames(X)
+We start by fitting a model with elevation as a covariate and two latent variables.
+
+```{r fit, cache=TRUE, message=FALSE}
+model1 <- gllvm(y = Y, X = X_sc,
+                formula = ~ELEV,
+                num.lv = 2,
+                family = "binomial",
+                sd.errors = FALSE,
+                optim.method = "L-BFGS-B")
 ```
 
-The data are presence-absences, and there are 912 rows and 175 columns (species). Because we will be modelling species-specific responses, we should ensure that each species has enough observations in the data. There area large number of rows, and although the method can technically accommodate sites without any observations, we can speed things up a little by removing the ones that are empty.
+Now predict species richness along the elevation gradient:
 
-```{r}
-min(colSums(Y))
-table(rowSums(ifelse(Y==0,0,1))>3)
+```{r predict}
+elev_seq <- seq(min(X_sc$ELEV), max(X_sc$ELEV), length.out = 100)
+newX <- data.frame(ELEV = elev_seq)
+
+sr <- predictSR(model1, newX = newX)
 ```
 
-From the 175 species, all have at least 22 observations. This is because D'Amen et al. already filtered the species and removed the ones with fewer than 22 presences. Removing species with few presences is a personal decision: it can considerably speed up model fitting and improve convergence (parameters for species with little data are often difficult to estimate), but of course we lose vital information. We might actually want to retain species with few observations when they add vital information about the range or limits of a gradient. However, here we are fitting JSDMs, and we take a different angle: the parameters of species with few observations cannot be accurately estimated anyway, so we might as well get rid of them!
+Plot observed richness against predicted richness:
 
-We also see that 72 rows in the data have no information, so we get rid of those.
-
-```{r}
-X <- X[rowSums(Y)>0, ]
-Y <- Y[rowSums(Y)>0,]
+```{r plot_sr}
+obs_sr <- rowSums(Y)
+plot(X_sc$ELEV, obs_sr, pch = 16, col = rgb(0,0,0,0.3),
+     xlab = "Elevation (scaled)", ylab = "Species richness")
+lines(elev_seq, sr$expected$fit, col = "red", lwd = 2)
+lines(elev_seq, sr$expected$lower, col = "red", lwd = 1, lty = 2)
+lines(elev_seq, sr$expected$upper, col = "red", lwd = 1, lty = 2)
 ```
 
-# Part I
+Check residuals from the Poisson-Binomial distribution:
 
-## Fitting a Joint Species Distribution Model
-
-The modeling goes as before, with the `gllvm` function. However, now we also use `num.lv`, which stands for the number of latent variables added to the model. Here, we fit JSDMs using the "factor-analytic" approach, or latent variable modeling. Few latent variables makes for a fast model, but potentially poor estimation of the correlation of species. So, we are left with trade-off: wait for a long time for an accurate estimate, or quickly get something slightly less accurate. 
-
-A good place to start, is two latent variables (the default). We can also add covariates, or random effects, to the model, but we will start without. We will use a few arguments to speed up the model, as well as fitting the model in parallel (**TIP:** you might want to open a task manager or system monitor to keep an eye on your computer's resources). The argument `Lambda.struc` simplifies the approximation to the likelihood and should be used cautiously, the argument `sd.errors` turns off calculation of standard errors as that can take longer than the actual model fitting at times, `optim.method` selects the numerical optimisation algorithm, because "L-BFGS-B" is often much faster with parallelisation than the default "BFGS". All together, this significantly reduces the time to fit the model from tens of minutes to about half a minute (with 7 CPU). If you work on a laptop, ensure that your battery settings are not set to "balanced", as this too will slow model fitting.
-
-```{r jsdm1, cache = TRUE, warning=FALSE, message=FALSE}
-library(gllvm)
-TMB::openmp(parallel::detectCores()-1, DLL = "gllvm", autopar = TRUE)
-model1  <- gllvm(y = Y, num.lv = 2, family = "binomial", Lambda.struc = "diagonal", sd.errors = FALSE, optim.method = "L-BFGS-B")
+```{r resid}
+plot(residuals(sr))
 ```
 
-Turning off standard error calculation is often a good idea when in gllvm, when working with large datasets or complex models. When we have decided on our "final" model, we can post-hoc calculate the standard errors using the `se.gllvm` function (an example is shown on the help page of that function). For now, let's visualize the estimated associations:
+## Tasks I
 
-```{r, fig.width = 10, fig.height = 10, echo = -1, message=FALSE, warning=FALSE, message = FALSE}
-library(gllvm)
-corrplot::corrplot(getResidualCor(model1), type = "lower", order = "AOE", diag = FALSE, tl.pos = "l", tl.cex = 0.2, addgrid.col = NA)
+1. Fit the model and predict species richness as above. Does the model capture the observed richness pattern well?
+2. Add more covariates (e.g., `SLOPE`, `MIND`, `SOLRAD`) and see if the richness prediction improves.
+3. Change the number of latent variables (0, 1, 2, 3). How does this affect the richness prediction?
+4. Use `AIC()` or `BIC()` to compare models. Does including latent variables improve fit?
+5. Examine the `predictSR` residuals — do they look like random noise, or is there remaining structure?
+
+# Part II: Diversity components
+
+The variance components from the model connect to ecological diversity concepts.
+
+```{r var_components}
+# Variation explained by the latent variables
+getResidualCov(model1)$trace
+
+# Relative variation per axis
+var.q <- getResidualCov(model1)$var.q
+var.q / sum(var.q)
 ```
 
-The corrplot package again helps us to order the plot so we might identify patterns. As you might realize at this point, it is -very- difficult to make ecological sense of these associations (partly because there are so many, and now we are "only" working with 175 species).
+For the species-specific elevation effects (treated as random), the variance tells us how much species differ in their response to elevation — a measure of niche differentiation driving beta diversity.
 
-This JSDM only includes latent variables; there are no species-specific fixed or random effects included with `formula`, or species-common effects with `row.eff`. We are of course free to introduce those here too, and often want to:
-
-```{r jsdm2, cache = TRUE, warning=FALSE, message=FALSE}
-model2  <- gllvm(y = Y, X = X, formula = ~ scale(SLOPE), num.lv = 2, family = "binomial", Lambda.struc = "diagonal", sd.errors = FALSE, optim.method = "L-BFGS-B")
+```{r beta_diversity, eval=FALSE}
+model2 <- gllvm(y = Y, X = X_sc,
+                formula = ~(0 + ELEV|1),
+                num.lv = 0,
+                family = "binomial",
+                sd.errors = FALSE)
+summary(model2)  # examine variance of elevation slopes
 ```
 
-Now that we have a covariate in the model, we can think of including species' correlations as a way to "correct" the coefficients for the covariates. If we assume independence, and we estimate species' environmental responses while the assumption is violated, this will likely bias our parameter estimates. That makes a JSDM often a better fit for multispecies data than (e.g.,) a VGLM(M) that does not incorporate species' correlations.
+## Tasks II
 
-JSDMs are geard towards prediction: often on a map. Let's go ahead and do that, so we can see what our model tells us about any of the species in the data. I've already prepared a slope raste for you, it comes form the `unmarked` R-package. It is located in the "data" folder of the github repository, so we load it straight from there.
+1. Extract and interpret the residual covariance trace — how much variation is captured by the latent variables?
+2. Compare the relative variation explained by each latent variable axis.
+3. Fit a model with a random slope for elevation across species. What is the variance of species' elevation responses?
+4. Try predicting species richness with the random-slope model. How does the uncertainty compare to the fixed-effect model?
+5. Think about what alpha, beta, and gamma diversity mean in the context of this dataset and model. Which model components drive each component of diversity?
 
-```{r}
-download.file("https://raw.githubusercontent.com/BertvanderVeen/GLLVM-workshop/main/data/slope.tif", 
-              destfile = "/tmp/slope.tif", mode = "wb")
-slope <- terra::rast("/tmp/slope.tif")
+# Part III: Exploring the Poisson-Binomial
 
-slp_scale = scale(X$SLOPE)
-Xnew = cbind(1, terra::values(slope)-attr(slp_scale,"scaled:center"))/attr(slp_scale,"scaled:scale")
-eta=Xnew%*%t(cbind(model2$params$beta0, model2$params$Xcoef))
-preds <- pnorm(eta)
-predrast <- terra::rast(slope, nl=ncol(model2$y))
-terra::values(predrast) <- preds
+To understand why univariate species richness analysis can be misleading, compare the predicted distribution of species richness from your model to what a Poisson regression would give.
+
+```{r pb_vs_pois}
+# Expected richness and variance from the model
+pred_probs <- predict(model1, type = "response") # n x m matrix
+exp_sr <- rowSums(pred_probs)        # Poisson-Binomial mean
+var_sr <- rowSums(pred_probs * (1 - pred_probs))  # PB variance
+
+# Compare to Poisson assumption
+plot(exp_sr, var_sr, xlab = "Expected species richness",
+     ylab = "Predicted variance", pch = 16, col = "steelblue")
+abline(0, 1, col = "red", lty = 2, lwd = 2)  # Poisson: var = mean
+legend("topleft", legend = c("Poisson-Binomial", "Poisson (var=mean)"),
+       pch = c(16, NA), lty = c(NA, 2), col = c("steelblue", "red"))
 ```
 
-"predrast" now is a raster brick of our predictions for the species. Let's plot some to see where the model predicts them to occur:
+## Tasks III
 
-```{r, fig.width = 10, echo =-1, message=FALSE}
-library(terra)
-par(mfrow = c(1,2))
-plot(predrast[[1]], main = colnames(Y)[1])
-plot(predrast[[2]], main = colnames(Y)[2])
-```
-Taking a look at their coefficients with `coefplot` that the first species is estimated to have a (small) positive response to slope, and the second species a negative response. The north of Switzerland is a plateau, so that steeper places occur in the south, so our predictions corresponds pretty well to my limited understanding of Swiss topography.
-
-## Tasks
-
-1) Fit the models, you can also try using random effects instead of fixed effects for "slope"
-2) Try to understand the code for predicting on the map. We can also use the `predict` function in the package, but that is still a bit of a construction site; especially for models with species-specific random effects it will be extended in the next months.
-
-# Part II
-
-There are two directions we can take this now: add species-specific effects (fixed or random), or species-common effects (fixed or random), or try to go through a procedure of selecting the optimal number of latent variables to represent the associations, with `AIC`, `BIC`, `goodnessOfFit`. `?goodnessOfFit` helps you to calculate some metrics for the predictive performance of the model, such as Tjur's $R^2$:
-
-```{r}
-goodnessOfFit(Y, object = model1, measure = "TjurR2")
-```
-
-this is used in distribution modeling to quantify "discriminative power"; if observations (presence or absence) can perfectly be classified by the model, it will equal 1. With more latent variables, or by adding covariates, it will probably improve.
-
-1. Explore the model with latent variables displayed above; fit it in your own R session, extract the associations, and visualize them with the `corrplot` function
-2. Fit models with different number of latent variables, and perform comparison. Here, I want you to use `goodnessOfFit` to try and find the model with the highest discriminative power
-3. Combine the latent variable approach with what you learned in the previous exercise: add some of the covariates ("DDEG0": growing degree days above zero, "SLOPE", "MIND": moisture index, "SOLRAD": total solar radiation in a year, "TPI": a topography index)
-4. Use `coefplot`, `randomCoefPlot`, `summary` to try and draw conclusions about the main drivers of species' presence for this dataset, and to assess if species' environmental effects have changed when incorporating the latent variables.
+1. Run the code above. Is the Poisson assumption (variance = mean) realistic for these data?
+2. When variance < mean (underdispersion), what does that imply ecologically?
+3. Subset the data to a low-diversity region (e.g., high elevation). How does the Poisson approximation perform there versus a diverse region?

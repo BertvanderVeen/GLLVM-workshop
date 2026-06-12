@@ -1,15 +1,14 @@
 ---
 title: "Model-based ordination"
 author: "Bert van der Veen"
-date: "2025-04-07"
 output: html_document
 ---
 
 # Background
 
-Yesterday, we learned that JSDMs are usually implemented using a latent variable approach, the <tt>gllvm</tt> R-packagebeing no exception. Although latent variable models serve as a technical solution to implemented JSDMs, they lend themselves much better for performing ordination. In this setting, latent variable models are an improved (parametric) way to do all kinds of ordination, that allow us to utilize both tools from regression, and from ordination, to do our analysis.
+Yesterday, we learned that JSDMs are usually implemented using a latent variable approach, the <tt>gllvm</tt> R-package being no exception. Although latent variable models serve as a technical solution to implement JSDMs, they lend themselves much better for performing ordination. In this setting, latent variable models are an improved (parametric) way to do all kinds of ordination, that allow us to utilize both tools from regression, and from ordination, to do our analysis.
 
-With model-based ordination, we assume that there are underlying **ecological gradients** that have generated the data. These gradients can be represented completely without measured variables (unconstrained ordination), fully with mesaured variables (constrained ordination), or both; assuming that it is difficult to find the right variables to represent the ecological gradient, so that there always may be an unmeasured component.
+With model-based ordination, we assume that there are underlying **ecological gradients** that have generated the data. These gradients can be represented completely without measured variables (unconstrained ordination), fully with measured variables (constrained ordination), or both; assuming that it is difficult to find the right variables to represent the ecological gradient, so that there always may be an unmeasured component.
 
 From a more statistical angle, model-based ordination is a way of fitting complex models to sparse data: we attempt to reduce dimensions of the effects so that we can still fit the models we want, even if we do not have so much data. This is a bit different than "classical" ordination methods, because model-based ordination retains connection with the original data, and therefore can also visualize species-specific responses (i.e., we have a lot more information from the model than just an ordination plot, such as correlations between species).
 

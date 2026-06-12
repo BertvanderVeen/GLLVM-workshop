@@ -57,6 +57,37 @@ TMB::openmp(parallel::detectCores()-1, autopar = TRUE, DLL = "gllvm")
 
 ![](../questions.jpg){width=40%}
 
+## Diversity as a community property
+
+A JSDM produces a lot of output: intercepts, slopes, associations, predicted probabilities for every species at every site. Rich, but hard to communicate.
+
+\pause
+
+Diversity indices — species richness, Shannon entropy, Simpson's index — are scalar summaries of the community matrix $\mathbf{Y}$.
+
+\pause
+
+\textbf{If we model the community, diversity follows.}
+
+## Why model-based diversity?
+
+Indices such as Shannon entropy and Simpson's index have no generative model: there is no likelihood, no data-generating process, nothing to fit or check.
+
+\pause
+
+Without a generative model:
+
+\begin{itemize}
+  \item No uncertainty quantification: no standard errors, no confidence intervals
+  \item No ability to account for sampling: effort, detection probability, protocol differences
+  \item No ability to account for data properties: overdispersion, zero-inflation, censoring
+  \item No prediction for new sites, times, or conditions
+\end{itemize}
+
+\pause
+
+A community model addresses all of these: diversity follows from the generative model and inherits its inferential properties.
+
 # Species richness
 
 ## What is species richness?
@@ -80,7 +111,7 @@ But it is a \textbf{derived quantity} from multivariate community data. Analyzin
 Species richness is most commonly analyzed with Poisson or negative-binomial regression:
 
 \begin{equation}
-\log(\mathbb{E}(SR_i)) = \alpha + \textbf{x}_i^\top \symbf{\beta}
+\log\{\mathbb{E}(SR_i)\} = \alpha + \textbf{x}_i^\top \symbf{\beta}
 \end{equation}
 
 \pause
@@ -147,9 +178,9 @@ with
 
 \pause
 
-- Mean species richness = \textbf{sum of species' occurrence probabilities}
+- Mean richness = \textbf{sum of species' occurrence probabilities}
 - Variance is bounded (cannot exceed $m/4$)
-- This is the distribution that actually generates species richness data
+- This is the distribution that actually generates species richness
 - The Binomial is a special case (all $\pi_{ij}$ equal)
 
 ## Why univariate analysis fails
@@ -157,7 +188,7 @@ with
 \columnsbegin
 \column{0.5\textwidth}
 
-```{r pb_vs_pois, echo=FALSE, fig.height=5, message=FALSE}
+```{r pb_vs_pois, echo=FALSE, fig.height=8, message=FALSE}
 set.seed(42)
 m <- 30
 pi_j <- rbeta(m, 2, 5)
@@ -173,16 +204,14 @@ par(mar=c(4,4,2,1))
 hist(pb_sim, breaks=seq(-0.5, m+0.5, 1), freq=FALSE,
      col="steelblue", border="white",
      xlab="Species richness", ylab="Probability",
-     main="Poisson-Binomial vs. Poisson")
-lines(k, pois_pmf, col="firebrick", lwd=2, type="b", pch=16)
+     main="Poisson-Binomial vs. Poisson", cex.main = 2.5, cex.lab = 2.5)
+lines(k, pois_pmf, col="firebrick", lwd=3, type="b", pch=16)
 legend("topright", legend=c("True (Poisson-Binomial)","Poisson approximation"),
        fill=c("steelblue", NA), lty=c(NA,1), col=c(NA,"firebrick"),
-       pch=c(NA,16), border=c("steelblue",NA), bty="n")
+       pch=c(NA,16), border=c("steelblue",NA), bty="n", cex = 2)
 ```
 
 \column{0.5\textwidth}
-
-\footnotesize
 
 The Poisson distribution:
 
@@ -194,13 +223,9 @@ The mismatch worsens when species niches are heterogeneous.
 
 \columnsend
 
-# Multispecies modeling
-
 ## Species richness as an emergent property
 
-With a multispecies model, we do not model species richness directly. \newline
-
-Instead, we model each species' response to the environment, and \textbf{species richness emerges}:
+We do not model species richness directly; instead, \textbf{species richness emerges} from each species' response to the environment:
 
 \begin{equation}
 \mathbb{E}(SR_i) = \sum_{j=1}^{m} \mathbb{E}\{I(y_{ij} > 0)\} = \sum_{j=1}^{m} p(y_{ij} > 0)
@@ -212,22 +237,31 @@ Instead, we model each species' response to the environment, and \textbf{species
 - Works for any data type: binary, counts, cover, biomass, ordinal
 - Uncertainty propagates naturally from species-level predictions
 - Assumptions are explicit and testable
+- Non-linear richness gradients emerge even from linear species responses
 
 ## Works for any data type
 
 For any distribution with zero support, the probability of presence can be derived:
 
-| Data type | Distribution | $p(y_{ij} > 0)$ |
-|---|---|---|
-| Binary | Bernoulli | $\pi_{ij}$ |
-| Count | Poisson | $1 - e^{-\mu_{ij}}$ |
-| Count | Negative-binomial | $1 - (1 + \mu_{ij}/k)^{-k}$ |
-| Biomass | Tweedie | $1 - \text{Tw}(0; \mu_{ij}, \phi_j, p)$ |
-| Cover | Ordered beta | $1 - \rho_{ij}^0$ |
+\footnotesize
+
+\begin{tabular}{lll}
+\toprule
+Data type & Distribution & $p(y_{ij} > 0)$ \\
+\midrule
+Binary   & Bernoulli        & $\pi_{ij}$ \\
+Count    & Poisson          & $1 - e^{-\mu_{ij}}$ \\
+Count    & Negative-binomial & $1 - (1 + \mu_{ij}/k)^{-k}$ \\
+Biomass  & Tweedie          & $1 - \text{Tw}(0;\, \mu_{ij}, \phi_j, p)$ \\
+Cover    & Ordered beta     & $1 - \rho_{ij}^0$ \\
+\bottomrule
+\end{tabular}
+
+\normalsize
 
 \pause
 
-The only requirement: the distribution must assign probability mass at zero (i.e., encode absences).
+The only requirement: the distribution must assign probability mass at zero. Gamma and beta distributions do not.
 
 ## Implementation in gllvm
 
@@ -235,89 +269,18 @@ The `predictSR()` function computes:
 
 - Expected species richness $\hat{S}_i = \sum_j \hat{p}_{ij}$
 - Full Poisson-Binomial distribution at each site
-- Prediction intervals from the distribution
-- Optionally for new predictor values
+- Prediction intervals; optionally for new predictor values
+- Per-species AUC via `goodnessOfFit()`: well-calibrated $\hat{p}_{ij}$ give well-calibrated $\hat{S}_i$
 
 ```{r, eval=FALSE}
-sr_pred <- predictSR(model, newX = newdata)
+sr_pred <- predictSR(model, newX = newdata,
+                     newLV = matrix(0, ncol = 2, nrow = nrow(newX)))
 sr_pred$expected     # expected species richness
-sr_pred$lower        # lower prediction bound
-sr_pred$upper        # upper prediction bound
-
-plot(sr_pred)        # predicted vs observed
 residuals(sr_pred)   # Dunn-Smyth residuals
+goodnessOfFit(model) # AUC
 ```
 
-## Rare species
-
-Species with very low occurrence probability $\pi_{ij} \ll 1$ contribute negligibly to:
-
-- Expected species richness ($\pi_{ij}$ is small)
-- Variance of species richness ($\pi_{ij}(1-\pi_{ij}) \approx \pi_{ij}$)
-
-\pause
-
-This means community data can often be trimmed of the rarest species without much effect on richness predictions, but with care: rare species may define range limits and gradient lengths.
-
-\pause
-
-\textcolor{red}{This does not mean rare species are unimportant ecologically: only their contribution to predicted richness is small.}
-
-# Diversity components
-
-## Alpha, beta, gamma diversity
-
-The variance parameters from multispecies models connect to ecological diversity concepts:
-
-\vspace*{\baselineskip}
-
-**Alpha diversity**: average within-site variation, determined by $\sigma^2_\alpha$ (intercept variance) and environmental gradients
-
-**Beta diversity**: between-site variation (how much sites differ in composition); driven by $\sigma^2_\beta$ (slope variance)
-
-**Gamma diversity**: total variation across all sites, the sum of alpha and beta contributions
-
-\vspace*{\baselineskip}
-
-\pause
-
-An effect with higher variance has a larger impact on community composition.
-
-## Connecting model parameters to diversity
-
-For a simple model $\eta_{ij} = \alpha_j + x_i\beta_j$ with $\alpha_j \sim \mathcal{N}(0,\sigma^2_\alpha)$ and $\beta_j \sim \mathcal{N}(0,\sigma^2_\beta)$:
-
-\vspace*{\baselineskip}
-
-**Alpha**: $\text{var}(\eta_{ij}) = \sigma^2_\alpha + x_i^2\sigma^2_\beta$
-
-\vspace*{\baselineskip}
-
-**Beta** (turnover between sites $i$ and $k$): $\text{cov}(\eta_{ij}, \eta_{kj}) = \sigma^2_\alpha + x_i x_k \sigma^2_\beta$
-
-\vspace*{\baselineskip}
-
-**Gamma**: $\text{var}_{ij}(\eta_{ij}) = \sigma^2_\alpha + \sigma^2_\beta\{\bar{x}^2 + \text{var}(x_i)\}$
-
-\pause
-
-The variance components directly measure the ecological importance of effects on diversity.
-
-## Variation explained by the ordination
-
-For a JSDM or ordination, the residual covariance matrix captures unexplained species associations:
-
-```{r, eval=FALSE}
-getResidualCov(model)$trace   # total residual variation
-```
-
-This is the analog of "variation explained" in classical ordination. \newline
-
-\pause
-
-We can also use $R^2_{GLMM}$ and repeatability \footnotesize (Nakagawa and Schielzeth 2013) \normalsize to partition variance across model components.
-
-# Example
+# Example 1
 
 ## Example: alpine plants in Switzerland
 
@@ -342,60 +305,310 @@ dim(Y)
 
 \footnotesize
 
-```{r jsdm_fit, cache=TRUE, message=FALSE, warning=FALSE}
-model <- gllvm(y = Y, X = X_scaled,
+```{r jsdm_fit, cache=TRUE, message=FALSE, warning=FALSE, echo = -1}
+TMB::openmp(parallel::detectCores(),autopar=TRUE, DLL = "gllvm")
+model <- gllvm(y = Y[,c(59,(1:ncol(Y))[-59])], X = X_scaled,
                formula = ~ELEV,
                num.lv = 2,
                family = "binomial",
-               sd.errors = FALSE,
-               optim.method = "L-BFGS-B")
+               sd.errors = FALSE)
 ```
 
-We include elevation as a covariate and two latent variables to capture residual species associations.
+We include elevation as a fixed covariate and two latent variables to capture residual species associations.
 
-## Example: predict species richness
+## Example: a Poisson GLM for species richness
+
+```{r glm_lin_plot, echo=FALSE, fig.height=3.5, message=FALSE, cache=TRUE, dependson="alpine_dat"}
+obs_sr      <- rowSums(Y)
+glm_lin     <- glm(obs_sr ~ ELEV, data = X_scaled, family = poisson)
+elev_ord    <- order(X_scaled$ELEV)
+elev_sorted <- X_scaled$ELEV[elev_ord]
+pois_pred   <- predict(glm_lin, newdata = data.frame(ELEV = elev_sorted), type = "response")
+
+par(mar=c(4,4,1,1))
+plot(X_scaled$ELEV, obs_sr, pch=16, col=rgb(0,0,0,0.3),
+     xlab="Elevation (scaled)", ylab="Species richness", main=NA)
+lines(elev_sorted, pois_pred, col="steelblue", lwd=2)
+legend("topright", legend=c("Observed", "Poisson GLM (linear ELEV)"),
+       pch=c(16,NA), lty=c(NA,1),
+       col=c(rgb(0,0,0,0.3),"steelblue"), bty="n")
+```
+
+A Poisson GLM with linear elevation predicts a monotone richness curve. Does the multispecies model agree?
+
+## Example: LV-elevation confounding
 
 \footnotesize
 
-```{r sr_pred, cache=TRUE}
-elev_seq <- seq(min(X_scaled$ELEV), max(X_scaled$ELEV), length.out = 100)
-newX <- data.frame(ELEV = elev_seq)
-
-sr <- predictSR(model, newX = newX)
+```{r sr_confound, cache=FALSE, message=FALSE}
+obs_sr  <- rowSums(Y)
+sr_full <- predictSR(model, se.fit = FALSE)
+sr_marg <- predictSR(model, se.fit = FALSE, newLV = matrix(0, ncol = 2, nrow = nrow(Y)))
 ```
 
-```{r sr_plot, echo=FALSE, fig.height=4, message=FALSE}
-obs_sr <- rowSums(Y)
+```{r sr_confound_plot, echo=FALSE, fig.height=3.2, message=FALSE}
+par(mar=c(4,4,1,1))
+plot(X_scaled$ELEV, obs_sr, pch=16, col=rgb(0,0,0,0.3),
+     xlab="Elevation (scaled)", ylab="Species richness", main=NA)
+points(X_scaled$ELEV, sr_full$expected$fit, pch=16, col=rgb(0.7,0,0,0.5))
+points(X_scaled$ELEV, sr_marg$expected$fit, pch=16, col=rgb(0,0,0.8,0.4))
+legend("topright", legend=c("Observed", "Full model", "Marginal (LV = 0)"),
+       pch=16, col=c(rgb(0,0,0,0.3), rgb(0.7,0,0,0.5), rgb(0,0,0.8,0.4)), bty="n")
+```
+
+## Example: SR residuals, linear elevation term
+
+```{r sr_resid_linear, echo=FALSE, fig.height=4.5, message=FALSE, cache=FALSE}
+res_marg <- residuals(sr_marg, model)
+res_full <- residuals(sr_full, model)
+par(mfrow = c(2, 3))
+plot(res_marg$fitted, res_marg$residuals,
+     xlab = "", xaxt = "n", ylab = "Dunn-Smyth residuals", main = "Marginal")
+abline(h = 0, lty = 2)
+qqnorm(res_marg$residuals, main = "QQ (marginal)", xlab = "", xaxt = "n", ylab = "", yaxt = "n")
+qqline(res_marg$residuals)
+plot(X_scaled$ELEV, res_marg$residuals,
+     xlab = "", xaxt = "n", ylab = "", yaxt = "n", main = "Marginal vs. elevation")
+abline(h = 0, lty = 2)
+plot(res_full$fitted, res_full$residuals,
+     xlab = "Expected SR", ylab = "Dunn-Smyth residuals", main = "Conditional")
+abline(h = 0, lty = 2)
+qqnorm(res_full$residuals, main = "QQ (conditional)", ylab = "", yaxt = "n")
+qqline(res_full$residuals)
+plot(X_scaled$ELEV, res_full$residuals,
+     xlab = "Elevation (scaled)", ylab = "", yaxt = "n", main = "Conditional vs. elevation")
+abline(h = 0, lty = 2)
+```
+
+Marginal residuals (LV = 0) reveal the arch the linear fixed effect misses; conditional residuals are flat because the latent variables absorb the curvature.
+
+## Example: adding a quadratic term
+
+\footnotesize
+
+```{r jsdm_fit2, cache=TRUE, message=FALSE, warning=FALSE}
+model_lin <- model
+model <- gllvm(y = Y[,c(59,(1:ncol(Y))[-59])], X = X_scaled,
+               formula = ~ELEV + I(ELEV^2),
+               num.lv = 2,
+               family = "binomial",
+               sd.errors = TRUE)
+```
+
+Species richness peaks at intermediate elevation. Without $\text{ELEV}^2$ in the fixed effects, the latent variables absorb the curvature and new-site predictions fail. Adding the quadratic keeps the nonlinearity in the fixed effects where it belongs.
+
+## Example: why plot(model) does not reveal this
+
+\begin{itemize}
+  \item \texttt{plot(model)} uses \textbf{conditional} fitted values: latent variables are estimated per site and adapt to each model
+  \item A missing quadratic term is absorbed by the latent variables; conditional residuals look clean for both models
+  \item Marginal predictions (LV $= 0$) reveal the discrepancy
+\end{itemize}
+
+```{r species_plot, echo=FALSE, fig.height=3.5, message=FALSE, cache=TRUE, dependson="jsdm_fit2"}
+elev_seq  <- seq(min(X_scaled$ELEV), max(X_scaled$ELEV), length.out = 100)
+newX_pred <- data.frame(ELEV = elev_seq)
+newLV_0   <- matrix(0, ncol = 2, nrow = 100)
+
+pred_lin  <- predict(model_lin, newX = newX_pred, newLV = newLV_0, type = "response")
+pred_quad <- predict(model,     newX = newX_pred, newLV = newLV_0, type = "response")
+
+amp <- apply(pred_quad, 2, function(x) diff(range(x)))
+spp <- order(amp, decreasing = TRUE)[1:2]
+
+par(mfrow = c(1, 2), mar = c(4, 4, 2, 1))
+for (k in seq_along(spp)) {
+  j <- spp[k]
+  plot(X_scaled$ELEV, jitter(Y[, j], amount = 0.03), pch = 3,
+       col = rgb(0, 0, 0, 0.15), ylim = c(-0.05, 1.05),
+       xlab = "Elevation (scaled)", ylab = "Occurrence probability",
+       main = colnames(Y)[j])
+  lines(elev_seq, pred_lin[, j],  col = "steelblue", lwd = 2)
+  lines(elev_seq, pred_quad[, j], col = "firebrick",  lwd = 2)
+  if (k == 1L) {
+    legend("topleft", legend = c("Observed", "Linear ELEV", "ELEV + ELEV^2"),
+           pch = c(3, NA, NA), lty = c(NA, 1, 1),
+           col = c(rgb(0, 0, 0, 0.3), "steelblue", "firebrick"), bty = "n")
+  }
+}
+```
+
+## Example: comparing predictions
+
+```{r sr_plot, echo=FALSE, fig.height=4, message=FALSE, cache=TRUE, dependson="jsdm_fit2"}
+elev_seq <- seq(min(X_scaled$ELEV), max(X_scaled$ELEV), length.out = 100)
+newX     <- data.frame(ELEV = elev_seq)
+srnew    <- predictSR(model, newX = newX, se.fit = 200,
+                      newLV = matrix(0, ncol = model$num.lv, nrow = nrow(newX)))
+glm_pois  <- glm(obs_sr ~ ELEV + I(ELEV^2), data = X_scaled, family = poisson)
+pois_pred <- predict(glm_pois, newdata = newX, type = "link",  se.fit = TRUE)
+
 par(mar=c(4,4,1,1))
 plot(X_scaled$ELEV, obs_sr, pch=16, col=rgb(0,0,0,0.3),
      xlab="Elevation (scaled)", ylab="Species richness",
-     main=NA)
-lines(elev_seq, sr$expected$fit, col="firebrick", lwd=2)
-lines(elev_seq, sr$expected$lower, col="firebrick", lwd=1, lty=2)
-lines(elev_seq, sr$expected$upper, col="firebrick", lwd=1, lty=2)
-legend("topright", legend=c("Observed", "Predicted (± 95%)"),
-       pch=c(16,NA), lty=c(NA,1), col=c(rgb(0,0,0,0.3),"firebrick"), bty="n")
+     main=NA, ylim=c(0, max(max(exp(pois_pred$fit)), max(obs_sr),
+                            max(srnew$expected$upper, na.rm=TRUE)) + 5))
+polygon(c(elev_seq, rev(elev_seq)),
+        c(srnew$expected$lower, rev(srnew$expected$upper)),
+        col=adjustcolor("firebrick", alpha.f=0.3), border=NA)
+abline(h = ncol(Y), lty=3, col="gray50")
+lines(elev_seq, srnew$expected$fit, col="firebrick", lwd=3)
+lines(elev_seq, exp(pois_pred$fit), col="steelblue", lwd=3)
+UI = exp(pois_pred$fit+pois_pred$se.fit*qnorm(0.975))
+LI = exp(pois_pred$fit+pois_pred$se.fit*qnorm(1-0.975))
+polygon(c(elev_seq, rev(elev_seq)),
+        c(LI, rev(UI)),
+        col=adjustcolor("steelblue", alpha.f = 0.3), border=NA)
+legend("topright", legend=c("Observed", "Multispecies model (95% CI)", "Poisson GLM (95% CI)"),
+       pch=c(16,NA,NA), lty=c(NA,1,1),
+       col=c(rgb(0,0,0),"firebrick","steelblue"), bty="n")
 ```
+
+\textbf{Question:} Both models include a quadratic elevation term. Why do their predictions differ?
 
 ## Example: residual diagnostics
 
-\footnotesize
-
-```{r sr_resid, fig.height=4, message=FALSE}
-plot(residuals(sr))
+```{r sr_resid, echo=FALSE, fig.height=3.5, message=FALSE}
+sr  <- predictSR(model, se.fit = FALSE)
+res <- residuals(sr, model)
+par(mfrow = c(1, 3))
+plot(res$fitted, res$residuals, xlab = "Expected SR", ylab = "Dunn-Smyth residuals")
+abline(h = 0, lty = 2)
+qqnorm(res$residuals); qqline(res$residuals)
+plot(X_scaled$ELEV, res$residuals, xlab = "Elevation (scaled)", ylab = "Dunn-Smyth residuals")
+abline(h = 0, lty = 2)
 ```
 
-Quantile residuals from the Poisson-Binomial distribution: if the model is well-calibrated for species richness, these should follow a standard normal distribution.
+Poisson-Binomial quantile residuals: no systematic elevation trend remains after adding the quadratic term.
 
-## Predicting diversity
+# Diversity
 
-As we have explicit equations for diversity, we can predict it using the model.
+## Beyond species richness: the link scale
 
-We take the parameter estimates for the variances, plug-in new values for the covariates (account for scaling), and put it on a map.
+\begin{itemize}
+  \item Species richness: known distribution on the response scale (Poisson-Binomial)
+  \pause
+  \item Other diversity quantities: response scale is intractable
+  \pause
+  \item Like $R^2$ in mixed models \footnotesize (Nakagawa \& Schielzeth 2013)\normalsize, work on the \textbf{link scale}: $\text{var}_j(\eta_{ij})$ characterises diversity
+\end{itemize}
+
+## Alpha, beta, and gamma diversity
+
+\begin{itemize}
+  \item \textbf{Alpha}: local diversity at a single site; how uneven is the community here?
+  \item \textbf{Gamma}: regional diversity; how much variation is there across the whole community?
+  \item \textbf{Beta}: turnover between sites; how different are two communities?
+\end{itemize}
+
+\pause
+
+In a model, these follow from the \textbf{variance-covariance structure} of $\eta_{ij}$
+
+\pause
+
+\textcolor{red}{The following slides present calculations for a specific model. Results are model-dependent.}
+
+## Dominance
+
+For $\eta_{ij} = \beta_{0j} + \mathbf{x}_i^\top\mathbf{\beta}_j$ with $\beta_{0j} \sim \mathcal{N}(0,\sigma^2_{\beta_0})$ and $\mathbf{\beta}_j \sim \mathcal{N}(\mathbf{0},\Sigma_\beta)$:
+
+\begin{equation}
+D_i = \mathbf{x}_i^\top\Sigma_\beta\mathbf{x}_i
+\end{equation}
+
+\pause
+
+\begin{itemize}
+  \item Large $D_i$: strong environmental filtering; a few well-adapted species dominate
+  \item Small $D_i$: weak environmental sorting; more even composition
+\end{itemize}
+
+## Gamma diversity
+
+Gamma diversity is the expected within-site variation over sites:
+
+\begin{equation}
+\gamma = \sigma^2_{\beta_0} + \mathbb{E}_i(D_i)
+\end{equation}
+
+\pause
+
+Regional diversity decomposes into a baseline $\sigma^2_{\beta_0}$ (species differ even at the environmental centroid) and average dominance $\mathbb{E}_i(D_i)$ (the contribution of environmental sorting across sites).
+
+## Pairwise similarity (beta diversity)
+
+Pairwise similarity between sites $i$ and $k$ is the covariance of the linear predictor across species:
+
+\begin{equation}
+\text{cov}_j(\eta_{ij}, \eta_{kj}) = \sigma^2_{\beta_0} + \mathbf{x}_i^\top\Sigma_\beta\mathbf{x}_k
+\end{equation}
+
+\pause
+
+\begin{itemize}
+  \item $\sigma^2_{\beta_0}$: baseline similarity shared by all site pairs
+  \item $\mathbf{x}_i^\top\Sigma_\beta\mathbf{x}_k$: environmental similarity; large when sites share the same environment
+\end{itemize}
+
+## Turnover
+
+Turnover between sites $i$ and $k$ follows from the covariance structure:
+
+\begin{align}
+\text{var}_j(\eta_{ij} - \eta_{kj}) &= \text{var}_j(\eta_{ij}) + \text{var}_j(\eta_{kj}) - 2\,\text{cov}_j(\eta_{ij},\eta_{kj}) \notag \\
+&= \sigma^2_{\beta_0} + D_i + \sigma^2_{\beta_0} + D_k - 2\left(\sigma^2_{\beta_0} + \mathbf{x}_i^\top\Sigma_\beta\mathbf{x}_k\right) \notag \\
+&= (\mathbf{x}_i-\mathbf{x}_k)^\top\Sigma_\beta(\mathbf{x}_i-\mathbf{x}_k)
+\end{align}
+
+\pause
+
+The baseline $\sigma^2_{\beta_0}$ cancels. Turnover has the same quadratic form as $D_i$, evaluated at the difference $\mathbf{x}_i - \mathbf{x}_k$.
+
+## Uniqueness
+
+The average pairwise similarity of site $i$ with all other sites is:
+
+\begin{equation}
+\mathbb{E}_k\!\left\{\text{cov}_j(\eta_{ij},\eta_{kj})\right\} = \sigma^2_{\beta_0} + \mathbf{x}_i^\top\Sigma_\beta\bar{\mathbf{x}}
+\end{equation}
+
+\pause
+
+\textbf{Uniqueness} is the average dissimilarity of site $i$ from all other sites:
+
+\begin{equation}
+\text{uniqueness}_i = \mathbb{E}_k\!\left\{\text{var}_j(\eta_{ij}-\eta_{kj})\right\} = \sigma^2_{\beta_0} + D_i + \gamma - 2\left(\sigma^2_{\beta_0} + \mathbf{x}_i^\top\Sigma_\beta\bar{\mathbf{x}}\right)
+\end{equation}
+
+\pause
+
+Sites at environmental extremes have high uniqueness: their communities differ most from the regional average — potential refugia, range edges, endemic communities.
+
+# Example 2
+
+## Example: Swiss birds
+
+Swiss breeding bird atlas: 56 species at 1000+ sites, with temperature (bio\_1), precipitation (bio\_12), and slope.
+
+\pause
+
+Fit a JSDM with random species-specific slopes, no LVs:
 
 \footnotesize
+```{r birds_show, eval=FALSE}
+model_birds <- gllvm(Y, X, formula = ~(bio_1 + bio_12 + slp | 1),
+                     family = "binomial", num.lv = 0, beta0com = TRUE)
+```
+\normalsize
 
-```{r maprep, echo = FALSE, warning=FALSE, message=FALSE}
+\pause
+
+$\hat{\Sigma}_\beta$ is then the estimated covariance of random slopes. All diversity quantities follow from it.
+
+## Predicting dominance
+
+```{r maprep, echo = FALSE, cache = TRUE, cache.lazy = FALSE, warning=FALSE, message=FALSE}
 avi_dat <- read.csv('../data/SwissBirds.csv')
 y_birds <- as.matrix(avi_dat[,1:56])
 X_birds <- avi_dat[,-c(1:56)]
@@ -403,19 +616,68 @@ X_birds <- X_birds[rowSums(y_birds)>0, ]
 y_birds <- y_birds[rowSums(y_birds)>0,]
 X_birds <- X_birds[,-which(apply(X_birds,2,anyNA))]
 X_birds <- data.frame(sapply(X_birds,function(x)if(is.numeric(x)){scale(x)}else{x}, simplify = FALSE))
-model_birds <- gllvm(y_birds, X = X_birds, formula = ~(slp+asp|1),
+model_birds <- gllvm(y_birds, X = X_birds, formula = ~(bio_1+bio_12+slp|1),
                      family = "binomial", num.lv = 0, beta0com = TRUE)
-slp_scale <- scale(avi_dat$slp)
-asp_scale <- scale(avi_dat$asp)
+model_birds_lv <- gllvm(y_birds, X = X_birds, formula = ~(bio_1+bio_12+slp|1),
+                        family = "binomial", num.lv = 2, beta0com = TRUE)
+bio1_scale  <- scale(avi_dat$bio_1)
+bio12_scale <- scale(avi_dat$bio_12)
+slp_scale   <- scale(avi_dat$slp)
 source("../1Tuesday/switzerland/slope.R")
-x = as.matrix(data.frame(1,(values(slope)-attr(slp_scale,"scaled:center"))/attr(slp_scale,"scaled:scale"),(values(aspect)-attr(asp_scale,"scaled:center"))/attr(asp_scale,"scaled:scale")))
-alpha = slope
-terra::values(alpha) = rowSums(x*(x%*%model_birds$params$sigmaB))
+bio <- geodata::worldclim_country("CHE", var = "bio", res = 0.5, path = tempdir())
+bio_1_proj  <- project(bio[[1]],  crs(slope)); ext(bio_1_proj)  <- ext(slope)
+bio_12_proj <- project(bio[[12]], crs(slope)); ext(bio_12_proj) <- ext(slope)
+bio_1_rast  <- resample(bio_1_proj,  slope)
+bio_12_rast <- resample(bio_12_proj, slope)
+x <- as.matrix(data.frame(
+    1,
+    (values(bio_1_rast)  - attr(bio1_scale,  "scaled:center")) / attr(bio1_scale,  "scaled:scale"),
+    (values(bio_12_rast) - attr(bio12_scale, "scaled:center")) / attr(bio12_scale, "scaled:scale"),
+    (values(slope)       - attr(slp_scale,   "scaled:center")) / attr(slp_scale,   "scaled:scale")))
+alpha <- slope
+terra::values(alpha) <- rowSums(x * (x %*% model_birds$params$sigmaB))
+# Site-level quantities (training data)
+SigB       <- model_birds$params$sigmaB
+x_sites    <- as.matrix(cbind(1, X_birds[, c("bio_1", "bio_12", "slp")]))
+D_sites      <- rowSums(x_sites * (x_sites %*% SigB))
+gamma_val    <- mean(D_sites)
+sigma2_alpha <- SigB[1L, 1L]
+x_bar        <- colMeans(x_sites)
+uniqueness   <- D_sites + gamma_val - 2*as.numeric(x_sites %*% SigB %*% x_bar)
 ```
 
-## Predicting alpha diversity
+```{r pairwise, echo=FALSE, cache=TRUE, cache.lazy=FALSE, dependson="maprep"}
+set.seed(42)
+samp       <- sample(nrow(x_sites), min(80L, nrow(x_sites)))
+pairs      <- combn(samp, 2L)
+env_sim    <- apply(pairs, 2L, function(p)
+  as.numeric(x_sites[p[1L], ] %*% SigB %*% x_sites[p[2L], ]))
+env_turn   <- apply(pairs, 2L, function(p) {
+  dx <- x_sites[p[1L], ] - x_sites[p[2L], ]
+  as.numeric(dx %*% SigB %*% dx)
+})
+delta_bio1 <- apply(pairs, 2L, function(p)
+  abs(X_birds$bio_1[p[1L]] - X_birds$bio_1[p[2L]]))
+SigLambda  <- crossprod(model_birds_lv$params$theta) / ncol(y_birds)
+lv_u       <- model_birds_lv$lvs[samp, , drop = FALSE]
+lv_turn    <- apply(pairs, 2L, function(p) {
+  i <- match(p[1L], samp); k <- match(p[2L], samp)
+  du <- lv_u[i, ] - lv_u[k, ]
+  as.numeric(du %*% SigLambda %*% du)
+})
+```
 
-```{r map, dpi = 300, echo = FALSE, cache = TRUE, warning=FALSE,message=FALSE}
+\footnotesize
+```{r dom_calc, eval=FALSE}
+terra::values(alpha) <- rowSums(x * (x %*% model_birds$params$sigmaB))
+```
+\normalsize
+
+`model_birds$params$sigmaB` is $\hat{\Sigma}_\beta$: the estimated covariance matrix of random slopes. This evaluates $D_i = \mathbf{x}_i^\top\hat{\Sigma}_\beta\mathbf{x}_i$ at each grid cell: the environmental component of alpha diversity (dominance) due to temperature, precipitation, and slope.
+
+## Dominance of Swiss birds
+
+```{r map, dpi = 300, echo = FALSE, cache = TRUE, dependson="maprep", warning=FALSE,message=FALSE}
 library(ggplot2)
 library(tidyr)
 library(dplyr)
@@ -423,20 +685,79 @@ dat <- as.data.frame(alpha,xy=TRUE) %>%
   pivot_longer(cols = -c(x, y), names_to = "layer", values_to = "value")
 
 plt<-ggplot() +
-  theme_classic()+theme(axis.text=element_blank(), axis.ticks=element_blank())+scale_fill_viridis_c(name="Alpha diversity", na.value="white")+geom_raster(data=dat, aes(x=x, y=y, fill = value), interpolate=TRUE)+coord_fixed()+xlab(NULL)+ylab(NULL)+ggtitle("Bird alpha diversity (due to mean abundance, aspect and slope)")
+  theme_classic()+theme(axis.text=element_blank(), axis.ticks=element_blank())+scale_fill_viridis_c(name="Dominance", na.value="white")+geom_raster(data=dat, aes(x=x, y=y, fill = value), interpolate=TRUE)+coord_fixed()+xlab(NULL)+ylab(NULL)+ggtitle("Bird dominance (due to temperature, precipitation and slope)")
 plt
 ```
+
+## Extending to LVs
+
+Adding $\mathbf{u}_i^\top\mathbf{\lambda}_j$ to the linear predictor introduces residual species associations not captured by environment. Each diversity quantity gains an extra term:
+
+\begin{itemize}
+  \item \textbf{Within-site variation}: $\sigma^2_{\beta_0} + D_i + \mathbf{u}_i^\top\!\tfrac{1}{m}\Lambda^\top\!\Lambda\,\mathbf{u}_i$
+  \item \textbf{Turnover}: $\Delta\mathbf{x}^\top\Sigma_\beta\Delta\mathbf{x} + \Delta\mathbf{u}^\top\!\tfrac{1}{m}\Lambda^\top\!\Lambda\,\Delta\mathbf{u}$
+  \item \textbf{Avg.\ pairwise similarity}: $\sigma^2_{\beta_0} + \mathbf{x}_i^\top\Sigma_\beta\bar{\mathbf{x}}$, unchanged (LV scores are centered, $\bar{\mathbf{u}} \approx \mathbf{0}$)
+\end{itemize}
+
+\pause
+
+LVs primarily inflate uniqueness (through alpha) and add residual turnover. Gamma and uniqueness extend analogously.
+
+## Example: pairwise similarity
+
+```{r sim_plot, echo=FALSE, fig.height=3.5, message=FALSE, cache=TRUE, dependson="pairwise"}
+par(mar = c(4, 4, 1, 1))
+plot(delta_bio1, env_sim,
+     pch = 16, col = rgb(0.1, 0.4, 0.7, 0.3),
+     xlab = expression("|" * Delta * "bio_1|  (temperature difference, scaled)"),
+     ylab = "Pairwise similarity",
+     main = NA)
+abline(h = 0, lty = 2, col = "grey50")
+```
+
+Pairwise similarity decreases with temperature difference. Pairs at opposite ends of the gradient can be negative: their species compositions are anti-correlated, not merely dissimilar.
+
+## Example: pairwise turnover
+
+```{r turnover_plot, echo=FALSE, fig.height=3.5, message=FALSE, cache=TRUE, dependson="pairwise"}
+par(mar = c(4, 4, 1, 1))
+plot(delta_bio1, env_turn + lv_turn,
+     pch = 16, col = rgb(0.5, 0, 0.5, 0.3),
+     xlab = expression("|" * Delta * "bio_1|  (temperature difference, scaled)"),
+     ylab = "Pairwise turnover",
+     main = NA)
+points(delta_bio1, env_turn,
+       pch = 16, col = rgb(0.1, 0.4, 0.7, 0.3))
+legend("topleft",
+       legend = c(expression(Delta * bold(x)^T * Sigma[beta] * Delta * bold(x) ~ "(env. only)"),
+                  expression(+ ~ Delta * bold(u)^T * Sigma[Lambda] * Delta * bold(u) ~ "(+ LV)")),
+       pch = 16, col = c(rgb(0.1, 0.4, 0.7, 0.6), rgb(0.5, 0, 0.5, 0.6)), bty = "n")
+```
+
+Environmental turnover increases with temperature difference; the LV component adds residual community dissimilarity not explained by the measured predictors. Averaging pairwise turnover over all partners $k$ gives uniqueness: the per-site expected departure from the rest of the landscape.
+
+## Example: uniqueness
+
+```{r uniqueness_plot, echo=FALSE, fig.height=3.5, message=FALSE, cache=TRUE, dependson="maprep"}
+ord <- order(X_birds$bio_1)
+par(mar = c(4, 4, 1, 1))
+plot(seq_along(ord), uniqueness[ord],
+     pch = 16, col = rgb(0, 0, 0, 0.3),
+     xlab = "Site index (sorted by temperature, bio_1)",
+     ylab = "Uniqueness",
+     main = NA)
+```
+
+Sites at temperature extremes are the most unique: their communities differ most from the regional average. These are the sites that drive beta diversity.
 
 # Summary
 
 ## Summary
 
+- Model the community; diversity follows
 - Univariate species richness analyses make strong and routinely violated assumptions
-- The correct distribution for species richness is the Poisson-Binomial
-- Multispecies models provide a principled framework: richness emerges from species-level predictions
-- Works for any data type; uncertainty propagates naturally
-- Variance components connect to alpha, beta, and gamma diversity
-- `predictSR()` in gllvm implements this framework
+- Variance components connect to alpha, beta, and gamma diversity; $D_i$ captures environmental dominance
+- Uniqueness quantifies how much a site's community differs from the regional average
 
 \pause
 

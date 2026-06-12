@@ -1,5 +1,5 @@
 ---
-title: "Practical: Validation and comparison"
+title: "Practical: hierarchically modeling environmental responses"
 subtitle: "Physalia workshop on GLLVMs"
 author: "Bert van der Veen"
 output: html_document
@@ -7,194 +7,287 @@ output: html_document
 
 # Description
 
-We have fitted VGLMs and VGLMMs at this point in the workshop. Hopefully, it is now clear to you that when we fit these models we make assumptions about the data generating process. If these assumptions do not hold, there are consequences for the conclusions that we connect to the results (they are most likely wrong). So, we need to understand the assumptions that we make, and more importantly, we need to know how to check and address assumption violations.
+So far we have focused on answering the question "what environmental preference do species prefer?". VGLM(M)s estimate species responses to the environment, so the coefficients and statistical uncertainties help us to answer the question. A good part of community ecology is more occupied with answering the question "why do species prefer particular environmental conditions?" using functional traits.
 
-With assumptions, we can distinguish between statistical assumptions and ecological assumptions. Here, we will first focus on the former, but the latter is not less important. Statistical assumptions include those listed for VGLMs and VGLMMs in the previous practicals and in the lectures:
+The idea is species' physical characteristics are the driver of their ability to thrive in particular conditions. In the lecture, I took the example of leaf thickness of plants, or color of the fur for the snowshoe hare. Of course, there is individual variation in traits; some individuals have thicker leaves than others, or the fur color differs from hare to hare, but as we are analysing data at the species-level we will ignore intra-specific trait variation for the moment (also, few models currently exist that can incorporate it)!
 
-1. Correct distribution
-2. Correct link function
-3. Correct variance function
-4. No outliers
-5. No systematic departure from the model of another kind (e.g., non-linearity)
-6. Independence of observations
-7. The dispersion parameter is approriately selected (e.g., per species, per group, or the same)
+Traditionally, community ecologists would explore this question using community weighted means in combination with a constrained ordination. Analyzing data in that matter has significant flaws, which two-step approaches usually do (for example, propagation of uncertainty, but also you will simply get the estimators wrong when your data is non-normally distributed, as it often is).
 
-With ecological assumptions I mean the hypotheses and understandings we convey when we formulate a model. We validate and check those with things like model comparison (information cirteria, likelihood ratio test) and predictive comparison (more on that at the end of the day).
-
-# Data
-
-As for data, you are free to pick a dataset again, but I suggest you take one that has some flexibility or ambiguity as to the right response distribution. For biomass you could work with Tweedie or gamma, for count data it is usually Poisson or negative-binomial, for binary data the response distribution is binomial, but there is choice in the link function: it can be logit or probit. Every data type has a natural response distribution connected to it, usually based on its domain (i.e., the limits of the data; biomass cannot be zero, counts cannot be negative and binary cannot be different from 0 or 1).
-
-I will again start with the waddensea (abundance) data, because it allows me to demonstrate the consequences of not accommodating overdispersion, and how to check for overdispersion.
-
-
-```{r data}
-Y <- read.table("../../data/waddenY.csv", sep="," ,header=TRUE, row.names = 2)[,-1]
-X <- read.table("../../data/waddenX.csv", sep=",", header=TRUE, row.names = 2)[,-1]
-X <- X[,-which(apply(X,2, anyNA))] # remove column with NAs
-```
-
-The natural point of departure for count data is the Poisson distribution, or the binomial distribution if you want to condition on the total count.
+As explained in the lecture, this approach of using traits to inform how species respond to the environment has long been referred to as the "fourth-corner problem". In a statistical model, we pose this as an interaction of traits and environment, so that the interaction coefficients explain if species with a particular trait respond differently to the environment. That makes the models an extension of what we looked at yesterday.
 
 # Part I
 
-Let's fit a few of the models from the previous exercises, so we can examine them more closely:
+## Data
 
-```{r, message=FALSE}
+Because we need functional traits in this exercise, we are now a bit more limited in the datasets that we can use. The following datasets include species response data, environmental variables, and traits:
+
+1. Carabid beetles ("beetles", abundance)
+2. French Alpine plants ("Alpine2", presence-absence)
+3. Wood-inhabiting fungi ("fungi", presence-absence)
+4. Eucalyptus trees ("eucalypt", presence-absence)
+5. Hunting spiders ("spider", counts in <tt>mvabund</tt>)
+
+## Background
+
+Start by choosing a dataset, I will choose a different dataset this time, because the waddensea data has no traits. Instead, I use the Beetles data that is also used in [Niku et al. (2021)](https://onlinelibrary.wiley.com/doi/full/10.1002/env.2683) for developing the fourth-corner approach in the <tt>gllvm</tt> package. This first code chunk does some formatting to make sure that the data is in the right format.
+
+```{r data}
+# Response data
+Y <- t(read.csv("../../data/beetlesY.csv"))
+colnames(Y) <- Y[2,]
+Y<-Y[-c(1:2),-c(1,70:71)]
+Y <- as.data.frame(apply(Y,2,as.integer))
+
+# Environmental predictors
+X <- read.csv("../../data/beetlesX.csv")[,-c(1:5)]
+X <- as.data.frame(apply(X,2,as.numeric))
+X$Sampling.year <- X$Sampling.year - min(X$Sampling.year)
+X$Texture <- as.factor(X$Texture)
+
+# Traits
+TR  <- read.csv("../../data/beetlesTR.csv")
+row.names(TR) <- TR$SPECIES
+TR <- TR[,-c(1:3)]
+# Traits to categorical
+# Removing question marks, not ideal
+TR[,c("CLG","CLB","WIN","PRS","OVE","FOA","DAY","BRE","EME","ACT")] <- apply(TR[,c("CLG","CLB","WIN","PRS","OVE","FOA","DAY","BRE","EME","ACT")],2,function(x)as.factor(gsub("\\?.*","",x)))
+
+# Data standardization
+X <- scale(model.matrix(~.,X))[,-1] # environmental variables
+TR <- scale(model.matrix(~.,TR))[,-1] # species traits
+```
+
+A fourth-corner model in <tt>gllvm</tt> is fitted by providing environment and trait covariates simultaneously. The arguments passed to the `formula` argument corresponds to the (hierarchical) equation for species responses; trait-environment interaction coefficients are the same for all species, environment terms are the same for all species, random effects are species-specific. The effects that are the same across all species could also be specified via `row.eff`. That makes that specification of the `formula` argument deviates a little from that of the previous models that we have fitted, but the principles are largely the same. We can also use the `beta0comm` option if we want to assume a global intercept (rather than the default of species-specific intercepts). 
+
+Niku et al. used only a few covariates, so I will do the same here:
+
+```{r traits, cache = TRUE, message=FALSE}
 library(gllvm)
-model1 <- gllvm(Y, X, formula = ~scale(silt_clay) + scale(elevation), family = "poisson", num.lv = 0)
-model2 <- gllvm(Y, X, formula = ~scale(silt_clay) + scale(elevation), family = "negative.binomial", num.lv = 0)
-model3 <- gllvm(Y, X, formula = ~(0+scale(silt_clay)|1) + (0+scale(elevation)|1), family = "poisson", num.lv = 0)
-model4 <- gllvm(Y, X, formula = ~(0+scale(silt_clay)|1) + (0+scale(elevation)|1), family = "negative.binomial", num.lv = 0)
+model1 <- gllvm(y = Y, X = X, TR = TR, 
+                formula = ~ Management + Elevation + pH + Moist + (Management + Elevation + pH + Moist):(LPH+ LTL + OVE2 + BRE2 + BRE3), 
+                family = "negative.binomial", num.lv = 0)
 ```
 
-Similar to a linear regression, we can use `plot` function to visualize the residuals from a <tt>gllvm</tt> type object. There is also a `residuals` function if you actually want to have the residuals, but that is rarely needed in practice. This `plot` function makes five plots:
+This first model fits rather quickly: there are only a few coefficients included as it excludes species-specific responses to the environment. It corresponds to the equation:
 
-1. Residuals vs. linear predictors (also called Residuals vs. fitted)
-2. Normal QQ-plot
-3. Residuals vs. rows
-4. Residual vs. columns
-5. Scale-location
+\begin{equation}
+\boldsymbol{\beta}_j = \boldsymbol{\beta}_k + \text{tr}_j\textbf{B}_{x,tr}
+\end{equation}
 
-Here the residual is defined as the Dunn-Smyth residual, also referred to as the randomized quantile residual. It is the gold standard of residuals when it comes to complex statistical models, is straightforward to define for all our statistical models, and is exactly normally distributed even in small samples, regardless of the response distribution that we select. It has a random component to is, which means that your residual will not look __exactly__ the same every time you use the function, but there will only be minor differences that should not affect your conclusion.
+This means that there is still a common component to species' environmental responses, $\boldsymbol{\beta}_k$, but that the deviation from that for every species is fully determined by the traits $\text{tr}_j\textbf{B}_{x,tr}$. 
 
-Residual diagnostics is pretty straightforward: there should be no odd looking patterns in the plots. If there are, the conclusions we connect to it, and the consequences it has, depend on the exact assumption that is violated. Safe to say, if all assuptions are met, we do not need to concern ourselves further with the details, so let's focus on that instead!
+We can extract the **fourth-corner** coefficients and have a look at them:
 
-We check the following assumptions with the following plots:
+```{r, fig.width = 10, echo = -1, message=FALSE}
+library(gllvm)
+(fourth <- gllvm:::getFourthCorner(model1))
+coefplot(model1)
+```
+The `summary` also reports the interaction coefficients:
 
-1. Correct link function, Correct variance function, systematic departure from the model, outliers
-2. Correct distribution, outliers, appropriateness of the dispersion parameter(s)
-3. Independence of observations (particularly sites), systematic depature
-4. Correct variance function, systematic depature from the model, appropriateness of the dispersion parameter(s)
-5. Correct link function, correct variance function, outliers
-
-There is some grey area here; assumptions violations can be extreme and easy to spot, or subtle and difficult to conclude. If you are afraid an assumption is violated, the safe thing to do is to relax the assumption to the best of your ability by adjusting the model, and seeing if the results have changed. If they haven't, the assumption was not violated or it simply didn't matter for your results.
-
-Each of the aforementioned assumptions tends to result in particular patterns in the plots; most violations will show in the first plot, but particularly systematic depature of the model. If you select the wrong distribution the QQ-plot will show departure from the diagonal line. If there is dependence of observations; usually spatially or temporally of sites, this will show in the third plot as clustering. Similarly, similarity of species (e.g., due to relatedness) will show as clustering in the fourth plot. Outliers will show in all the plots; particularly in the fifth plot as points that lay high above the line.
-
-In our case, if we look at the QQ-plot of the first model: 
-
-```{r, fig.width = 10}
-plot(model1, which = 2)
+```{r}
+summary(model1)
 ```
 
-We see that in the tails of the distribution there is a lot of deviation; the absolute size of the residuals is much larger than what corresponds to the Poisson distribution, so that the distributional assumption is violated. Also from some of the other plots it is not hard to determine that the model is a poor fit:
+The following might be a more intuitive visualization, though:
 
 ```{r, fig.width = 10}
-plot(model1, which = c(1, 3, 4, 5))
-```
+# extract standard errors
+model1temp <- model1
+model1temp$params$B <- model1$sd$B
+sds <- gllvm:::getFourthCorner(model1temp) # little trick to arrange the standard errors
+LI = t(fourth+sds*qnorm(1-0.95))
+UI = t(fourth+sds*qnorm(0.95))
+a = max(abs(fourth))
+fields::image.plot(1:nrow(fourth),1:ncol(fourth), fourth, axes=F, ylab=NA, xlab=NA, col = colorRampPalette(c("#E69F00","white","#009E73"))(29), breaks =seq(-a,a,length.out=30), legend.width=1, zlim=range(fourth))
+mtext("Traits", 3)
+mtext("Environment", 4)
+text(1:nrow(fourth), -.6, srt = 45, labels = rownames(fourth), xpd = TRUE, cex = 0.6)
+axis(1, label=F)
+axis(2, 1:ncol(fourth), colnames(fourth), las=1, cex.axis = 0.6)
+box(col="white", lwd=3)
+cells_to_outline <- which(((LI>0 & UI>0) | (LI<0 & UI<0)), arr.ind = TRUE)
 
-The residuals vs. linear predictors (fitted) shows a fan pattern that is indicative of overdispersion, residuals vs. rows shows some very extreme residuals for particular species, which we also see in the residuals vs. columns plot. The scale-location plot leads to the same conclusion: the variance function is not correct. If you work with count data in community ecology, this would quickly lead you to the conclusion that a negative-binomial model will fit better, which we can verify by plotting the residuals of the second model.
+for (cell in 1:nrow(cells_to_outline)){
+  x <- cells_to_outline[cell, 1]
+  y <- cells_to_outline[cell, 2]
+  x_vals <- c(y - 0.5, y + 0.5, y + 0.5, y - 0.5)  # X coordinates of the rectangle corners
+  y_vals <- c(x - 0.5, x - 0.5, x + 0.5, x + 0.5)  # Y coordinates of the rectangle corners
 
-```{r, fig.width = 10}
-plot(model2, which = c(1,2))
-```
-
-The QQ-plot shows no departure and the residuals vs. linear predictors plot shows no extreme outliers or patterns. That does not make it a good model, just one with valid assumptions!
-
-Those five plots and assumptions cover assumption checking over the overall model residuals. We have not yet checked the normality assumption of the estimated random effects. It is something that is very often overlooked in mixed-effects models. There is a difference in the __prior__ assumption for the distribution of the random effect, and the __posterior__ (in Bayesian language by lack of a more succint frequentist alternative). Technically, in frequentist statistics, we distinguish between the distribution of the random effect before the model has encountered the data, and after. The former comes in as the normality assumption of the random effect, which you may have heard other people speak of. The latter is by design much more flexible, and its exact form and implementation vary depending on how we exactly estimate the model.
-
-Here, we can check the prior assumption of the random effect using the random effects estimates. It is important to note that these assumptions are similar to checking assumptions of a linear regression using the residual. There, the residual is the estimate of the error in the linear regression, as here our estimates are for the prior random effects. The assumptions are also very similar; for the random effects we assume homoscedasticity, independence to some degree, no outliers, and normality. We are slightly more limited in checking those, as we do not have "data" observed for the random effects; they are missing or unobserved and we only have the estimates. We can, however, plot them in a histogram, QQ-plot, and against the species to assess our assumptions. Here we go:
-
-```{r, fig.width = 10}
-re <- coef(model3, "Br")
-par(mfrow=c(1,nrow(re)))
-
-# qqplot
-for(i in 1:nrow(re)){
-qqnorm(re[i,], main = row.names(re)[i])
-qqline(re[i,])
-}
-
-# histogram
-for(i in 1:nrow(re)){
-hist(re[i,], main = row.names(re)[i], xlab = "Random effect")
-}
-
-# RE vs species
-for(i in 1:nrow(re)){
-plot(re[i,], x = 1:ncol(model3$y), main = row.names(re)[i], xlab = "Species", ylab = "Random effect")
+polygon(x_vals, y_vals, col = NA, border = "black", lwd = 2)
 }
 ```
 
-We can clearly see some deviation from normality in the random effects for elevation. This probably has to due with the misspecification of the response distribution, which the model is trying to accommodate. Let's check again for the negative-binomial VGLMM:
+where the effects that have confidence intervals overlapping zero are not outlined. The traits labeled "BRE" represent different breeding period. The reference category is spring, the two periods visualized here are summer (2) and autumn/winter (3). Consequently, we see that species that breed in summer are more negatively affected by intenser management than species that breed in spring, and species that breed in winter are more positively affected by intenser management than species that breed in spring (i.e., it's best to be a species that breeds in autum/winter if there is intense management). OVE represents the overwintering strategy, with the reference category being "adults only" and the second category representing "adults and larvae or larvae only". All species seem to exhibit higher abundance in response to elevation, relative to the reference category of species that breed in spring and overwinter only as adults. The other effects are interpreted in a similar fashion; relative to the reference category (as these things usually are in statistical models).
+
+The previous assumption of species' responses fully due to traits is fine the right traits are included, but if the chosen traits are not important to determining species' environmental responses, it will result in lack-of-fit. So, in this next model we relax that assumption by also including species-specific random effects. We do need to run the model a few times, as it includes a lot of effects and does not always converge well.
+
+```{r traits2, cache = TRUE, warning=FALSE}
+model2 <- gllvm(y = Y, X = X, TR = TR, 
+                formula = ~ Management + Elevation + pH + Moist + (Management + Elevation + pH + Moist):(LPH+ LTL + OVE2 + BRE2 + BRE3) + (0+Management + Elevation + pH + Moist|1),
+                family = "negative.binomial", num.lv = 0, n.init = 3)
+```
+
+Similar as in the previous models we can plot the species-specific responses with `randomCoefPlot`.
+
+```{r res, message=FALSE, fig.width = 10}
+# there is a little bug in the software, this first line circumvents that. Will be fixed in the upcoming CRAN submission
+model2$randomX <- model2$Xrandom <- NULL
+randomCoefplot(model2)
+```
+
+and, our fourth-corner coefficients may have changed, so we want to recreate our plot of those:
 
 ```{r, fig.width = 10}
-re <- coef(model4, "Br")
-par(mfrow=c(1,nrow(re)))
-# qqplot
-for(i in 1:nrow(re)){
-qqnorm(re[i,], main = row.names(re)[i])
-qqline(re[i,])
+fourth <- gllvm:::getFourthCorner(model2)
+# extract standard errors
+model2temp <- model2
+model2temp$params$B <- model2$sd$B
+sds <- gllvm:::getFourthCorner(model2temp) # little trick to arrange the standard errors
+LI = t(fourth+sds*qnorm(1-0.95))
+UI = t(fourth+sds*qnorm(0.95))
+a = max(abs(fourth))
+fields::image.plot(1:nrow(fourth),1:ncol(fourth), fourth, axes=F, ylab=NA, xlab=NA, col = colorRampPalette(c("#E69F00","white","#009E73"))(29), breaks =seq(-a,a,length.out=30), legend.width=1, zlim=range(fourth))
+mtext("Traits", 3)
+mtext("Environment", 4)
+text(1:nrow(fourth), -.6, srt = 45, labels = rownames(fourth), xpd = TRUE, cex = 0.6)
+axis(1, label=F)
+axis(2, 1:ncol(fourth), colnames(fourth), las=1, cex.axis = 0.6)
+box(col="white", lwd=3)
+cells_to_outline <- which(((LI>0 & UI>0) | (LI<0 & UI<0)), arr.ind = TRUE)
+
+for (cell in 1:nrow(cells_to_outline)){
+  x <- cells_to_outline[cell, 1]
+  y <- cells_to_outline[cell, 2]
+  x_vals <- c(y - 0.5, y + 0.5, y + 0.5, y - 0.5)  # X coordinates of the rectangle corners
+  y_vals <- c(x - 0.5, x - 0.5, x + 0.5, x + 0.5)  # Y coordinates of the rectangle corners
+
+polygon(x_vals, y_vals, col = NA, border = "black", lwd = 2)
 }
-
 ```
-That looks somewhat better. In practice, there is very little we can do about this. Deviation from normality indicates that the tails of the estimated distribution are heavier than expected by normality, and particularly for the previous QQ-plot, that the estimated distribution has strong skew. In practice, it usually means that the model we have is not particularly good; we can add more covariates, or change its structure, to make things nicer behaved. Changing the random effects distribution is very complex, and little software to do so is available, so if changing the model does not work, a full Bayesian analysis would probably be the next step (but trust me, changing the model will work!). The consequences of the violation are not (too) dire; it mostly means that the estimate for the variance of the random effect can be biased, and the prediction intervals of the random effects might be inaccurate. The direction of the bias (upward or downward) will depend on the exact nature of the assumption violation.
+The effects have changed a little bit; can you spot the differences?
 
-## Tasks I
+Finally, we can use `anova` to test if our species' responses really depend on these traits. So, we fit a VGLMM similarly to last exercise, without the trait effects, and compare to the model that we just fitted:
 
-Here is what I want you to do:
+```{r traits3, cache = TRUE, warning=FALSE}
+model3 <- gllvm(y = Y, X = X,
+                formula = ~ (0+Management + Elevation + pH + Moist|1),
+                family = "negative.binomial", num.lv = 0, n.init = 3)
+anova(model2, model3)
+```
 
-1. Take one (or multiple) of the models you fitted yesterday, and examine their residuals. 
-2. Can you spot any particular assumption deviations?
-3. If you do, based on the information above, can you figure out how to address the assumption violation?
-4. Also check the random effects assumptions using the code for the three plots above.
-5. If there are assumption violations, can you manage to change the model and to improve it?
+The models differ by 20 parameters, as indicated by the "df.diff" output. The resulting test is statistically significant; we conclude that species' responses to the environment really do depend on these traits.
+
+## Tasks
+
+Suggestions for this practical:
+
+1) Fit the models shown to your choice of dataset. You can experiment with including/excluding traits or environmental variables to see how it changes the results.
+2) Try to make ecological sense of the fourth-corner coefficients. Don't forget that the species-common effects are also present as shown by `summary`
+3) Use `anova` to test the environment-trait hypothesis. You can also try using information criteria with `AIC`, `BIC` or `AICc`
 
 # Part II
 
-Residual diagnostics are a very important part to model checking, why would we compare models if one of them is not a valid model in the first place?
+## Background
 
-However, there are different ways to approach your final workflow; we could first perform model selection and cross our fingers that the final model has all its assumptions met, so that we don't have to reiterate our process. Ultimately, model fitting, validation, and comparison is a process with an iterative nature. We fit models, we compare or check them, and we refine.
+**Please be advised that the following models in this part of the practical may take some time to fit.**
 
-Anyway, in this second part of the practical I would like us to compare some models. This can be fixed effects models as you fitted yesterday, or random effects models, but keep in mind the limitations of these methods when it comes to random effects, so that exhaustive model comparison should generally be avoided. Likelihood ratio tests should not be use to compare models when the null is "on the boundary". In practice, this means that you should not use it to test if including a new random effects improves your model. The approximation for the likelihood ratio test implemented in <tt>gllvm</tt> also assumes that the log-likelihood is quadratic. In practice, this means that it is relatively safe to test for if including new fixed effects improves your model, although there are some theoretical underpinnings that say it might sometimes go wrong. Information criteria (such as for example AIC) rely on the same assumptions.
-
-Exhaustive model comparison will only lead us into trouble due to Freedman's paradox (by chance, some variables will associate to the noise in our response data, and thus sometimes show as statistically significant effects). Make sure not to combine model selection with information criteria, and hypothesis testing, in practice as these are two completely different paradigms that should not be mixed (you will end up p-hacking; information criteria naturally selects models with statistical significance as the concepts are related).
-
-The functions we can use for model comparison in `gllvm` are:
-
-- `summary` (wald-statistics)
-- `AIC`, `BIC` or `AICc` for information criteria (all with a slightly different angle, but similar in interpretation)
-- `anova` for (approximate) likelihood ratio test of models
-
-The `anova` method has as main limitations that 1) the model need to be nested, 2) the number of parameters difference can not be too large, the null hypothesis cannot be on the boundary of the parameter space (such as a zero variance estimate because you are omitting species-specific random effects). Especially regarding 2) the function will throw a (relative conservative) warning. For example, we may want to compare the first model to a model without elevation:
+The above model incorporates traits, but assumes that species are independent. We are now starting on our journey to fitting JSDMs that incorporate correlation of species. Here, we do not use latent variables yet, we assume that there is some additional information that can explain the co-occurrence of species: a phylogeny. This information can help to improve our prediction of species' distribution. The beetles dataset does not include phylogenetic information, and finding published data with a good phylogeny is challenging, so we are restricted to a single dataset now. It is included in the package already, which makes loading it a bit easier.
 
 ```{r}
-model5 <- gllvm(Y, X, formula = ~scale(silt_clay), family = "poisson", num.lv = 0)
-anova(model1, model5)
+data(fungi, package = "gllvm")
+Y2 <- fungi$Y
+X2 <- fungi$X
+X2 <- data.frame(lapply(X2, function(x)if(is.numeric(x)){scale(x)}else{as.factor(x)}))
+tree <- fungi$tree
+covMat<- ape::vcv(tree)
+distMat <- ape::vcv(tree)
+TR <- fungi$TR
+colnames(TR)[8] <- "Sp.log.vol" # funky column name needs to be changed
 ```
 
-The warning is not because the test does not work. This has to do with the fact that when we include additional species-specific fixed effects, there is a large number of parameters added to the model. The difference in the number of parameters for a model with and without a single covariate is given by the number of species, and we often have many. The likelihood improves with every parameter that we add, so a single covariate difference often means a considerable change in the likelihood.
-
-A safer comparison, could be for the random-effects model with and without the species-common effect, for example:
+We explore the data a little:
 
 ```{r}
-model6 <- gllvm(Y, X = X, formula = ~(0+scale(silt_clay)|1) + (0+scale(elevation)|1),
-                studyDesign = X, row.eff = ~scale(silt_clay), family = "poisson", num.lv = 0)
+any(rowSums(Y2)==0)
+dim(Y2)
+colnames(X2)
+colnames(TR)
 ```
 
-has one parameter less than the third model; the species-common effect for elevation is omitted by "overruling" the default of included species-common effects for all random effects, by using the `row.eff` formula argument. Now, our hypothesis test only looks at the improvement in the model due to a single parameter: the average effect for elevation. So, the question we are asking is "are species responses to elevation on average 0" (or, "does including an average effect of elevation improve our model"):
+This a binary dataset by [Abrego et al. (2022)](https://besjournals.onlinelibrary.wiley.com/doi/full/10.1111/1365-2745.13839), of 215 wood inhabiting fungi inhabiting 1666 logs. `TR` include the trait covariates, and `X` includes environmental variables related to the forest, or the deadwood, that the fungi occurred in/on. First, we will fit a model without phylogeny but with traits, and including "REGION" and "RESERVE" as random row effects to account for the nested design. We will use a couple tricks to speed up fitting the model: parallel computation (because I am impatient!). 
+
+```{r, cache = TRUE}
+TMB::openmp(parallel::detectCores()-1, autopar = TRUE)
+model4 <- gllvm(Y2, X = X2, TR = TR, formula = ~DBH.CM+AVERDP+CONNECT10+TEMPR+PRECIP+
+                  (DBH.CM+AVERDP+CONNECT10+TEMPR+PRECIP):(PC1.1+PC1.2+PC1.3), 
+                row.eff = ~(1|REGION/RESERVE), studyDesign =  X2[,c("REGION","RESERVE")],
+                num.lv = 0, family = "binomial", sd.errors = FALSE,
+                optim.method = "L-BFGS-B")
+```
+
+This model does not include species-specific random effects yet, so should fit reasonably quickly. The included "traits" are Principal Components extracted from the original trait matrix, in order to a-priori reduce complexity of the model. Be careful when playing around: with these dataset dimensions the models start using loads of RAM, and when you run out of RAM R will crash, which can quickly happen when we add more traits. In general, when working with large datasets and complex models, using a server for more computing power is advisable.
+
+We can examine the fourth corner coefficients:
 
 ```{r}
-anova(model3, model6)
+library(lattice)
+fourth <- model4$fourth.corner # the coefficients
+a <- max(abs(fourth))
+colort <- colorRampPalette(c("blue", "white", "red"))
+plot.4th <- levelplot((as.matrix(fourth)), xlab = "Environmental Variables", 
+                      ylab = "Species traits", col.regions = colort(100), cex.lab = 1.3, 
+                      at = seq(-a, a, length = 100), scales = list(x = list(rot = 45)))
+plot.4th
 ```
 
-The answer is no, no it does not; the p-value is considerably above the 0.05 threshold. `AIC` gives us essentially the same answer:
+Excellent! The trait-environment interaction coefficients have been included, and visualized. You can also examine them using the model its `summary`. With this model we again assumed that species' responses to the environment are fully determined by species' traits. Usually, we do not know if we have measured the right traits, so incorporating "residual" information in species' responses to the environmental covariates is vital. We relax our assumption by fitting another model (this might take a little). To speed it up further we combine this we a slightly rougher approximation to the log-likelihood (`Ab.struct = "diagonal"`):
 
-```{r}
-AIC(model3, model6)
+```{r, cache= TRUE}
+model5 <- gllvm(Y2, X = X2, TR = TR, formula = ~DBH.CM+AVERDP+CONNECT10+TEMPR+PRECIP+
+                  (DBH.CM+AVERDP+CONNECT10+TEMPR+PRECIP):(PC1.1+PC1.2+PC1.3), 
+                randomX = ~DBH.CM+AVERDP+CONNECT10+TEMPR+PRECIP,
+                row.eff = ~(1|REGION/RESERVE), studyDesign =  X2[,c("REGION","RESERVE")],
+                num.lv = 0, family = "binomial", sd.errors = FALSE,
+                optim.method = "L-BFGS-B", Ab.struct = "diagonal", maxit=1e5)
 ```
 
-the model with an additional parameter is barely 2 points better, so there is no noticeable improvement. This is not a particularly big surprise, as the species-common effect for elevation was not statistically significant:
+this formulation ensures that the relevant correlations between species' random effects are incorporated, which we can also examine with `summary`. Before we do that, we will add the final component to our model; the phylogeny. The <tt>gllvm</tt> package broadly implements phylogenetic mixed-effects models, which can also be used to fit models for traits or individuals (i.e., where traits are the response variables), but here we focus on our species data. Phylogenetic random effects make the model considerably more computer intensive (complex), and there are a range of considerations that we need to make when fitting it. In particular, the nearest neighbour approximation and the ordering of the species. There are various ways to find the "optimal" setting for both those things, which we will not go further into here (but ask if you want to know!). For further details see [the corresponding vignette in the package](https://jenniniku.github.io/gllvm/articles/vignette7.html). For the following models, you will need at least 30 minutes computing time. A smaller number of nearest neighbours will fit the model more quickly, but lead to less accurate results. Mind yourself, this is incredibly fast; it took the original authors ten days with the Hmsc R-package. For the exercises, you can reduce this further by (e.g.,) subsetting the data and fitting the models to a smaller number of species and sites.
 
-```{r}
-summary(model3)
+```{r, cache = TRUE}
+e <- eigen(covMat)$vectors[,1]
+ord <- gllvm:::findOrder(covMat = covMat, distMat = distMat, nn = 15, order = order(e))$order
+spec.ord <- colnames(covMat)[ord]
+model6 <- gllvm(Y2[,spec.ord], X = X2, TR = TR, formula = ~DBH.CM+AVERDP+CONNECT10+TEMPR+PRECIP+
+                  (DBH.CM+AVERDP+CONNECT10+TEMPR+PRECIP):(PC1.1+PC1.2+PC1.3), 
+                randomX = ~DBH.CM+AVERDP+CONNECT10+TEMPR+PRECIP,
+                row.eff = ~(1|REGION/RESERVE), studyDesign =  X2[,c("REGION","RESERVE")],
+                num.lv = 0, family = "binomial", sd.errors = FALSE,
+                optim.method = "L-BFGS-B", Ab.struct = "MNdiagonal", maxit = 1e5,
+                colMat = list(covMat[spec.ord, spec.ord], dist = distMat[spec.ord, spec.ord]), colMat.rho.struct = "term", nn.colMat = 15)
 ```
 
-Although we have to separate out some of these different concepts of hypothesis testing and model selection with information criteria, I am wildly mixing them here for demonstration that they are related paradigms that often give us similar answers anyway.
+Let's also calculate the standard error for our "final" model, but post model fitting. This is a useful strategy if you have a complex model, or if you are going through a model comparison procedure, as standard error calculation can take a significant amount of time, depending on the exact model structure:
 
-## Tasks II
+```{r, cache = TRUE}
+ses <- se(model6)
+model6$sd <- ses$sd
+model6$Hess <- ses$Hess
+```
 
-1. Choose a paradigm: exploratory or confirmatory. This is usually indicated by the nature of your research question
-2. Use `anova` if your analysis is confirmatory, or information criteria if your analysis is exploratory, to determine which covariate(s) in the data drive your community.
-3. Carefully consider (discuss with your breakout room "buddies") what the limitations are of likelihood ratio testing and information criteria in this setting of multispecies mixed-effects models. Think in the direction of boundary effects, Freedman's paradox, nestedness, and other caveats that may apply here.
+We can examine the phylogenetic signal with `summary` and plot the species-specific random effects (without trait effects) jointly with the phylogeny. We first need to calculate standard errors to do that:
+
+```{r, fig.width = 15, fig.height = 10}
+summary(model6)
+phyloplot(model6, tree = tree)
+```
+
+and plot the associations due to the environmental variables and phylogeny:
+
+```{r, fig.width = 15, fig.height = 10}
+# little bug that will be addressed on next CRAN submission
+model6$col.eff$colMat <- model6$col.eff$colMat[[1]]
+library(Matrix)
+corrplot::corrplot(cov2cor(getEnvironCov(model6)$cov), type = "lower", order = "AOE", diag = FALSE, tl.pos = "l", tl.cex = 0.2, addgrid.col = NA)
+```
+

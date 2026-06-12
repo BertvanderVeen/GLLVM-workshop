@@ -99,7 +99,7 @@ dat <- as.data.frame(alpha,xy=TRUE) %>%
   pivot_longer(cols = -c(x, y), names_to = "layer", values_to = "value")
 
 plt<-ggplot() +         # layer 3
-  theme_classic()+theme(text = element_text(size = 20),axis.text=element_blank(), axis.ticks=element_blank())+scale_fill_viridis_c(name="Alpha diversity", na.value="white")+geom_raster(data=dat, aes(x=x, y=y, fill = value), interpolate=TRUE)+coord_fixed()+xlab(NULL)+ylab(NULL)+ggtitle("Bird alpha diversity (due to mean abundance, aspect and slope)")
+  theme_classic()+theme(text = element_text(size = 20),axis.text=element_blank(), axis.ticks=element_blank())+scale_fill_viridis_c(name="Dominance", na.value="white")+geom_raster(data=dat, aes(x=x, y=y, fill = value), interpolate=TRUE)+coord_fixed()+xlab(NULL)+ylab(NULL)+ggtitle("Dominance (due to abundance, aspect and slope)")
 plt
 ```
 
@@ -160,6 +160,8 @@ plt
   \draw[-{Triangle[width=18pt,length=8pt]}, line width=10pt] (rightimg) -- (leftimg);
 \end{tikzpicture}
 
+\textcolor{red}{More on diversity prediction later.}
+
 ## Leveraging shared information
 
 In our mixed-effects model yesterday, we had some components already shared for all species:
@@ -174,10 +176,6 @@ Sharing information across species helps; on some species we have more informati
 \pause
 
 \textcolor{red}{This is also the idea of JSDM: use co-occurrence information to improve the model's knowledge of the community}
-
-## Co-occurrence patterns
-
-- if one species occurs somewhere, we know another does too, for various reasons
 
 ## Species correlation
 
@@ -227,7 +225,7 @@ X$Water_Type<-as.factor(X$Water_Type)
 \tiny
 
 ```{r}
-model4 <- gllvm::gllvm(y, X = X, formula = ~NO3, num.lv = 0, 
+model4 <- gllvm::gllvm(y, X = X, formula = ~NO3, num.lv = 0,
                        family = "negative.binomial")
 ```
 
@@ -357,6 +355,7 @@ Niches are shaped more than by environment and interactions; historical limitati
 }
     
 \begin{tikzpicture}[remember picture, overlay]
+\pause
 \node[mybox] at (current page.center){Incorporating potential biotic sources of covariation is a step in the right direction};
 \end{tikzpicture}
 
@@ -367,7 +366,7 @@ Niches are shaped more than by environment and interactions; historical limitati
 \toprule
   & Classic & JSDM\\
  \midrule
-Focus  & Low-dimensional space & Distributions\\
+Focus  & Low-dimensional & Distributions\\
 Goal  & Inference & Prediction \\
 Data type  & Usually quantitative & Binary \\
 Scale  & Local & Regional \\
@@ -495,10 +494,9 @@ g\{\mathams{E}(\textbf{y}_i \vert \symbf{\epsilon}_i)\} = \symbf{\beta}_0 + \tex
 
 The JSDM is "just" a mixed-effects model. So we can fit it with available software:
 
-In \texttt{lme4}: \newline
 \footnotesize
 ```{r,eval=FALSE}
-glmer(abundance ~ species + x:species + (0+species|sites), data = data)
+glmmVA(abundance ~ species + x:species + (0+species|sites), data = data)
 ```
 \normalsize
 
@@ -519,7 +517,7 @@ glmer(abundance ~ species + x:species + (0+species|sites), data = data)
 \begin{itemize}
 \itemsep-0.5em
 \item Boral (Bayesian, slow and somewhat outdated)
-\item sJSDM (Bayesian, relatively slow, but faster than Boral)
+\item jSDM (Bayesian, relatively slow, but faster than Boral)
 \item Hmsc (Bayesian, generally slow, loads of functionality)
 \item ecoCopla (Frequentist, very fast but limited functionality)
 \item CBFM (Frequentist, geared towards spatio-temporal analysis)
@@ -555,7 +553,7 @@ library(corrplot)
 
 \footnotesize
 
-```{r, warning=FALSE, cache = TRUE} 
+```{r, warning=FALSE, cache = TRUE}
 model1 <- gllvm(Y, family = "binomial")
 ```
 
@@ -575,7 +573,7 @@ corrplot(cors, type = "lower", diag = FALSE, tl.pos = "l", order = "AOE", tl.cex
 \columnsbegin
 \column{0.5\textwidth}
 
-```{r cors1, fig.align = "left", echo = FALSE, dev = "png"}
+```{r cors1, echo = FALSE, dev = "png", dpi = 150, fig.height = 10}
 cors <- getResidualCor(model1)
 corrplot(cors, type = "lower", diag = FALSE, tl.pos = "l", order = "AOE", tl.cex = 0.5, main = "model 1")
 ```
@@ -591,14 +589,15 @@ Red: species that are predicted to avoid each other
 
 Now that we have incorporated associations, we can add in environmental variables as yesterday (fixed or random):
 
+\vspace*{-\baselineskip}
 
-```{r cors2, warning=FALSE, cache = TRUE, echo = -c(2,3), dev = "png", fig.show="hide"} 
+```{r cors2, warning=FALSE, cache = TRUE, echo = -c(2,3), dev = "png", fig.show="hide", fig.height = 10} 
 model2 <- gllvm(Y, X = X, formula = ~Snow, family = "binomial")
 cors2 <- getResidualCor(model2)
 corrplot(cors, type = "lower", diag = FALSE, tl.pos = "l", order = "AOE", tl.cex = 0.5, main = "model 2")
 ```
 
-```{r, echo = FALSE, fig.height = 3}
+```{r, echo = FALSE, fig.height = 3.5}
 coefplot(model2, xlim = list(c(-20,10)))
 ```
 
@@ -610,20 +609,22 @@ Adding environmental covariates tends to improve the model, but reduce the signa
 
 \tiny
 
-```{r cors3, cache = TRUE, echo = -c(2,3),dev = "png", fig.show="hide", warning = FALSE}
+```{r cors3, cache = TRUE, echo = -c(2,3),dev = "png", fig.show="hide", warning = FALSE, dpi = 150, fig.height = 10}
 model3 <- gllvm(Y, X = X, formula = ~Snow+Form+Slope+Aspect, family = "binomial")
 cors3 <- getResidualCor(model3)
 corrplot(cors3, type = "lower", diag = FALSE, tl.pos = "l", order = "AOE", tl.cex = 0.5, main = "model 3")
 AIC(model1, model2, model3)
 ```
 
+\vspace{\baselineskip}
+
 \columnsbegin
 \column{0.3\textwidth}
-\includegraphics{JSDM_files/figure-beamer/cors1-1.png}
+\includegraphics[width=\linewidth]{JSDM_files/figure-beamer/cors1-1.png}
 \column{0.3\textwidth}
-\includegraphics{JSDM_files/figure-beamer/cors2-1.png}
+\includegraphics[width=\linewidth]{JSDM_files/figure-beamer/cors2-1.png}
 \column{0.3\textwidth}
-\includegraphics{JSDM_files/figure-beamer/cors3-1.png}
+\includegraphics[width=\linewidth]{JSDM_files/figure-beamer/cors3-1.png}
 \columnsend
 
 # GLLVM
@@ -759,14 +760,14 @@ $e_{ij}$ takes different forms depending on the response distribution. In some c
 
 ## Link functions: probit
 
-In probit regression, we use a latent variable $\eta^\star_{ij}$ for thresholding. \pause
+In probit regression, we use a latent variable $\eta^\star_i$ for thresholding. \pause
 
 \columnsbegin
 \column{0.5\textwidth}
 \begin{equation}
-y_{ij} =
+y_i =
 \begin{cases}
-1, & \text{if}\ \eta_{ij}^\star>0\\
+1, & \text{if}\ \eta^\star_i>0\\
 0, & \text{otherwise}\\
 \end{cases}
 \nonumber
@@ -774,9 +775,9 @@ y_{ij} =
 
 \pause
 
-and we model this auxiliary variable:
+and we model this latent variable:
 \begin{equation}
-\eta^\star_{ij} = \eta_{ij} +  E_{ij}\sim\mathcal{N}(0,1)
+\eta^\star_i = \textbf{x}_i^\top\symbf{\beta} + \epsilon_i\sim\mathcal{N}(0,1)
 \nonumber
 \end{equation}
 
@@ -785,7 +786,8 @@ and we model this auxiliary variable:
 Which is the same as:
 \begin{equation}
 \begin{aligned}
-p_i &= \Phi(\eta_{ij})
+p_i &= \Phi(\eta_i)\\
+\eta_i &= \textbf{x}_i^\top\symbf{\beta}
 \nonumber
 \end{aligned}
 \end{equation}
@@ -795,18 +797,96 @@ p_i &= \Phi(\eta_{ij})
 par(mar=c(5,5,4,2))
 eta = -1
 x <- seq(-5,5,length.out=1000)
-plot(y=dnorm(x),x,type="l", ylab = expression(paste("dnorm(", eta[ij]^"*", ")")), xlab=expression(eta[ij]^"*"))
+plot(y=dnorm(x),x,type="l", ylab = expression(paste("dnorm(", eta[i]^"*", ")")), xlab=expression(eta[i]^"*"))
 axis(1, at = c(-4,-2,-1,0,1,2,4))
 polygon(c(x[x<eta],rev(x[x<eta])),c(rep(0,sum(x<eta)),rev(dnorm(x[x<eta]))), col = "red")
 ```
 
 \pause
-
+\vspace{2\baselineskip}
 \centering
-**if $\eta^\star_{ij}$ is positive, we have 1 and 0 if it is negative**
+**if $\eta^\star_i$ is positive, we have 1 and 0 if it is negative**
+
+\columnsend
+
+## Link functions: logit
+
+In logistic regression, we can also use a latent variable $\eta^\star_i$ for thresholding. \pause
+
+Probit regression: $\epsilon \sim \mathcal{N}(0,1)$ \newline
+Logistic regression: $\epsilon \sim \mathcal{Logistic}(0,1)$
+
 \pause
 
-So, really, $\symbf{\Sigma} = \symbf{\Gamma}\symbf{\Gamma}^\top + \textbf{I}$
+\columnsbegin
+\column{0.5\textwidth}
+
+```{r, echo = FALSE}
+par(mar=c(5,5,4,2))
+eta = -1
+x <- seq(-5,5,length.out=1000)
+plot(y=dlogis(x),x,type="l", ylab = expression(paste("dlogis(", eta[i]^"*", ")")), xlab=expression(eta[i]^"*"))
+axis(1, at = c(-4,-2,-1,0,1,2,4))
+polygon(c(x[x<eta],rev(x[x<eta])),c(rep(0,sum(x<eta)),rev(dlogis(x[x<eta]))), col = "red")
+```
+
+\column{0.5\textwidth}
+
+\begin{equation}
+\begin{aligned}
+p_i &= \frac{\exp(\eta_i)}{1+\exp(\eta_i)}\\
+\eta_i &= \textbf{x}_i^\top\symbf{\beta}\\
+\eta^\star_i &= \textbf{x}_i^\top\symbf{\beta} + \epsilon_i\sim\mathcal{Logistic}(0,1)
+\end{aligned}
+\end{equation}
+
+\columnsend
+
+## Link functions: cloglog
+
+In cloglog regression, we again introduce a latent variable $\eta^\star_i$ for thresholding. \pause
+
+Probit regression: $\epsilon \sim \mathcal{N}(0,1)$ \newline
+Logistic regression: $\epsilon \sim \mathcal{Logistic}(0,1)$ \newline
+Cloglog regression: $\epsilon \sim \mathcal{Gumbel}(0,1)$
+
+\pause
+
+\columnsbegin
+\column{0.5\textwidth}
+
+```{r, echo = FALSE}
+par(mar=c(5,5,4,2))
+eta = -1
+x <- seq(-5,5,length.out=1000)
+
+# Gumbel (type I extreme value) density
+dgumbel <- function(x) exp(x - exp(x))
+
+eta <- -1
+x <- seq(-5, 5, length.out = 1000)
+
+plot(x, dgumbel(x), type="l",
+     ylab="density",
+     xlab=expression(eta[i]^"*"))
+
+axis(1, at = c(-4,-2,-1,0,1,2,4))
+
+polygon(c(x[x<eta], rev(x[x<eta])),
+        c(rep(0, sum(x<eta)), rev(dgumbel(x[x<eta]))),
+        col="red")
+```
+
+\column{0.5\textwidth}
+
+\begin{equation}
+\begin{aligned}
+p_i &= 1 - \exp\{-\exp(\eta_i)\} \\
+\eta_i &= \mathbf{x}_i^\top \boldsymbol{\beta} \\
+\eta_i^\star &= \mathbf{x}_i^\top \boldsymbol{\beta} + \epsilon_i,\quad \epsilon_i \sim \mathcal{Gumbel}(0,1)
+\end{aligned}
+\end{equation}
+
 \columnsend
 
 # Example 2
@@ -840,7 +920,7 @@ plot(ch, lty = "dashed", lwd = 2, add = TRUE)
 plot(swissc, border = "red", add = TRUE, col = NA, lwd = 2)
 ```
 
-## Example: fit JSDMs
+## Example: fit JSDMs and check performance
 
 \tiny 
 ```{r, fit, cache = TRUE}
@@ -849,28 +929,28 @@ model6 <- gllvm(Y, num.lv = 3, family = "binomial", sd.errors = FALSE, diag.iter
 model7 <- gllvm(Y, num.lv = 4, family = "binomial", sd.errors = FALSE, diag.iter = 0, optim.method = "L-BFGS-B")
 ```
 
-Calculate predictive performance
-
 \tiny
 
-```{r ex2cors, cache = TRUE, echo = -c(4:6), dev="png", fig.height = 10} 
-goodnessOfFit(Y, object = model5, measure = "RMSE")$RMSE
-goodnessOfFit(Y, object = model6, measure = "RMSE")$RMSE
-goodnessOfFit(Y, object = model7, measure = "RMSE")$RMSE
-corrplot::corrplot(getResidualCor(model5), type = "lower", diag = FALSE, tl.pos = "l", tl.cex = 0.2, order = "AOE")
-corrplot::corrplot(getResidualCor(model6), type = "lower", diag = FALSE, tl.pos = "l", tl.cex = 0.2, order = "AOE")
-corrplot::corrplot(getResidualCor(model7), type = "lower", diag = FALSE, tl.pos = "l", tl.cex = 0.2, order = "AOE")
+```{r ex2cors, cache = TRUE, echo = -c(4:8), dev="png", fig.height = 10, dpi = 150} 
+goodnessOfFit(Y, object = model5, measure = "AUC")$AUC
+goodnessOfFit(Y, object = model6, measure = "AUC")$AUC
+goodnessOfFit(Y, object = model7, measure = "AUC")$AUC
+R <- getResidualCor(model5)
+ord <- corrplot::corrMatOrder(R, order = "AOE")
+corrplot::corrplot(getResidualCor(model5)[ord,ord], type = "lower", diag = FALSE, tl.pos = "l", tl.cex = 0.2, order = "original")
+corrplot::corrplot(getResidualCor(model6)[ord,ord], type = "lower", diag = FALSE, tl.pos = "l", tl.cex = 0.2, order = "original")
+corrplot::corrplot(getResidualCor(model7)[ord,ord], type = "lower", diag = FALSE, tl.pos = "l", tl.cex = 0.2, order = "original")
 ```
 
 ## Example: resulting associations
 
 \columnsbegin
 \column{0.3\textwidth}
-\includegraphics{JSDM_files/figure-beamer/ex2cors-1.png}
+\includegraphics[width=\linewidth]{JSDM_files/figure-beamer/ex2cors-1.png}
 \column{0.3\textwidth}
-\includegraphics{JSDM_files/figure-beamer/ex2cors-2.png}
+\includegraphics[width=\linewidth]{JSDM_files/figure-beamer/ex2cors-2.png}
 \column{0.3\textwidth}
-\includegraphics{JSDM_files/figure-beamer/ex2cors-3.png}
+\includegraphics[width=\linewidth]{JSDM_files/figure-beamer/ex2cors-3.png}
 \columnsend
 
 ## Example: conditional prediction

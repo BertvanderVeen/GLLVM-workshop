@@ -1,5 +1,5 @@
 ---
-title: "Practical: Unimodal response models in gllvm "
+title: "Practical: Unimodal response models in gllvm"
 subtitle: "Physalia workshop on GLLVMs"
 author: "Bert van der Veen"
 output: html_document
@@ -9,9 +9,9 @@ output: html_document
 
 If a response model is truly unimodal, fitting a linear model will poorly retrieve the latent variables, and can lead to poor estimation of species associations. That is something community ecologists have understood for decades, because it is a subject that has been at the basis of choosing an ordination method. 
 
-However, there has been no ordination methods that actually implement a unimodal response model. NMDS gained in popularity as it is said to be "robust" to the response model, but the only reason for that is because it completely ignores any species-specific information. That makes it a poor ordination method if you are interested in species, which we usually are in community ecology.
+However, there have been no ordination methods that actually implement a unimodal response model. NMDS gained in popularity as it is said to be "robust" to the response model, but the only reason for that is because it completely ignores any species-specific information. That makes it a poor ordination method if you are interested in species, which we usually are in community ecology.
 
-In <tt>gllvm</tt> we can truely implement an ordination where species respond quadratically to the latent variables. We explicitly estimate species' optima, and we estimate species' tolerances. This makes it the most complex ordination method for community ecology to date, and it is that complexity that keeps it from being suitable to all datasets; it is a little bit more "data hungry" than an ordination method with a linear response model.
+In <tt>gllvm</tt> we can truly implement an ordination where species respond quadratically to the latent variables. We explicitly estimate species' optima, and we estimate species' tolerances. This makes it the most complex ordination method for community ecology to date, and it is that complexity that keeps it from being suitable to all datasets; it is a little bit more "data hungry" than an ordination method with a linear response model.
 
 In this practical, we will apply the first ordination method that is explicitly based on a unimodal response model.
 
