@@ -13,6 +13,7 @@ urlcolor: orange
 editor_options: 
   chunk_output_type: console
 header-includes:
+  - \usepackage{caption}
   - \usepackage{ulem}
   - \usepackage{booktabs}
   - \usepackage{longtable}
@@ -21,6 +22,7 @@ header-includes:
   - \usepackage{tikz}
   - \usetikzlibrary{calc, fit, positioning,arrows,shapes,tikzmark,spy,shadows.blur,matrix}
   - \newcommand{\highlight}[2]{\colorbox{#1!17}{$\vphantom{(^\top}#2$}}
+  - \usepackage{tabularx}
 ---
 
 ```{r setup, include=FALSE, message = FALSE}
@@ -53,20 +55,19 @@ library(gllvm)
 
 # Outline
 
+- Model-based (unconstrained) ordination: gradients, latent variables, reading plots
+- Ordination with covariates: constrained and concurrent ordination
+- Taking information out: conditioning, partial ordination, and model specification
+
 ## Questions so far?
 
 \center
 
 ![](../questions.jpg){width=40%}
 
-## Outline
-
-- Model-based ordination
-- Rotation (and post-hoc rotation)
-- Conditioning
-- Constrained, concurrent, and unconstrained ordination
-
 # Ordination
+
+## Ordination
 
 Goodall (1954) introduced the word "ordination"
 
@@ -74,7 +75,10 @@ Goodall (1954) introduced the word "ordination"
 2) Ordination **embeds** in a low-dimensional space
 3) Ordination **orders** samples and species
 
-## Ordination
+<!-- double zero not covered yet -->
+
+
+## Why ordination?
 
 \textbf{Goal}: to explore co-occurrence patterns \newline
 \textbf{Problem}: data forms high-dimensional space
@@ -86,7 +90,7 @@ Goodall (1954) introduced the word "ordination"
 \begin{itemize}
   \item Similar environmental preferences
   \item Similar history in the environment
-  \item Might results in \textit{Interactions}
+  \item Might result in \textit{Interactions}
 \end{itemize}
 \item But sometimes we lack measurements of the environment
 \item Thus cannot test anything
@@ -95,7 +99,7 @@ Goodall (1954) introduced the word "ordination"
 \column{.4\textwidth}
 \center
 ```{r,out.width="70%",out.height="70%",fig.cap="NIBIO", echo = FALSE}
-knitr::include_graphics("heath.jpg")
+knitr::include_graphics("../1Tuesday/heath_picture.png")
 ```
 \columnsend
 
@@ -130,7 +134,7 @@ There are different types of gradient, for example:
 
 "Ordination axis" has become synonymous to "latent variable"
 
-![](latent.jpg)
+![](latent.jpg){width=80%}
 
 \centering
 
@@ -265,28 +269,38 @@ Unlike in the JSDM, model-based ordination has a focus on the latent variables. 
 
 but now, we have a much stronger focus on the lower dimensions. And the ordination axis can be treated as fixed or random effect (but usually random).
 
-## Conditioning
-
-In classical method, we can use `Condition` to  remove variation due to a covariate from the ordination. Here, we add an effect outside of the ordination:
-
-\begin{equation}
-\eta_{ij} = \beta_{0j} + \tikzmarknode{t1}{\highlight{grey}{...}} + \textbf{u}_i^\top\symbf{\gamma}_j
-\end{equation}
-
-\begin{tikzpicture}[overlay,remember picture]
-        \draw[->] ([yshift = -0.8cm]t1.south) -- (t1);
-\end{tikzpicture}
-
-\tikzmarknode{n1}{Which can be a fixed or random effect (fixed in classical ordination)}
-
-
 ## So how is this different from JSDM
 
 1. Ordination and JSDM use the same statistical framework (GLLVMs)
 2. The models take a different angle (associations versus latent variables)
 3. JSDM \textbf{can} be an LVM, ordination \textbf{is} an LVM
 
-## JSDM vs. ordination
+## JSDM vs. classical multivariate analysis
+
+\begin{table}[ht]
+\footnotesize
+\begin{tabularx}{\linewidth}{>{\raggedleft\arraybackslash}p{2.3cm}>{\raggedright\arraybackslash}p{3.5cm}>{\raggedright\arraybackslash}p{4cm}}
+\toprule
+  & Classic & JSDM \\
+\midrule
+Focus       & Low-dimensional   & Distributions \\
+Goal        & Inference         & Prediction \\
+Data type   & Usually quantitative & Binary \\
+Scale       & Local             & Regional \\
+Covariates  & Environmental     & Bioclimatic \\
+Presentation & Ordination diagram & Correlation plot/map \\
+Audience    & Community ecologists & Macro ecologists \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\pause
+
+\centering
+
+\textcolor{red}{Model-based ordination bridges these two worlds: it uses the JSDM framework with an explicit focus on latent structure and local scales.}
+
+## JSDMs and ordination: the debate
 
 \centering
 
@@ -315,6 +329,19 @@ The differences is in how we think of the model:
 \centering
 
 \textcolor{red}{Both of the angles have a lot to teach us about community ecology}
+
+## When to use ordination
+
+Mostly when we want to do dimension reduction. But also when:
+
+\begin{enumerate}
+\item We want to determine latent variables
+\begin{itemize}
+\item Especially when we have not measured the environment
+\end{itemize}
+\item \textbf{We have too sparse data to estimate species effects}
+\item We want to make pretty pictures
+\end{enumerate}
 
 ## A new approach!..or is it?
 
@@ -350,30 +377,6 @@ knitr::include_graphics("CA.png")
 ![](GIGO.png)
 \columnsend
 
-
-## Rotation and orthogonality
-
-Ordination methods are defined by their rotation (except NMDS?), here:
-
-- Latent variables are orthogonal \textbf{a-priori}
-- The latent variables are \textbf{not} maximum variance-rotated
-- \textbf{A-posteriori} the latent variables are not orthogonal
-
-We can rotate them afterwards in whatever manner we want, with the \texttt{GPArotation} package
-
-## When to use ordination
-
-Mostly when we want to do dimension reduction. But also when:
-
-\begin{enumerate}
-\item We want to determine latent variables
-\begin{itemize}
-\item Especially when we have not measured the environment
-\end{itemize}
-\item \textbf{We have too sparse data to estimate species effects}
-\item We want to make pretty pictures
-\end{enumerate}
-
 ## Classifying ordination 
 
 \begin{center}
@@ -407,7 +410,7 @@ Used to:
 
 # Plot
 
-## Reading an Ordination plot
+## Reading an ordination plot
 
 ```{r ord1, echo = FALSE, fig.height = 6, warning=FALSE, fig.align="center", dev = "png", fig.show = "hide"}
 mu1 <- -1
@@ -416,8 +419,11 @@ mu11 <- 1
 mu21 <- 1.5
 parold<-par()
 par(mar=c(5, 5, 0.5, 2) + 0.1)
-plot(c(mu1,mu2),c(mu11,mu21),xlab="Dimension 1", ylab="Dimension 2",xaxt="n",yaxt="n",xlim=c(-2,2),ylim=c(-2,2), cex.lab=1.8,type = "n")
+plot(c(mu1,mu2),c(mu11,mu21),xlab=NA, ylab=NA,xaxt="n",yaxt="n",xlim=c(-2,2),ylim=c(-2,2), cex.lab=1.8,type = "n")
 abline(v=0,h=0,col="red",lty="dashed", lwd = 1.5)
+text(x=-1, y=0.1, 'Dimension 1', col = "red", cex = 1.3)
+text(y=-1, x=-0.1, 'Dimension 2', col = "red", cex = 1.3, srt = 90)
+
 points(x=mu1,y=mu11,pch=20,col="blue",cex=3)
 text(x=mu1,y=mu11,labels = "Species 1",col="blue",pos = 3, cex = 2)
 points(x=mu2,y=mu21,pch=20,col="green",cex=3)
@@ -428,7 +434,54 @@ text(0,2,labels=2,col="black", cex = 2)
 text(1,-1,labels=3,col="black", cex = 2)
 text(1.2,1.5,labels=4,col="black", cex = 2)
 text(-1.5,-1.5,labels=5,col="black", cex = 2)
-library(shape)
+
+# 45 rotated plot
+mu1 <- -1
+mu2 <- 0.5
+mu11 <- 1
+mu21 <- 1.5
+parold<-par()
+par(mar=c(5, 5, 0.5, 2) + 0.1)
+plot(c(mu1,mu2),c(mu11,mu21),xlab=NA, ylab=NA,xaxt="n",yaxt="n",xlim=c(-2,2),ylim=c(-2,2), cex.lab=1.8,type = "n")
+abline(a=0,b=1,col="red",lty="dashed", lwd = 1.5)
+abline(a=0,b=-1,col="red",lty="dashed", lwd = 1.5)
+text(x=(-1-0.1)/sqrt(2), y=(-1+0.1)/sqrt(2), 'Dimension 1', col = "red", cex = 1.3)
+text(y=c(-1+0.1)/sqrt(2), x=(1-0.15)/sqrt(2), 'Dimension 2', col = "red", cex = 1.3)
+
+points(x=(mu1-mu11)/sqrt(2),y=(mu1+mu11)/sqrt(2),pch=20,col="blue",cex=3)
+text(x=(mu1-mu11)/sqrt(2),y=(mu1+mu11)/sqrt(2),labels = "Species 1",col="blue",pos = 3, cex = 2)
+points(x=(mu2-mu21)/sqrt(2),y=(mu2+mu21)/sqrt(2),pch=20,col="green",cex=3)
+text(x=(mu2-mu21)/sqrt(2),y=(mu2+mu21)/sqrt(2),labels = "Species 2",col="green",pos = 3, cex = 2)
+box()
+text((-1-1.5)/sqrt(2),(-1+1.5)/sqrt(2),labels=1,col="black", cex = 2)
+text((0-2)/sqrt(2),(0+2)/sqrt(2),labels=2,col="black", cex = 2)
+text((1+1)/sqrt(2),(1-1)/sqrt(2),labels=3,col="black", cex = 2)
+text((1.2-1.5)/sqrt(2),(1.2+1.5)/sqrt(2),labels=4,col="black", cex = 2)
+text((-1.5+1.5)/sqrt(2),(-1.5-1.5)/sqrt(2),labels=5,col="black", cex = 2)
+
+# swapped axes
+mu1 <- -1
+mu2 <- 0.5
+mu11 <- 1
+mu21 <- 1.5
+parold<-par()
+par(mar=c(5, 5, 0.5, 2) + 0.1)
+plot(c(mu2,mu1),c(mu21,mu11),xlab=NA, ylab=NA,xaxt="n",yaxt="n",xlim=c(-2,2),ylim=c(-2,2), cex.lab=1.8,type = "n")
+abline(v=0,h=0,col="red",lty="dashed", lwd = 1.5)
+text(x=-1, y=0.1, 'Dimension 2', col = "red", cex = 1.3)
+text(y=-1, x=-0.1, 'Dimension 1', col = "red", cex = 1.3, srt = 90)
+
+points(y=mu1,x=-mu11,pch=20,col="blue",cex=3)
+text(y=mu1,x=-mu11,labels = "Species 1",col="blue",pos = 3, cex = 2)
+points(y=mu2,x=-mu21,pch=20,col="green",cex=3)
+text(y=mu2,x=-mu21,labels = "Species 2",col="green",pos = 3, cex = 2)
+box()
+text(y=-1,-1.5,labels=1,col="black", cex = 2)
+text(y=0,-2,labels=2,col="black", cex = 2)
+text(y=1,1,labels=3,col="black", cex = 2)
+text(y=1.2,-1.5,labels=4,col="black", cex = 2)
+text(y=-1.5,1.5,labels=5,col="black", cex = 2)
+
 par(parold)
 ```
 
@@ -471,7 +524,6 @@ arrows(x0=0,y0=0,x1=0.2,y1=0.2, length=0.3, col = "red", lwd = 1.5)
 arrows(x0=0,y0=0,x1=-0.5,y1=0.5, length=0.3, col = "red", lwd = 1.5)
 arrows(x0=0,y0=0,x1=0.1,y1=-2, length=0.3, col = "red", lwd = 1.5)
 
-library(shape)
 par(parold)
 ```
 
@@ -491,6 +543,24 @@ par(parold)
 \includegraphics{ModelbasedOrdination_files/figure-beamer/ord2-1.png}
 \columnsend
 
+## Rotation and orthogonality
+
+Ordination methods are defined by their rotation (except NMDS?), here:
+
+- Latent variables are orthogonal \textbf{a-priori}
+- The latent variables are \textbf{not} maximum variance-rotated
+- \textbf{A-posteriori} the latent variables are not orthogonal
+
+\pause We can rotate them afterwards in whatever manner we want \footnotesize (e.g., with the \texttt{GPArotation} package) \normalsize. \pause \textcolor{red}{The model doesn't care.}
+
+## Rotation of ordination
+
+\only<1>{\includegraphics{ModelbasedOrdination_files/figure-beamer/ord1-1.png}}
+\only<2>{\includegraphics{ModelbasedOrdination_files/figure-beamer/ord1-2.png}}
+\only<3>{\includegraphics{ModelbasedOrdination_files/figure-beamer/ord1-3.png}}
+
+\only<3>{\vspace*{-\baselineskip} Our inference of site and species (dis)similarity remains the same.}
+
 # Example 1
 
 ## Example: Dutch Dune data
@@ -504,21 +574,19 @@ data(dune.env); X <- dune.env
 knitr::kable(head(dune, 10), format="latex", booktabs = T)
 ```
 
-\normalsize
-
 - A classic dataset, originally by Jongman et al. (1995)
 - Ordinal classes for 30 plant species at 20 sites
-- 5 covariates; A1, Moisture, Management, Use, Manure
+- 5 covariates; A1, Moisture (5 groups), Management (4 groups), Use (3 groups), Manure (3 groups
 
-## The ordinal model: proportional odds
+## The ordinal model: cumulative probit
 
-More commonly, the categories are ordered.
+More commonly, the categories are ordered. \vspace*{-\baselineskip}
 
 \begin{equation}
 \text{pr}(y_{ij}\leq k) = \Phi(\tau_{jk} - \eta_{ij})
 \end{equation}
 
-and 
+and \vspace*{-\baselineskip}
 
 \begin{equation}
 \text{pr}(y_{ij} = k) = \Phi(\tau_{jk} - \eta_{ij}) - \Phi(\tau_{jk-1} - \eta_{ij})
@@ -532,29 +600,49 @@ and
 - Alternatively, we can assume $\tau_{jk} = \tau_k$; same cut-offs for all species
 - Controlled with `zeta.struc =  common` but defaults to `species`
 
-\textcolor{red}{Called "proportional odds" because the effects $\eta_{ij}$ are the same for all categories}
+\textcolor{red}{The effects $\eta_{ij}$ are the same for all categories}
 
 ## Example: unconstrained ordination
 
 \footnotesize
 
-```{r duneord1, cache = TRUE, dev ="png", fig.show = "hide", echo = -2, fig.height = 6}
+```{r duneord1, cache = TRUE}
 model1 <- gllvm(Y, num.lv = 2, family = "ordinal")
-gllvm::ordiplot(model1, s.colors =  colorRampPalette(c("mediumspringgreen", "blue"))(10)[(as.numeric(cut(X$A1, 10)))], s.cex = 2)
 ```
 
 \normalsize
 
 ## Example: making an ordination plot
 
+\tiny
+
+```{r duneord2, fig.height = 10, dev = "png", fig.show = "hide", message=FALSE}
+gllvm::ordiplot(model1, symbols = TRUE, 
+                s.colors = model.matrix(~0+., dune.env)[,5]+1, 
+                pch = model.matrix(~0+., dune.env)[,7]+16, s.cex = 4)
+```
+
+\columnsbegin
+\column{0.5\textwidth}
+\includegraphics[height=0.5\paperheight]{ModelbasedOrdination_files/figure-beamer/duneord2-1.png}
+\column{0.5\textwidth}
+\begin{itemize}
+\item Color by Moisture 5
+\item Shape by Management NM
+\end{itemize}
+\columnsend
+
+## Example: comparing ordinations
+
 \footnotesize
 
-```{r duneord2, fig.height = 6, echo = - c(2:5), dev = "png", fig.show = "hide", message=FALSE}
-gllvm::ordiplot(model1, biplot = TRUE, s.cex = 2)
+```{r duneord3, fig.height = 6, echo = - c(2:5), dev = "png", fig.show = "hide", message=FALSE, include = FALSE}
 invisible(capture.output(nmds <- metaMDS(dune)))
 ca <- cca(dune)
-plot(nmds, display = "sites", cex = 2, type = "t") # annoying that the defaults aren't the same
-plot(ca, display = "sites", cex =  2)
+plot(ca, type = "none")
+points(ca, col = model.matrix(~0+., dune.env)[,5]+1, pch= model.matrix(~0+., dune.env)[,7]+16 , cex = 4)
+plot(nmds, type = "none")
+points(nmds, col = model.matrix(~0+., dune.env)[,5]+1, pch= model.matrix(~0+., dune.env)[,7]+16 , cex = 4)
 ```
 
 \columnsbegin
@@ -563,73 +651,192 @@ plot(ca, display = "sites", cex =  2)
 \includegraphics{ModelbasedOrdination_files/figure-beamer/duneord2-1.png}
 \column{0.5\textwidth}
 \textbf{CA}
-\includegraphics{ModelbasedOrdination_files/figure-beamer/duneord2-3.png}
+\includegraphics{ModelbasedOrdination_files/figure-beamer/duneord3-1.png}
 \textbf{NMDS}
-\includegraphics{ModelbasedOrdination_files/figure-beamer/duneord2-2.png}
+\includegraphics{ModelbasedOrdination_files/figure-beamer/duneord3-2.png}
 \columnsend
 
-## Example: conditioning or "residual" ordination
+## Example: comparing ordinations (2)
+
+\tiny
+
+```{r duneproc, message=FALSE}
+GLLVMscores <- getLV(model1)
+CAscores <- vegan::scores(ca)
+NMDSscores <- vegan::scores(nmds)
+vegan::procrustes(GLLVMscores, CAscores, symmetric = TRUE)
+vegan::procrustes(GLLVMscores, NMDSscores, symmetric = TRUE)
+```
+
+
+## Species-specific cut-offs
+
+\tiny 
+
+```{r mod2, cache = TRUE}
+model2 <- gllvm(apply(Y, 2, function(x)as.numeric(as.factor(x))), num.lv = 2, family = "ordinal", n.init = 3)
+```
 
 \footnotesize
 
-```{r duneord3, cache = TRUE, echo = -2, dev = "png", warning=FALSE, fig.height = 6, fig.show = "hide"}
-model2 <- gllvm(Y, X = X, formula = ~scale(A1), num.lv = 2, family = "ordinal", starting.val = "zero")
-gllvm::ordiplot(model2, s.colors =  colorRampPalette(c("mediumspringgreen", "blue"))(10)[(as.numeric(cut(X$A1, 10)))], s.cex =2)
+Can also explicitly be controlled with `zeta.struc = "common"` and `zeta.struc = "species"`
+
+## Example: Comparing ordinations (3)
+
+\footnotesize
+
+```{r duneord4, fig.height = 10, dev = "png", fig.show = "hide", message=FALSE, echo = FALSE}
+row.names(model2$lvs)<-1:nrow(model2$y)
+gllvm::ordiplot(model2, symbols = TRUE, 
+                s.colors = model.matrix(~0+., dune.env)[,5]+1, 
+                pch = model.matrix(~0+., dune.env)[,7]+16, s.cex = 4)
 ```
 
 \columnsbegin
 \column{0.5\textwidth}
-\textbf{Without A1 covariate}
-\includegraphics{ModelbasedOrdination_files/figure-beamer/duneord1-1.png}
+\textbf{Species-common cut-offs}
+\includegraphics{ModelbasedOrdination_files/figure-beamer/duneord2-1.png}
 \column{0.5\textwidth}
-\textbf{With A1 covariate}
-\includegraphics{ModelbasedOrdination_files/figure-beamer/duneord3-1.png}
+\textbf{Species-specific cut-offs}
+\includegraphics{ModelbasedOrdination_files/figure-beamer/duneord4-1.png}
 \columnsend
 
-## Example: conditioning or "residual" ordination
+## Example: Comparing ordinations (4)
 
-\footnotesize 
-
-```{r}
-cor(getLV(model1), X$A1)
-cor(getLV(model2), X$A1)
-```
-
-The ordination of the model including the covariate is uncorrelated with the covariate.
-
-## Example: prediction
-
-```{r, echo = FALSE, fig.height = 5}
-A1new <- seq(0,max(X$A1),length.out=100)
-preds <- predict(model2, newX=data.frame(A1=A1new), level = 0, type = "response")[,,1]
-plot(1,xlim=c(min(A1new),max(A1new)),ylim=c(0,1), xlab = "A1", ylab="Predicted probability", cex.lab=1.5, cex = 2, type = "n")
-lines(A1new, preds[1,], lwd = 2, lty = 1)
-lines(A1new, preds[2,], lwd = 2, lty = 2)
-lines(A1new, preds[3,], lwd = 2, lty = 3)
-lines(A1new, preds[4,], lwd = 2, lty = 4)
-lines(A1new, preds[5,], lwd = 2, lty = 5)
-lines(A1new, preds[6,], col = "orange", lwd = 2, lty = 1)
-lines(A1new, preds[7,], col = "orange", lwd = 2, lty = 2)
-lines(A1new, preds[8,], col = "orange", lwd = 2, lty = 3)
-lines(A1new, preds[9,], col = "orange", lwd = 2, lty = 4)
-lines(A1new, preds[10,], col = "orange", lwd = 2, lty = 5)
+\tiny
+```{r duneproc2, message=FALSE}
+GLLVMscores2 <- getLV(model2)
+vegan::procrustes(GLLVMscores, GLLVMscores2, symmetric = TRUE)
 ```
 
 \footnotesize
 
-Note that ordering has introduced some shapes. \newline
+```{r}
+AIC(model1, model2)
+```
+
+Note: $1263-(150-97*2) =  1157$
+
+# Tools
+
+## Tools
+
+What tools do we have for drawing conclusions from unconstrained ordinations?
+
+- Visualizations
+- Prediction
+- Variation explained
+
+## Prediction
+
+We take our model to find out what happens under conditions that we have not observed. Here, with the latent variable.
+
+## Example: prediction
+
+\footnotesize
+```{r}
+lvs <- getLV(model1)
+lv1new <- seq(from = min(lvs[,1]), to = max(lvs[,2]), length.out = 100)
+preds <- predict(model1, newLV=data.frame(LV1 = lv1new, LV2 = 0), 
+                 type = "response")
+```
+
+## Example: prediction
+
+```{r dunepred1, echo = FALSE, fig.height = 6, warning=FALSE, dev = "png", dpi = 150, fig.show = "hide"}
+spp = 2
+plot(1,xlim=c(min(lvs[,1]),max(lvs[,2])),ylim=c(0,1.05), xlab = "LV1", ylab="Predicted probability", cex.lab=1.5, cex = 2, type = "n", main = paste0("Species: ", colnames(dune)[spp]))
+lines(lv1new, preds[1,,spp], lwd = 2, lty = 1)
+lines(lv1new, preds[2,,spp], lwd = 2, lty = 2)
+lines(lv1new, preds[3,,spp], lwd = 2, lty = 3)
+lines(lv1new, preds[4,,spp], lwd = 2, lty = 4)
+lines(lv1new, preds[5,,spp], lwd = 2, lty = 5)
+lines(lv1new, preds[6,,spp], col = "orange", lwd = 2, lty = 1)
+lines(lv1new, preds[7,,spp], col = "orange", lwd = 2, lty = 2)
+lines(lv1new, preds[8,,spp], col = "orange", lwd = 2, lty = 3)
+lines(lv1new, preds[9,,spp], col = "orange", lwd = 2, lty = 4)
+lines(lv1new, preds[10,,spp], col = "orange", lwd = 2, lty = 5)
+rug(lvs[,1], lwd = 1)
+text(x=lv1new[apply(preds[,,spp],1,which.max)], apply(preds[,,spp],1,max)+0.05, labels = 1:10)
+
+spp = 17
+plot(1,xlim=c(min(lvs[,1]),max(lvs[,2])),ylim=c(0,1.05), xlab = "LV1", ylab="Predicted probability", cex.lab=1.5, cex = 2, type = "n", main = paste0("Species: ", colnames(dune)[spp]))
+lines(lv1new, preds[1,,spp], lwd = 2, lty = 1)
+lines(lv1new, preds[2,,spp], lwd = 2, lty = 2)
+lines(lv1new, preds[3,,spp], lwd = 2, lty = 3)
+lines(lv1new, preds[4,,spp], lwd = 2, lty = 4)
+lines(lv1new, preds[5,,spp], lwd = 2, lty = 5)
+lines(lv1new, preds[6,,spp], col = "orange", lwd = 2, lty = 1)
+lines(lv1new, preds[7,,spp], col = "orange", lwd = 2, lty = 2)
+lines(lv1new, preds[8,,spp], col = "orange", lwd = 2, lty = 3)
+lines(lv1new, preds[9,,spp], col = "orange", lwd = 2, lty = 4)
+lines(lv1new, preds[10,,spp], col = "orange", lwd = 2, lty = 5)
+rug(lvs[,1], lwd = 1)
+text(x=lv1new[apply(preds[,,spp],1,which.max)], apply(preds[,,spp],1,max)+0.05, labels = 1:10)
+```
+
+\alt<2>{
+\includegraphics[height=0.75\paperheight]{ModelbasedOrdination_files/figure-beamer/dunepred-2.png}
+}{
+\includegraphics[height=0.75\paperheight]{ModelbasedOrdination_files/figure-beamer/dunepred-1.png}
+}
+
+\footnotesize
+
+Note that ordering has introduces some shapes. \newline
 Class 1-5: black with linetype 1-5 \newline
 Class 6-10: orange with linetype 6-10 \newline
 
-# Variation explained
+## Example: prediction (2) 
+
+```{r dunepred2, echo = FALSE, fig.height = 6, warning=FALSE, dev = "png", dpi = 150, fig.show = "hide"}
+spp = 2
+lvs <- getLV(model2)
+lv1new <- seq(min(lvs[,1]), max(lvs[,2]), length.out = 100)
+preds <- predict(model2, newLV=data.frame(LV1=lv1new, LV2 = 0), type = "response")
+plot(1,xlim=c(min(lvs[,1]),max(lvs[,2])),ylim=c(0,1.05), xlab = "LV1", ylab="Predicted probability", cex.lab=1.5, cex = 2, type = "n", main = paste0("Species: ", colnames(dune)[spp]))
+lines(lv1new, preds[1,,spp], lwd = 2, lty = 1)
+lines(lv1new, preds[2,,spp], lwd = 2, lty = 2)
+lines(lv1new, preds[3,,spp], lwd = 2, lty = 3)
+lines(lv1new, preds[4,,spp], lwd = 2, lty = 4)
+lines(lv1new, preds[5,,spp], lwd = 2, lty = 5)
+lines(lv1new, preds[6,,spp], col = "orange", lwd = 2, lty = 1)
+lines(lv1new, preds[7,,spp], col = "orange", lwd = 2, lty = 2)
+rug(lvs[,1], lwd = 1)
+text(x=lv1new[apply(preds[1:max(model2$y[,spp]),,spp],1,which.max)], apply(preds[1:max(model2$y[,spp]),,spp],1,max)+0.05, labels = 1:max(model2$y[,spp]))
+
+spp = 17
+plot(1,xlim=c(min(lvs[,1]),max(lvs[,2])),ylim=c(0,1.05), xlab = "LV1", ylab="Predicted probability", cex.lab=1.5, cex = 2, type = "n", main = paste0("Species: ", colnames(dune)[spp]))
+lines(lv1new, preds[1,,spp], lwd = 2, lty = 1)
+lines(lv1new, preds[2,,spp], lwd = 2, lty = 2)
+lines(lv1new, preds[3,,spp], lwd = 2, lty = 3)
+lines(lv1new, preds[4,,spp], lwd = 2, lty = 4)
+lines(lv1new, preds[5,,spp], lwd = 2, lty = 5)
+lines(lv1new, preds[6,,spp], col = "orange", lwd = 2, lty = 1)
+lines(lv1new, preds[7,,spp], col = "orange", lwd = 2, lty = 2)
+rug(lvs[,1], lwd = 1)
+text(x=lv1new[apply(preds[1:max(model2$y[,spp]),,spp],1,which.max)], apply(preds[1:max(model2$y[,spp]),,spp],1,max)+0.05, labels = 1:max(model2$y[,spp]))
+```
+
+\columnsbegin
+\column{0.5\textwidth}
+\textbf{Species-common cut-offs}
+\includegraphics[height=0.75\paperheight]{ModelbasedOrdination_files/figure-beamer/dunepred-1.png}
+\includegraphics[height=0.75\paperheight]{ModelbasedOrdination_files/figure-beamer/dunepred-2.png}
+\column{0.5\textwidth}
+\textbf{Species-specific cut-offs}
+\includegraphics[height=0.75\paperheight]{ModelbasedOrdination_files/figure-beamer/dunepred2-1.png}
+\includegraphics[height=0.75\paperheight]{ModelbasedOrdination_files/figure-beamer/dunepred2-2.png}
+\columnsend
 
 ## Variation explained
 
-In classical ordination, eigenvalues tell us the variation explained by each dimension. Latent variable models are not that straightforward.
+In classical ordination, the eigenvalues tells us the variation explained by each dimension. \newline
+Latent variable models are not that straightforward. \newline
 
-- We do not estimate all axes simultaneously
-- There is no variation explained on the response scale
-- We can do model selection (similar to "stress" in NMDS)
+- We do not estimate all axes
+- We have no variation explained on the response scale
+- We can do model selection (in a way similar to "stress" in NMDS)
 - Or get a relative measure of variation explained
 
 \pause
@@ -641,178 +848,251 @@ In classical ordination, eigenvalues tell us the variation explained by each dim
 \begin{equation}
 \begin{aligned}
 \symbf{\eta}_i &= \beta_{0j} + \sum \limits^d_{q=1} z_{iq}\symbf{\gamma}_q, \qquad \text{where } \textbf{z}_i \sim  \mathcal{N}(\textbf{0},\textbf{I})\\
-&= \beta_{0j} + \symbf{\epsilon}_i, \qquad \text{where } \symbf{\epsilon}_i \sim \mathcal{N}(\textbf{0}, \sum \limits^d_{q=1}\symbf{\gamma}_q\symbf{\gamma}_q^\top)
+&= \beta_{0j} + \symbf{\epsilon}_i, \qquad \text{where } \symbf{\epsilon}_i \sim \mathcal{N}(\textbf{0}, \sum \limits^d_{q=1}\symbf{\gamma}_q)
 \end{aligned}
 \end{equation}
 
 \pause
 
 ```{r, eval = FALSE}
-var.q <- getResidualCov(model1)$var.q
-var.q; var.q/sum(var.q)
+var.q = getResidualCov(model1)$var.q
+var.q;var.q/sum(var.q)
 ```
 
-The trace of the residual covariance matrix gives total variation explained by the latent variables. Dividing by dimension gives the relative contribution of each axis.
+\columnsbegin
+\column{0.5\textwidth}
 
-## Importance of dimensions
+```{r, echo = FALSE}
+var.q = getResidualCov(model1)$var.q
+var.q
+```
+
+\column{0.5\textwidth}
+```{r, echo = FALSE}
+var.q/sum(var.q)
+```
+\columnsend
+
+## What does this mean for importance of dimensions?
 
 - Importance does not equal variation explained
-- The first dimension may or may not be most ecologically relevant
-- Dimensions with less variation may still capture important gradients
-- Measure "importance" via model fit: `AIC`, `BIC`, or `goodnessOfFit`
-
-# Good ordinations
-
-## What makes for a good ordination method?
-
-[Michael Palmer:](https://ordination.okstate.edu/ideal.htm)
-
-\begin{enumerate}
-\item \alt<2>{\normalsize It recovers gradients without distortion.}{\tiny It recovers gradients without distortion.}
-\item \alt<3>{\normalsize If clusters exist in nature, this should be obvious in the ordination.}{\tiny If clusters exist in nature, this should be obvious in the ordination.}
-\item \alt<4>{\normalsize It does not produce clusters which do not exist.}{\tiny It does not produce clusters which do not exist.}
-\item \alt<5>{\normalsize It gives the same result every time for a given data set.}{\tiny It gives the same result every time for a given data set.}
-\item \alt<6>{\normalsize There is a unique solution.}{\tiny There is a unique solution.}
-\item \alt<7>{\normalsize Ecological similarity is related to proximity in ordination space.}{\tiny Ecological similarity is related to proximity in ordination space.}
-\item \alt<8>{\normalsize Scaling of axes is related to beta diversity.}{\tiny Scaling of axes is related to beta diversity.}
-\item \alt<9>{\normalsize "Signal" and "Noise" are easily separated.}{\tiny "Signal" and "Noise" are easily separated.}
-\item \alt<10>{\normalsize You do not need to pre-specify number of axes.}{\tiny You do not need to pre-specify number of axes.}
-\item \alt<11>{\normalsize The solution is the same, no matter how many dimensions one chooses to look at.}{\tiny The solution is the same, no matter how many dimensions one chooses to look at.}
-\item \alt<12>{\normalsize Unless by choice, all sites/stands/quadrats are treated equally.}{\tiny Unless by choice, all sites/stands/quadrats are treated equally.}
-\item \alt<13>{\normalsize The solution does not take much computer time.}{\tiny The solution does not take much computer time.}
-\item \alt<14>{\normalsize The method is robust: it works well for short and for long gradients, for low and high noise, for sparse and full matrices, for big and for small data sets, for species-rich and species-poor systems.}{\tiny The method is robust: it works well for short and for long gradients, for low and high noise, for sparse and full matrices, for big and for small data sets, for species-rich and species-poor systems.}
-\item \alt<15>{\normalsize For the mathematician: elegant.}{\tiny For the mathematician: elegant.}
-\item \alt<16>{\normalsize For the ecologist: available, inexpensive, and easy to understand.}{\tiny For the ecologist: available, inexpensive, and easy to understand.}
-\end{enumerate}
-
-## What makes for a good ordination method? \tiny a shorter list \normalsize
-
-Gauch (1982):
-
-Three criteria are basic for ordination techniques.
-
-(1) Effective (realistic in assumptions, suitably convey information)
-(2) Robust (to real data)
-(3) Practical (computer time)
-
-## 1) Effective
-
-- realistic in assumptions
-- suitably conveys information
-
-We can test assumptions in GLLVMs, or adjust the method to relax them.
-
-## 2) Robust
-
-Classical methods have artefacts, in model-based ordination they can crop-up: but we adjust the model (non-linearity)
+- The first dimension may or may not be most relevant
+- Dimensions with less variation may be equally important to represent the community
+- We measure "importance" differently (e.g., by fit via `AIC` or `BIC`)
 
 # Example 2
 
-In 1987, Minchin concluded that NMDS was the "most robust" ordination method, as it allowed deviation from a parametric response model.
+## Example: alpine plants in Switzerland
 
-- 56 "Species"
-- 48 "Sites"
-- Simulated from COMPAS with a skewed response model
+```{r alpine, echo = FALSE, message = FALSE, fig.align = "center"}
+Y <- read.csv("../data/alpineY.csv")[,-1]
+X <- read.csv("../data/alpineX.csv")[,-1]
+X <- X[rowSums(Y)>0,]
+Y <- Y[rowSums(Y)>0,]
+library(gllvm)
+invisible(TMB::openmp(parallel::detectCores()-1, DLL = "gllvm", autopar = TRUE))
+```
 
-![](Minchin_1987.png)
+- Data by [D'Amen et al. (2018)](https://nsojournals.onlinelibrary.wiley.com/doi/10.1111/ecog.03148)
+- Occurrence of 175 species at 840 $4m^2$ plots
+- Sampled on an elevation gradient
+
+\vspace*{-\baselineskip}
+
+```{r alpinemap, message = FALSE, cache = TRUE, echo = FALSE, fig.height = 6, warning=FALSE}
+library(dplyr)
+swiss = rnaturalearth::ne_countries(country = 'switzerland', scale = 'large', returnclass = "sf") %>% sf::st_transform("EPSG:21781")
+pts <- sf:::st_as_sf(X, coords=c("X","Y"),crs = "EPSG:21781")
+ch <- sf::st_convex_hull(sf::st_union(pts))
+plot(ch, lty = "dashed", lwd = 2)
+chb <- sf::st_buffer(ch, dist =20000)
+invisible(capture.output(bg <- maptiles::get_tiles(chb, crop = TRUE, zoom = 13)))
+swissc <- sf::st_intersection(swiss, sf::st_as_sfc(sf::st_bbox(bg)))
+terra::plotRGB(bg, add = TRUE)
+plot(ch, lty = "dashed", lwd = 2, add = TRUE)
+plot(swissc, border = "red", add = TRUE, col = NA, lwd = 2)
+```
+
+## Example: fit unconstrained ordinations
+
+\tiny 
+```{r, alpinefit, cache = TRUE}
+model3 <- gllvm(Y, num.lv = 2, family = "binomial", sd.errors = FALSE, diag.iter = 0, optim.method = "L-BFGS-B")
+model4 <- gllvm(Y, num.lv = 3, family = "binomial", sd.errors = FALSE, diag.iter = 0, optim.method = "L-BFGS-B")
+model5 <- gllvm(Y, num.lv = 4, family = "binomial", sd.errors = FALSE, diag.iter = 0, optim.method = "L-BFGS-B")
+```
+
+```{r alpord1, cache = TRUE, dev ="pdf", fig.show = "hide", fig.height = 10, echo = FALSE}
+par(mar=c(5, 5.5, 4, 2))
+ncut = 20
+elevcol <- colorRampPalette(c(
+  "#004529",   # dark green (lowlands)
+  "#78c679",   # light green (foothills)
+  "#ffffcc",   # pale yellow (plains)
+  "#fdae61",   # tan (mid elevation)
+  "#d7191c",   # red-orange (high)
+  "#7f3b08"    # dark brown (highest)
+))
+cols = elevcol(ncut)[(as.numeric(cut(X$ELEV, ncut)))]
+gllvm::ordiplot(model3, symbols = TRUE, s.colors = cols, pch = 16, main = "2 LV model", cex.main = 4, s.cex = 4, cex.lab = 4)
+gllvm::ordiplot(model4, symbols = TRUE, s.colors = cols, pch = 16, main = "3 LV model", cex.main = 4, s.cex = 4, cex.lab = 4)
+gllvm::ordiplot(model5, symbols = TRUE, s.colors = cols, pch = 16, main = "4 LV model", cex.main = 4, s.cex = 4, cex.lab = 4)
+```
+
+\footnotesize
+
+\vspace*{\baselineskip}
+
+\columnsbegin
+\column{0.34\textwidth}
+\includegraphics{ModelbasedOrdination_files/figure-beamer/alpord1-1.pdf}
+\column{0.34\textwidth}
+\includegraphics{ModelbasedOrdination_files/figure-beamer/alpord1-2.pdf}
+\column{0.34\textwidth}
+\includegraphics{ModelbasedOrdination_files/figure-beamer/alpord1-3.pdf}
+\columnsend
+
+- After rotation all three show the same (elevation) pattern
+- Before rotation, the 3LV model exhibits elevational patterns on LV 1 and 3
+
+## Example: re-rotating 3 LV model
+
+\tiny
+
+```{r}
+vegan::procrustes(getLV(model3), getLV(model4)[, 1:2], symmetric = TRUE)$ss
+```
+
+```{r}
+rot <- GPArotation::Varimax(getLoadings(model4))$Th
+vegan::procrustes((getLV(model4)%*%rot)[,1:2], getLV(model3), symmetric = TRUE)$ss
+cbind(cor(getLV(model4), X$ELEV), cor(getLV(model4)%*%rot, X$ELEV))
+```
+
+## Example: variation
 
 ```{r, echo = FALSE}
-Y <- read.csv("../data/Minchin_2b.csv")[,-1]
-Y[is.na(Y)]<-0
+plyr::rbind.fill(data.frame(rbind(model3 = getResidualCov(model3)$var.q)),
+data.frame(rbind(model4 = getResidualCov(model4)$var.q)),
+data.frame(rbind(model5 = getResidualCov(model5)$var.q)))
 ```
 
-## Example 2: fitting the model
+The dominant gradient occurs on different LVs, but does explain most variation here.
 
-\footnotesize
 
-```{r ordim1, echo = c(-1, -3,-4), cache = TRUE, dev = "png", fig.show = "hide"}
-invisible(capture.output(TMB::openmp(parallel::detectCores()-1, autopar = TRUE)))
-model3 <- gllvm(Y, num.lv = 2, family = "poisson", sd.errors = FALSE, maxit = 10e6)
-gllvm::ordiplot(model3,s.col=rep(1:4,each=12), pch=rep(1:4,each=12), s.cex = 1.5, symbols = TRUE)
-plot(model3, which = 1)
+## Example: model selection
+
+\tiny
+
+```{r, echo = c(-2,-3, -4)}
+IC <- cbind(AIC(model3, model4, model5)[,2], AICc(model3, model4, model5)[,2], BIC(model3, model4, model5)[,2])
+row.names(IC) = c("2 LVs", "3 LVs", "4 LVs")
+colnames(IC) <- c("AIC", "AICc", "BIC")
+IC
 ```
 
-\columnsbegin
-\column{0.5\textwidth}
-\includegraphics{ModelbasedOrdination_files/figure-beamer/ordim1-1.png}
-\column{0.5\textwidth}
-\includegraphics{ModelbasedOrdination_files/figure-beamer/ordim1-2.png}
-\columnsend
-
-## Example 2: we "just" change the model!
-
-\footnotesize
-
-```{r ordim2, echo = c(-1, -3,-4), cache = TRUE, dev = "png", fig.show = "hide"}
-model4 <- gllvm(Y, num.lv = 2, family = "negative.binomial", sd.errors = FALSE, maxit = 10e6, row.eff = "random", n.init = 3)
-gllvm::ordiplot(model4, rotate = FALSE, s.col=rep(1:4,each=12), pch=rep(1:4,each=12), s.cex = 1.5, symbols=TRUE)
-plot(model4, which = 1)
+```{r}
+c("2 LV" = goodnessOfFit(model3$y, object = model3)$RMSE,
+"3 LV" = goodnessOfFit(model4$y, object = model4)$RMSE,
+"4 LV" = goodnessOfFit(model5$y, object = model5)$RMSE)
 ```
-
-\columnsbegin
-\column{0.5\textwidth}
-\includegraphics{ModelbasedOrdination_files/figure-beamer/ordim2-1.png}
-\column{0.5\textwidth}
-\includegraphics{ModelbasedOrdination_files/figure-beamer/ordim2-2.png}
-\columnsend
-
-## Example 2: the competition
-
-```{r, echo=F, message=F, warning=F, fig.align="center", fig.height = 6, echo = FALSE}
-library(vegan)
-# Download the minchin dataset
-minchin <- read.csv("https://raw.githubusercontent.com/BertvanderVeen/Examples/master/Minchin87_2b_counts.csv") # Data frmo minchin 1987
-# All missing values are zeros
-minchin[is.na(minchin)] <- 0
-minchin<-minchin[,-1]
-# We will first do some classical ordination methods
-# Correspondence analysis
-CA_minchin <- cca(minchin)
-# Detrended CA
-DCA_minchin <- decorana(minchin)
-logDCA_minchin <- decorana(log1p(minchin))
-
-# NMDS
-NMDS_minchin <- metaMDS(minchin, k = 2, trace = F)
-par(mfrow=c(2,2))
-# Let's have a look at the results
-plot(scores(CA_minchin,display="sites"), main="CA",col=rep(1:4,each=12),pch=rep(1:4,each=12), cex = 1.5) # arch effect
-plot(scores(DCA_minchin)[,1:2], main="DCA",col=rep(1:4,each=12),pch=rep(1:4,each=12), cex = 1.5) # This has the tongue effect
-plot(scores(logDCA_minchin, display="sites"), main="log-DCA",col=rep(1:4,each=12),pch=rep(1:4,each=12), cex = 1.5) # suggestion from paper CTB
-plot(NMDS_minchin$points, main="NMDS",col=rep(1:4,each=12),pch=rep(1:4,each=12), cex = 1.5) # This looks pretty OK!
-```
-
-# Summary
-
-## So what if I
-
-- Have an arch(-like) effect
-- Have non-linear responses (later today)
-- Have data type ...?
-- Have double-zeros
-- Have compositional data
 
 \pause
 
-\centering
+Predictive performance might not be best from the model with 2 dimensions, but it will usually capture the dominant gradients correctly.
 
-\textcolor{red}{You adjust the model to accommodate whatever property of the data}
+## Example: inference
 
-## Unconstrained or constrained
+<!-- \columnsbegin -->
 
-a) Unconstrained ordination: explore main drivers of variation \newline (i.e., indirect gradient analysis)
-b) Constrained ordination: filter variation due to covariates \newline (i.e., gradient analysis)
-c) \textcolor{grey}{(Concurrent ordination)}
+<!-- \column{0.5\textwidth} -->
+<!-- ```{r, echo = FALSE} -->
+<!-- gllvm::ordiplot(model3, symbols = TRUE, s.colors = cols, pch = 16, main = "2 LV model: Sites", cex.main = 2, s.cex = 2, cex.lab = 2) -->
+<!-- ``` -->
 
-Unconstrained is mostly descriptive, constrained can also be used for hypothesis testing.\newline
-Both can be understood as estimating latent variables.\newline
+<!-- \column{0.5\textwidth} -->
 
-## Model-based ordination
+<!-- ```{r, echo = FALSE} -->
+<!-- row.names(model3$params$theta) <- vegan::make.cepnames(colnames(model3$y)) -->
+<!-- gllvm::ordiplot(model3, s.colors = "transparent", main = "2 LV model: 20 Species", cex.main = 2, cex.lab = 2, biplot = TRUE, cex.spp = 2, ind.spp = 20, xlim = c(-4,4)) -->
+<!-- ``` -->
 
-\centering
+<!-- \columnsend -->
 
-![](rule.jpg)
+\vspace*{-\baselineskip}
 
-## Group-level ordination
+```{r, echo = FALSE, fig.width = 10, fig.height = 4.5}
+par(mar=c(5,6,2,2))
+row.names(model3$params$theta) <- vegan::make.cepnames(colnames(model3$y))
+gllvm::ordiplot(model3, symbols = TRUE, s.colors = adjustcolor(cols,alpha.f=0.5), pch = 16, main = NA, cex.lab = 1, biplot = TRUE, cex.spp = 1.2, ind.spp = 20, xlim = c(-3.5,3.5), alpha = 0.6)
+```
 
-Not covered, but use `lvCor` or `num.RR` (more later)
+\vspace*{-\baselineskip}
+
+\columnsbegin
+\column{0.33\textwidth}
+\begin{figure}
+\captionsetup{labelformat=empty}
+\caption{\scriptsize Pritzelago alpine}
+ \tikz[remember picture,baseline] \node[inner sep=0pt] (pritz){
+  \includegraphics[height=0.4\textheight]{pritzelago_alpina.jpg}
+};
+\end{figure}
+\column{0.33\textwidth}
+\begin{figure}
+\captionsetup{labelformat=empty}
+\caption{\scriptsize Salix retusa}
+\tikz[remember picture,baseline] \node[inner sep=0pt] (salix){
+\includegraphics[height=0.4\textheight]{salix_retusa.jpg}
+};
+\end{figure}
+\column{0.25\textwidth}
+\begin{figure}
+\captionsetup{labelformat=empty}
+\caption{\scriptsize Lolium perenne}
+\tikz[remember picture,baseline] \node[inner sep=0pt] (loli){
+\includegraphics[height=0.4\textheight]{lolium_perenne.jpg}
+};
+\end{figure}
+\columnsend
+
+\begin{tikzpicture}[remember picture, overlay]
+\only<3->{
+  \draw[->, thick, red] (pritz) -- ++(2.4, 4.85); % relative arrow
+}
+\only<3->{
+  \draw[->, thick, red] (salix) -- ++(-1, 6); % relative arrow
+}
+\only<3->{
+  \draw[->, thick, red] (loli) -- ++(-3.6, 4); % relative arrow
+}
+\end{tikzpicture}
+
+## Example: prediction regions
+
+```{r, echo = FALSE, fig.width = 10, cache = TRUE}
+par(mar=c(5,6,2,2))
+ses <- se.gllvm(model3) # for prediction regions
+model3$sd <- ses$sd
+model3$Hess <- ses$Hess
+row.names(model3$params$theta) <- vegan::make.cepnames(colnames(model3$y))
+gllvm::ordiplot(model3, symbols = TRUE, s.colors = cols, pch = 16, main = NA, cex.lab = 1, biplot = TRUE, cex.spp = 1.2, ind.spp = 20, xlim = c(-3.5,3.5), predict.region = TRUE, alpha = 0.6, col.ellips = adjustcolor(cols,alpha.f=0.5))
+```
+
+
+# Conclusion
+
+## Summary
+
+- Ordination is used to reduce parameters in a complex model
+- Ecologically, to explore co-occurrence patterns via a low-dimensional space
+- Unconstrained ordination only arranges sites and species based on the community data
+- Without information on the environment, we use species' known preferences for inference
+- Model-based ordination leverages from regression and ordination tools
+    - Biplots
+    - Uncertainties
+    - Residual diagnostics
+    - Information criteria
+    - A flexible model
+    - Prediction
+    - And so on

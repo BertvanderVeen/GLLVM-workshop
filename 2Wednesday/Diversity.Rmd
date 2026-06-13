@@ -276,8 +276,8 @@ The `predictSR()` function computes:
 sr_pred <- predictSR(model, newX = newdata,
                      newLV = matrix(0, ncol = 2, nrow = nrow(newX)))
 sr_pred$expected     # expected species richness
-residuals(sr_pred)   # Dunn-Smyth residuals
-goodnessOfFit(model) # AUC
+residuals(sr_pred, model)   # Dunn-Smyth residuals
+goodnessOfFit(Y, object = model, measure = "AUC") # AUC per species
 ```
 
 # Example 1
@@ -483,15 +483,17 @@ Poisson-Binomial quantile residuals: no systematic elevation trend remains after
 
 # Diversity
 
-## Beyond species richness: the link scale
+## From richness to diversity
 
-\begin{itemize}
-  \item Species richness: known distribution on the response scale (Poisson-Binomial)
-  \pause
-  \item Other diversity quantities: response scale is intractable
-  \pause
-  \item Like $R^2$ in mixed models \footnotesize (Nakagawa \& Schielzeth 2013)\normalsize, work on the \textbf{link scale}: $\text{var}_j(\eta_{ij})$ characterises diversity
-\end{itemize}
+Species richness is one dimension of diversity — and the model gives us a tractable distribution for it.
+
+\pause
+
+But diversity has many facets: how dominant is the community at a site? How similar are nearby sites? How variable is composition across the region?
+
+\pause
+
+These all follow from the \textbf{variance structure of $\eta_{ij}$} — like $R^2$ in mixed models \footnotesize (Nakagawa \& Schielzeth 2013)\normalsize, we work on the link scale rather than the response scale.
 
 ## Alpha, beta, and gamma diversity
 
@@ -644,6 +646,9 @@ gamma_val    <- mean(D_sites)
 sigma2_alpha <- SigB[1L, 1L]
 x_bar        <- colMeans(x_sites)
 uniqueness   <- D_sites + gamma_val - 2*as.numeric(x_sites %*% SigB %*% x_bar)
+D_grid           <- rowSums(x * (x %*% SigB))
+uniqueness_rast  <- alpha
+terra::values(uniqueness_rast) <- D_grid + gamma_val - 2 * as.numeric(x %*% SigB %*% x_bar)
 ```
 
 ```{r pairwise, echo=FALSE, cache=TRUE, cache.lazy=FALSE, dependson="maprep"}
@@ -738,17 +743,19 @@ Environmental turnover increases with temperature difference; the LV component a
 
 ## Example: uniqueness
 
-```{r uniqueness_plot, echo=FALSE, fig.height=3.5, message=FALSE, cache=TRUE, dependson="maprep"}
-ord <- order(X_birds$bio_1)
-par(mar = c(4, 4, 1, 1))
-plot(seq_along(ord), uniqueness[ord],
-     pch = 16, col = rgb(0, 0, 0, 0.3),
-     xlab = "Site index (sorted by temperature, bio_1)",
-     ylab = "Uniqueness",
-     main = NA)
+```{r uniqueness_plot, echo=FALSE, dpi=300, cache=TRUE, dependson="maprep", message=FALSE, warning=FALSE}
+dat_u <- as.data.frame(uniqueness_rast, xy = TRUE) %>%
+  pivot_longer(cols = -c(x, y), names_to = "layer", values_to = "value")
+ggplot() +
+  theme_classic() +
+  theme(axis.text = element_blank(), axis.ticks = element_blank()) +
+  scale_fill_viridis_c(name = "Uniqueness", na.value = "white") +
+  geom_raster(data = dat_u, aes(x = x, y = y, fill = value), interpolate = TRUE) +
+  coord_fixed() + xlab(NULL) + ylab(NULL) +
+  ggtitle("Bird uniqueness (environmental distance from regional average)")
 ```
 
-Sites at temperature extremes are the most unique: their communities differ most from the regional average. These are the sites that drive beta diversity.
+Sites at environmental extremes are the most unique: their communities differ most from the regional average. These are the sites that drive beta diversity.
 
 # Summary
 

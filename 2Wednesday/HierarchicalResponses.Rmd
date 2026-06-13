@@ -295,8 +295,8 @@ library(corrplot)
 
 - Data by [Choler 2005](https://www.tandfonline.com/doi/full/10.1657/1523-0430%282005%29037%5B0444%3ACSIAPT%5D2.0.CO%3B2)
 - Occurrence of 92 species at 75 5 by 5 plots
-- 6 environmental variables: aspect, slope, microscale landform, disturbance level (physical and trampling/burrowing), and mean Julian snowmelt date
-- 7 traits: height, spread, angle, area, thick, sla, N_mass, seed
+- 6 environmental variables: aspect, slope, microscale landform, physical disturbance, zoogenic disturbance (trampling/burrowing), and mean Julian snowmelt date
+- 8 traits: height, spread, angle, area, thick, sla, N_mass, seed
 - In [the jSDM package](https://ecology.ghislainv.fr/jSDM/index.html)
 
 ![](alpine_plants_.png){width=75%}
@@ -433,7 +433,7 @@ $\symbf{\beta}_j = \symbf{\beta}_{x} + \textbf{tr}_j^\top\textbf{B}_{x,tr} + \te
 
 with $\textbf{b}_j \sim \mathcal{N}(\textbf{0}, \symbf{\Sigma}_r)$ so that  $\symbf{\beta}_j \sim \mathcal{N}(\symbf{\beta}_x + \textbf{tr}_j^\top\textbf{B}_{x,tr})$
 
-this is much more similar to our VGLM, except that we now have a VGLMM with traits.
+This is much more similar to our VGLM, except that we now have a VGLMM with traits.
 
 ##  The full fourth corner model
 
@@ -462,7 +462,7 @@ So, if $\symbf{\Sigma}\approx\textbf{0}$, there is no (excess) species-specific 
 
 A lot of attention has gone to testing environment-trait interactions.
 
-Niku et al. (2021) concluded that omitting $\textbf{b}_j$ leads to inflated Type I  error (over optimistic conclusions w.r.t traits).
+Niku et al. (2021) concluded that omitting $\textbf{b}_j$ leads to inflated Type I error (overly optimistic conclusions w.r.t.\ traits).
 
 \pause
 
@@ -470,7 +470,7 @@ Main issue: the model becomes \textbf{much} slower.
 
 \pause
 
-ter Braak (2023) concluded that fourth-corner models are often overconfident in small samples
+ter Braak (2023) concluded that fourth-corner models are often overconfident in small samples.
 
 # Community Phylogenetics
 
@@ -685,7 +685,7 @@ model3 <- gllvm::gllvm(y = Y, X=X, family = "binomial", num.lv = 0, beta0com = T
 
 \normalsize
 
-This takes a while to fit, but is really incredibly fast (it is just a complex model)
+Fitting time scales with model complexity; the NNGP approximation keeps this tractable.
 
 ## Example with fungi data: summary
 

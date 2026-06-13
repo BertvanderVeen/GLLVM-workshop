@@ -25,7 +25,6 @@ header-includes:
   - \tikzstyle{na} = [baseline=-.5ex]
   - \usepackage{multicol}
   - \usepackage{hyperref}
-  - \usepackage{tikz}
   - \usetikzlibrary{calc, fit, positioning,arrows,shapes,tikzmark,spy,shadows.blur,matrix}
   - \newcommand{\highlight}[2]{\colorbox{#1!17}{$\vphantom{(^\top}#2$}}
 ---
@@ -236,7 +235,7 @@ coefplot(model2, which.Xcoef = "A1")
 \includegraphics{OrdWithPred_files/figure-beamer/cord1-1.png}
 \columnsend
 
-# Continued 
+# Constrained ordination: extensions
 
 ## Constrained ordination
 
@@ -471,6 +470,8 @@ but otherwise the same model. The estimate of $\symbf{\Sigma}$ will get better w
 
 # Example 3
 
+## Example 3: random canonical coefficients
+
 \footnotesize
 
 ```{r cnord2, cache = TRUE, warning = FALSE, message = FALSE}
@@ -481,7 +482,7 @@ model4 <- gllvm(y = Y, X = X, num.lv.c = 2, randomB = "P",
           disp.formula = rep(1,ncol(Y)), n.init = 3, maxit = 10e5)
 ```
 
-`lv.formula` follows standard random-effects style (correlation for effects in same brackets):
+The `lv.formula` argument follows standard random-effects style; effects in the same brackets share a correlation structure.
 
 ## Example 3: summary
 

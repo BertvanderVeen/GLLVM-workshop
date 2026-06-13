@@ -144,7 +144,7 @@ plt
 # plt + geom_sf(data = swiss_layers, fill = NA, color = "black", linewidth = 0.3)
 ```
 
-\textbf{Can the distribution of one species inform us of anothers'?}
+\textbf{Can the distribution of one species inform us of other species'?}
 
 \begin{columns}[c] % [c] ensures vertical centering within the column
   \column{0.5\textwidth}
@@ -358,30 +358,6 @@ Niches are shaped more than by environment and interactions; historical limitati
 \pause
 \node[mybox] at (current page.center){Incorporating potential biotic sources of covariation is a step in the right direction};
 \end{tikzpicture}
-
-## JSDM vs. classical multivariate analysis
-
-\begin{table}[ht]
-\begin{tabularx}{\linewidth}{|>{\raggedleft\arraybackslash}p{2.3cm}|>{\raggedright\arraybackslash}p{3.5cm}|>{\raggedright\arraybackslash}p{4cm}|}
-\toprule
-  & Classic & JSDM\\
- \midrule
-Focus  & Low-dimensional & Distributions\\
-Goal  & Inference & Prediction \\
-Data type  & Usually quantitative & Binary \\
-Scale  & Local & Regional \\
-Covariates  & Environmental & Bioclimatic \\ 
-Presentation  & Ordination diagram & Correlation plot/map \\
-Audience  & Community ecologists & Macro ecologists\\
-\bottomrule
-\end{tabularx}
-\end{table}
-
-\pause
-
-\centering
-
-\textcolor{red}{That is not to say JSDMs cannot be used for non-binary data, for inference, or for local scales}
 
 ## Typical questions in the framework
 
@@ -689,22 +665,26 @@ knitr::include_graphics("MathCaution.png")
 
 # Prediction
 
-So, we represent:
+## Number of latent variables
+
+We represent the associations as:
 
 \begin{equation}
 \symbf{\Sigma} \approx \symbf{\Gamma}\symbf{\Gamma}^\top
 \end{equation}
 
-The number of columns in $\symbf{\Gamma}$ is equal to the number of latent variables.
+The number of columns in $\symbf{\Gamma}$ determines the number of latent variables.
 
-- The more latent variables we use, the better we represent the associations
-- But, more latent variables slows down the model!
-- So; it is a trade-off that we need to measure (somehow)
-  - Can use information criteria or hypothesis tests
-  - Variation explained
-  - Cross-validation
-  - Or some measure of predictive performance
- 
+\begin{itemize}
+  \item More latent variables: better approximation of $\symbf{\Sigma}$, but slower to fit
+  \item How many to use is a trade-off, evaluated by:
+  \begin{itemize}
+    \item Information criteria or likelihood ratio tests
+    \item Variation explained
+    \item Cross-validation or predictive performance
+  \end{itemize}
+\end{itemize}
+
 ## Does it improve predictions?
 
 \columnsbegin
@@ -902,7 +882,7 @@ library(gllvm)
 invisible(TMB::openmp(parallel::detectCores()-1, DLL = "gllvm", autopar = TRUE))
 ```
 
-- Data by [D'amen et al. (2017)](https://nsojournals.onlinelibrary.wiley.com/doi/10.1111/ecog.03148)
+- Data by [D'Amen et al. (2018)](https://nsojournals.onlinelibrary.wiley.com/doi/10.1111/ecog.03148)
 - Occurrence of 175 species at 840 $4m^2$ plots
 - Environmental variables: Degree days above zero, slope, moisture, solar radiation, topography \footnotesize  (and coordinates)
 

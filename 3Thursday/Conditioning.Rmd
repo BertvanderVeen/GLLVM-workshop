@@ -55,6 +55,8 @@ TMB::openmp(parallel::detectCores()-1,autopar=TRUE, DLL = "gllvm")
 
 # Recap
 
+## Recap
+
 So far, we have covered three types of ordination. \only<2->{\textcolor{red}{Choosing between these is relatively straightforward:}}
 
 - Unconstrained ordination\only<2->{: \textcolor{red}{ when you do not have covariates}}
@@ -395,7 +397,7 @@ X <- data.frame(scale(X[rowSums(Y)>0,]))
 Y <- Y[rowSums(Y)>0,]
 ```
 
-- Data by [D'amen et al. (2017)](https://nsojournals.onlinelibrary.wiley.com/doi/10.1111/ecog.03148)
+- Data by [D'Amen et al. (2018)](https://nsojournals.onlinelibrary.wiley.com/doi/10.1111/ecog.03148)
 - Occurrence of 175 species at 840 $4m^2$ plots
 - Sampled on an elevation gradient
 
@@ -568,12 +570,6 @@ gllvm::ordiplot(model6, symbols = TRUE, s.colors = "gray", pch = 16, biplot = TR
 }
 \end{tikzpicture}
 
-<!-- - Potentilla aurea (top) vs. Saxifraga oppositifolia (bottom) -->
-<!-- - Ranunculus repens (left) vs. Phyteuma orbiculare (right) -->
-
-<!-- P. aurea prefers rich soils and S. oppositifolia prefers nutrient poor soils \newline -->
-<!-- R. repens occurs in intensively managed fields, P. oobiculare in semi-natural grasslands -->
-
 ## The gradient of interest
 
 Do you want to condition on ordination here?
@@ -586,6 +582,8 @@ Neither model here is right or wrong, it depends on your goal. \newline
 What we have to keep in mind: omitted variable bias.
 
 # Partial ordination
+
+## Partial ordination
 
 So far, we filtered unconstrained ordinations with covariates (discrete, or continuous). \newline
 When we combine these concepts with constrained or concurrent methods, we get a \textbf{partial} ordination.
