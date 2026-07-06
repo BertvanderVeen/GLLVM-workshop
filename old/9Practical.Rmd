@@ -1,0 +1,276 @@
+---
+title: "Practical: ordination with other packages"
+subtitle: "Physalia workshop on GLLVMs"
+author: "Bert van der Veen"
+output: html_document
+---
+
+# Background
+
+On this last day of the workshop, I will demonstrate the use of a few other R packages for applying GLLVMs to fit JSDMs or model-based ordination. Most of these are slower in fitting than the <tt>gllvm</tt> R-package, or provide considerably fewer tools. However, that is not to say they are not useful: there are things that are currently difficult to do in the <tt>gllvm</tt> package that are easier to implement with these other R-packages. Either way, this provides you with some reference material on what <tt>gllvm</tt> does so well!
+
+We will briefly look at some of the R-packages that were also in my presentation. This includes:
+
+- <tt>mvabund</tt>
+- <tt>boral</tt>
+- <tt>Hmsc</tt>
+- <tt>ecoCopula</tt>
+- <tt>glmmTMB</tt>
+- <tt>gmf</tt>
+- <tt>RCM</tt>
+- <tt>CBFM</tt>
+- <tt>VGAM</tt>
+
+Although there are probably more packages than these (let me know if you are missing some). <tt>Boral</tt> is one of the older packages, and uses JAGS to implement its models. <tt>Hmsc</tt> is one of the more popular packages for JSDMs; it is relatively limited in the datatypes it can accommodate, but is very flexible when it comes to having different effects at different levels of a study design. <tt>ecoCopula</tt> uses a slightly different (marginal) approach that mostly makes it very fast. <tt>glmmTMB</tt> is the only other R-package that can fit random effects constrained ordination, it is very user friendly, has many supported response distributions, but requires data to be in long format. <tt>RCM</tt> is an R-package that implements row-column interaction models, and as such cannot incorporate random effects. It is geared towards analysis of microbial community data, but can of course be used for other ecological community types. Mostly it means that there is only support for count data. <tt>CBFM</tt> is a package for fitting large spatio-temporal models quickly, akin to what the <tt>mgcv</tt> R-package does with smooths, but for multispecies data in particular.
+
+I will take a (very) small dataset, because it might otherwise take too long to try some of these packages, and because we need something that all packages can work with. The (reduced) spider data is included in the <tt>mvabund</tt> package, and it contains observations of 12 species at 28 sites. There is an extended version of the dataset in <tt>gllvm</tt> available that contains 100 sites, but the environmental covariates were only observed at these 28.
+
+```{r data}
+data(spider, package = "mvabund")
+Y <- spider$abund;row.names(Y) <- 1:nrow(Y)
+X <- scale(spider$x)
+```
+
+## mvabund
+
+The <tt>mvabund</tt> package was one of the first for analysing community ecological data. It fits vector GLMs (and a few other models), but its most important functionality is the `anova` function. It performs hypothesis testing based on resampling (so tends to be a little slow, even for small datasets), that can post-hoc account for correlations between species, even though the fitted models do not account for it.
+
+```{r mvabund1, cache = TRUE, message=FALSE}
+model <- mvabund::manyglm(Y~soil.dry+bare.sand+fallen.leaves+moss+herb.layer+reflection, data=data.frame(X))
+anova(model)
+```
+
+## boral
+
+The <tt>boral</tt> package with main function `boral` fits GLLVMs using JAGS; i.e., it is based on the Bayesian statistics paradigm and fits with MCMC. MCMC is generally (very) slow, so model fitting can take a while:
+
+```{r boral1, cache = TRUE, message = FALSE}
+library(boral)
+model1 <- boral::boral(Y, X, formula.X = ~ soil.dry + moss + fallen.leaves, lv.control=list(num.lv = 2), family = "poisson", save.model = TRUE)
+```
+
+As in the packages with numerical optimisation, we need to be careful when it comes to convergence with MCMC. The main difference, is that with MCMC we need to inspect convergence of each parameter visually:
+
+```{r boralmcmc, cache = TRUE, eval = FALSE}
+coda::traceplot(boral::get.mcmcsamples(model1))
+```
+
+If the model has converged, the plot should look stationary, and the MCMC chain (black lines) should have explored the whole range of the y-axis. Boral fortunately also returns a statistic that can help us assess convergence more quantitatively. At the end of this list of statistics there are two values. The one under "TRUE" should be as large as possible (i.e., close to one). If the value is low, we need to fit the model longer (which I will not do here).
+
+```{r boral2}
+model1$geweke.diag
+```
+
+When the model has converged, we can inspect some of the results:
+
+```{r boral3, echo = FALSE, message = FALSE}
+library(boral)
+lvsplot(model1) # ordination plot
+coefsplot("fallen.leaves", model1) # caterpillar plot
+calc.varpart(model1) # variance partitioning in boral
+```
+
+## Hierarchical modeling of species communities (HMSC)
+
+HMSC is currently the most popular package for fitting Joint Species Distribution Models in the Bayesian paradigm - it focuses on fitting models to presence-absence data but there are a few count distributions supported too. Here is code for fitting a basic GLLVM:
+
+```{r hmsc, cache = TRUE, message = FALSE}
+library(Hmsc)
+# need to set-up LVs
+studyDesign = data.frame(sample=as.factor(1:nrow(Y)))
+rL <- Hmsc::HmscRandomLevel(units = studyDesign$sample)
+model2 <- Hmsc::Hmsc(Y, XFormula = ~fallen.leaves+soil.dry, XData= data.frame(X),
+distr = "lognormal poisson", studyDesign = studyDesign, 
+ranLevels = list(sample = rL))
+# Run mcmc
+run =  Hmsc::sampleMcmc(model2, samples = 1000, nChains = 3, 
+              transient = 2500, verbose = 0)
+# make biplot
+etaPost=Hmsc::getPostEstimate(run, "Eta")
+lambdaPost=Hmsc::getPostEstimate(run, "Lambda")
+Hmsc::biPlot(run, etaPost = etaPost, lambdaPost = lambdaPost, factors = c(1,2))
+betaPost=Hmsc::getPostEstimate(run, "Beta")
+plotBeta(model2, post = betaPost) # heatmap of covariate coefficients
+```
+
+Note that there is much more that Hmsc can do than I have shown here: you can fit fourth-corner models, with Phylogenetic random effects as well, add additional random effects, specify the plot/sample level at which the latent variables are estimated, and incorporate spatial/temporal autocorrelation in the models. The package has a good set of vignettes that can help you figure out how to specify models.
+
+Variance partitioning can be done with the following code.
+
+```{r varpart, warning=FALSE, eval = FALSE}
+VP = computeVariancePartitioning(run)
+par(mar=c(4,4,4,4))
+plotVariancePartitioning(model2, VP = VP,
+                         las = 2, horiz=F)
+```
+
+<tt>gllvm</tt> has a similar VP function.
+
+## ecoCopula
+
+The ecoCopula package is presently quite limited in its functionality, but it can fit unconstrained ordinations -very- rapidly.
+
+```{r eco, cache= TRUE, message= FALSE}
+library(ecoCopula)
+preModel <- stackedsdm(Y, formula_X =~fallen.leaves+moss+soil.dry, data = X)
+model3 <- cord(preModel)
+plot(model3, biplot=TRUE)
+```
+
+## glmmTMB
+
+This one we have also briefly covered on the first day: <tt>glmmTMB</tt> can be used for unconstrained ordination with random effects, and of course for general fitting of models with random effects and zero-inflated components. It does not have (much) functionality for presenting results, but there is support for a few additional R-packages that can help with that.
+
+We need this code from [the glmmTMB github](https://github.com/glmmTMB/glmmTMB/issues/1012) to extract site and species scores:
+
+```{r glmmtmb1}
+extract_rr <- function(object){
+  listname <- "cond"
+  cnms <- object$modelInfo$reTrms[[listname]]$cnms   ## list of (named) terms and X columns
+  flist <- object$modelInfo$reTrms[[listname]]$flist ## list of grouping variables
+  flist_asgn <- attr(flist, "assign")
+  levs <- lapply(seq_along(flist_asgn), function(i) levels(flist[[flist_asgn[i]]]))
+  
+  reStruc <- object$modelInfo$reStruc[[paste0(listname, "ReStruc")]] ## random-effects structure
+  nc <- vapply(reStruc, function(x) x$blockSize, numeric(1)) ## number of RE params per block
+  pl <- object$obj$env$parList(object$fit$par, object$fit$parfull)
+  
+  #function to split b by the random effect terms
+  split.bseq <- function(object){
+    listname <- "cond"
+    reStruc <- object$modelInfo$reStruc[[paste0(listname, "ReStruc")]] ## random-effects structure
+    nc <- vapply(reStruc, function(x) x$blockSize, numeric(1)) ## number of RE params per block
+    nb <- vapply(reStruc, function(x) x$blockReps, numeric(1)) ## number of blocks per RE (may != nlevs in some cases)
+    ### splitting the b's into their respective random effects
+    nbseq <- rep.int(seq_along(nb), nb * nc)       ## splitting vector
+    return(nbseq)
+  }
+  nbseq <- split.bseq(object)      ## splitting vector
+  ml.b <- split(pl$b, nbseq)
+  ml <- ml.b
+  
+  for (i in seq_along(ml.b)) {
+    ml[[i]] <- matrix(ml.b[[i]], ncol = nc[i], byrow = TRUE,
+                      dimnames = list(levs[[i]], cnms[[i]]))
+  }
+  
+  get_rank <- function(x){
+    if(x[["blockCode"]]==9){
+      p <- x$blockSize
+      nt <- x$blockNumTheta
+      rank <- (2*p + 1 - sqrt((2*p+1)^2 - 8*nt))/2
+    } else
+      rank <- 0
+    return(rank)
+  }
+  
+  rank <- vapply(object$modelInfo$reStruc$condReStruc,
+                 get_rank,
+                 FUN.VALUE=numeric(1))
+  nlv <- rank[rank > 0]
+  rrName <- names(nlv)
+  rrBlock <- which(rank > 0)
+  b = ml[[rrBlock]][,1:nlv]
+  colnames(b) <- paste0("lv", 1:nlv)
+  fact_load <- object$obj$env$report(object$fit$parfull)$fact_load[[rrBlock]]
+  rownames(fact_load) <- cnms[[rrBlock]]
+  
+  return(list(fl = fact_load, b = b))
+}
+```
+
+We need to format our data into long format as shown in [the glmmTMB vignette](https://cran.r-project.org/web/packages/glmmTMB/vignettes/covstruct.html#general-latent-variable-model):
+
+```{r glmmtmb2}
+## organize data into long format
+sppTot <- sort(colSums(spider$abund), decreasing = TRUE)
+tmp <- cbind(spider$abund, spider$x)
+tmp$id <- 1:nrow(tmp)
+spiderDat <- reshape(tmp,
+                     idvar = "id",
+                     timevar = "Species",
+                     times =  colnames(spider$abund),
+                     varying = list(colnames(spider$abund)),
+                     v.names = "abund",
+                     direction = "long")
+```
+
+Then we can construct an unconstrained ordination:
+
+```{r glmmtmb3, cache = TRUE, message=FALSE}
+library(glmmTMB)
+model7 <- glmmTMB(abund ~ Species + Species:fallen.leaves + rr(Species + 0|id, d = 2),
+                                             data = spiderDat)
+rrstuf <- extract_rr(model7)
+plot(rbind(rrstuf$b,rrstuf$fl), type = "n");
+text(rrstuf$b);text(rrstuf$fl, col = "red")
+```
+
+## Generalized Matrix Factorization
+
+The <tt>gmf</tt> package is not actively maintained, and it is also not on CRAN. It provides a different method for fitting unconstrained ordination GLLVMs, that is fast but can be very unstable.
+
+```{r gmf, cache = TRUE, message=FALSE}
+library(gmf)
+# devtools::install_github("kidzik/gmf") # install with this code if you want to try
+model8 <- gmf::gmf(Y, family = poisson(), p = 2)
+plot(rbind(model8$u,model8$v), type = "n", xlab="LV1", ylab="LV2")
+text(model8$u)
+text(model8$v, col="red")
+```
+
+## RCM
+
+The RCM package is geared towards analysis of (I think) microbial communities. It has some statistical issues also outlined in the associated article, and it (presently) only supports the negative-binomial distribution. In that case, you can use it to do unconstrained, constrained, and constrained additive ordination based on a fixed effects formulation. It requires the data to be formatted as a "phyloseq" object for constrained ordination.
+
+Unconstrained ordination:
+
+```{r RCMuo, cache=TRUE,message=FALSE}
+# devtools::install_github("CenterForStatistics-UGent/RCM")
+library(RCM)
+library(phyloseq)
+model9 <- RCM::RCM(Y, k = 2)
+plot(model9)
+```
+
+Constrained ordination:
+
+```{r RCMco,cache=TRUE,message=FALSE,echo=-1}
+library(RCM)
+library(phyloseq)
+model10 <- RCM(phyloseq(otu_table(spider$abund, taxa_are_rows = FALSE), sample_data(spider$x)), covariates = c("soil.dry", "moss", "fallen.leaves"), k = 2)
+plot(model10)
+```
+
+## Vector Generalized and Additive Models
+
+I did not put this package on the list of packages to install, so please use `install.packages("VGAM")` if you want to try this out.
+
+The VGAM package can be used for all kinds of analyses, but for multivariate analysis in particular it can be used for unconstrained, constrained, and doubly constrained ordinations, with or without unimodal response model (e.g., as in the `cqo` function. The implementation is even more unstable than in <tt>gllvm</tt>.), and for vector GLMs as in <tt>mvabund</tt>.
+
+The following code implements an unconstrained ordination:
+
+```{r VGAMuo, cache = TRUE, message=FALSE}
+library(VGAM)
+# unconstrained (fixed effects) ordination
+model4 <- rcim(Y, Rank = 2, family = poissonff)
+lvplot(model4) # this plotting function is an acquired taste
+```
+
+A constrained ordination:
+
+```{r VGAMco, cache = TRUE, message=FALSE, echo = -1}
+library(VGAM)
+# constrained (fixed effects) ordination
+model5 <- rrvglm(Y ~ soil.dry+fallen.leaves+moss, data=data.frame(X), Rank = 2, family = poissonff)
+lvplot(model5) # this plotting function is an acquired taste
+```
+
+A vector GLM:
+
+```{r VGLM, cache = TRUE, echo  =-1, message=FALSE}
+library(VGAM)
+model6 <- vglm(Y ~ soil.dry+fallen.leaves+moss, data=data.frame(X), family = poissonff)
+```
+
+The VGAM package has so much functionality (but no random effects), it could use its own workshop.

@@ -1,111 +1,102 @@
 ---
-title: "Practical: Unimodal response models in gllvm"
+title: "Practical: conditioning and partial ordination"
 subtitle: "Physalia workshop on GLLVMs"
 author: "Bert van der Veen"
 output: html_document
 ---
 
-# Description
+# Background
 
-If a response model is truly unimodal, fitting a linear model will poorly retrieve the latent variables, and can lead to poor estimation of species associations. That is something community ecologists have understood for decades, because it is a subject that has been at the basis of choosing an ordination method. 
+In this practical we explore how to take information *out* of an ordination — using conditioning to remove variation due to nuisance factors, and combining conditioning with constrained ordination to perform partial ordination.
 
-However, there have been no ordination methods that actually implement a unimodal response model. NMDS gained in popularity as it is said to be "robust" to the response model, but the only reason for that is because it completely ignores any species-specific information. That makes it a poor ordination method if you are interested in species, which we usually are in community ecology.
+Key concepts from the lecture:
 
-In <tt>gllvm</tt> we can truly implement an ordination where species respond quadratically to the latent variables. We explicitly estimate species' optima, and we estimate species' tolerances. This makes it the most complex ordination method for community ecology to date, and it is that complexity that keeps it from being suitable to all datasets; it is a little bit more "data hungry" than an ordination method with a linear response model.
+- **Conditioning**: placing effects outside the ordination (in `formula` or `row.eff`) removes their contribution from the latent variables
+- **Partial ordination**: combining conditioning (effects outside) with constrained ordination (effects inside via `lv.formula`)
+- **Variance partitioning** (`VP()`): quantifying the contribution of each model component
+- **Nested designs**: `lvCor` places the ordination at a higher grouping level; `row.eff` accommodates plot-level variation
 
-In this practical, we will apply the first ordination method that is explicitly based on a unimodal response model.
+We use the wadden sea macrozoobenthos data, which has a nested structure (transects within islands) and environmental covariates.
 
-# Part I
-
-Here, I will work with the wadden data. The mathematics for implementing the unimodal response model is very complex, and we have yet to figure out how to do it for beta responses (i.e., that is the only not supported response type for this model in the package). Hence, we cannot continue with the data from the last exercise.
-
-```{r data}
-Y <- read.table("../../data/waddenY.csv", sep="," ,header=TRUE, row.names = 2)[,-1]
-```
-
-The model is fitted similarly as before, but instead we add the "quadratic" argument which takes the options TRUE, "LV", and FALSE. As covered in the lecture, these correspond to assuming species-specific (TRUE) and species-common ("LV") tolerances, while FALSE corresponds to equal or common tolerances only if we use a random row effect at the same level as the ordination (`row.eff = "random"` if the ordination is specified as random effect and at the observation-level, `row.eff = "fixed"` for a observation-level ordination with fixed effects).
-
-Because the model is more complex, so it also takes longer to fit it. I will fit it straight away with a negative-binomial distribution, since that was is also what this dataset required in the last exercise. We could also just include more latent variables, because that has a similar effect of accounting for residual variation (just within the model, instead of in the distribution). One thing to really keep in mind, is the increased complexity of the unimodal response model, i.e., there are more parameters to estimate, for which there needs to be enough information in the data. 
-
-```{r uo, cache = TRUE, message=FALSE}
+```{r setup, message=FALSE}
 library(gllvm)
 TMB::openmp(parallel::detectCores()-1, autopar = TRUE, DLL = "gllvm")
-model1 <- gllvm(Y, num.lv = 2, quadratic = TRUE, n.init = 3, family = "negative.binomial", disp.formula = rep(1, ncol(Y)))
-gllvm::ordiplot(model1, biplot = TRUE)
+
+Y <- read.csv("../../data/waddenY2.csv")[, -c(1:2)]
+Y <- Y[, colSums(ifelse(Y == 0, 0, 1)) > 2]
+X <- read.csv("../../data/waddenX.csv")
+X <- X[, !apply(X, 2, anyNA)]
+X[, unlist(lapply(X, is.numeric))] <- scale(X[, unlist(lapply(X, is.numeric))])
 ```
 
-The `n.init` option is very necessary: the GLLVM with unimodal response is even more prone to finding a suboptimal solution than usually. That also means that fitting the model is much slower, so using <tt> gllvm</tt> its (new) option for parallel computation could help. `ordiplot` will plot the species optima, and if the optima are too far away from the estimated latent variable, it will plot the species effects as arrows instead.
+# Part I: Unconstrained ordination and conditioning
 
-```{r uo2, message=FALSE, results="hide", echo = -1}
-library(gllvm)
-ordiplot(model1, biplot = TRUE)
+Start with an unconstrained ordination — no covariates, no conditioning.
+
+```{r unc, cache=TRUE, message=FALSE}
+model1 <- gllvm(Y, num.lv = 2, family = "tweedie", Power = NULL,
+                disp.formula = rep(1, ncol(Y)), n.init = 3)
+gllvm::ordiplot(model1, symbols = TRUE, s.cex = 1.5)
 ```
 
-Clearly, the optima are far away from the gradient, which means that on one of the latent variables we are estimating linear responses instead of unimodal responses: so we have one long and one short gradient. Let's inspect the optima
+Now condition on island (a nuisance factor) using `row.eff`:
 
-```{r opt}
-optima(model1, sd.errors = FALSE)
+```{r cond, cache=TRUE, message=FALSE}
+model2 <- gllvm(Y, num.lv = 2, family = "tweedie", Power = NULL,
+                disp.formula = rep(1, ncol(Y)),
+                row.eff = ~(1|island), studyDesign = X, n.init = 3)
+gllvm::ordiplot(model2, symbols = TRUE, s.cex = 1.5)
 ```
 
-and the tolerances
+Compare the two ordinations using a Procrustes rotation:
 
-```{r tol}
-tolerances(model1, sd.errors = FALSE)
+```{r procrustes}
+vegan::procrustes(getLV(model1), getLV(model2), symmetric = TRUE)
 ```
-
-manually. As expected, some optima and tolerances are very large, indicating that a few species respond linearly to the latent variable rather than unimodally. Predicting with the model might make this a little easier to visualize, so let's do that.
-
-```{r pred, results = "hide", echo = -1, fig.height = 10, fig.width = 10}
-par(mfrow=c(2,1))
-LVs = getLV(model1)
-newLV = cbind(LV1 = seq(min(LVs[,1]), max(LVs[,1]), length.out=1000), LV2 = 0)
-preds <- predict(model1, type = "response", newLV = newLV)
-plot(NA, ylim = range(preds), xlim = c(range(getLV(model1))), ylab  = "Predicted response", xlab = "LV1")
-segments(x0=optima(model1, sd.errors = FALSE)[,1],x1 = optima(model1, sd.errors = FALSE)[,1], y0 = rep(0, ncol(model1$y)), y1 = apply(preds,2,max), col = "red", lty = "dashed", lwd = 2)
-rug(getLV(model1)[,1])
-sapply(1:ncol(model1$y), function(j)lines(sort(newLV[,1]), preds[order(newLV[,1]),j], lwd = 2))
-
-newLV = cbind(LV1 = 0, LV2 =  seq(min(LVs[,2]), max(LVs[,2]), length.out=1000))
-preds <- predict(model1, type = "response", newLV = newLV)
-plot(NA, ylim = range(preds), xlim = c(range(getLV(model1))), ylab  = "Predicted response", xlab = "LV2")
-segments(x0=optima(model1, sd.errors = FALSE)[,2],x1 = optima(model1, sd.errors = FALSE)[,2], y0 = rep(0, ncol(model1$y)), y1 = apply(preds,2,max), col = "red", lty = "dashed", lwd = 2)
-rug(getLV(model1)[,2])
-sapply(1:ncol(model1$y), function(j)lines(sort(newLV[,2]), preds[order(newLV[,2]),j], lwd = 2))
-```
-
-We can also calculate turnover for these two estimated gradients, although that is a little difficult when we have unequal tolerances.
-
-```{r grad_length}
-# Extract tolerances
-tol <- tolerances(model1, sd.errors = FALSE)
-gradLength <- 4/apply(tol, 2, median)
-```
-
-```{r grad_length_res}
-cat("Gradient length:", gradLength)
-```
-
-As expected, the second gradient is -very- short; we might even be able to drop it from the model. Let's have a look:
-
-```{r compare}
-model2<-update(model1, num.lv=1)
-AIC(model1, model2)
-BIC(model1, model2)
-```
-
-It depends on how you look at it. We can just stick with the same model for now. Finally, we can calculate the median turnover:
-
-```{r turn}
-turn <- 2*qnorm(.999, sd = apply(tol, 2, median))
-cat("Turnover rate:", turn)
-```
-
-and as expected, turnover is slow on the second latent variable, as also reflected by the short gradient length.
 
 ## Tasks I
 
-1. Fit the model with species-specific tolerances and go through the code.
-2. Also try fitting a model with species-common tolerances, a model without quadratic responses, and a model with `row.eff`.
-3. Compare the ordinations, are the estimated latent variables very different? You can do this via the `procrustes` function as demonstrated in the first practical today, or via `cor`.
-4. Use information criteria, or hypothesis testing, to determine which model is best.
-5. Add covariates into the ordination of the quadratic response model with `lv.formula`, `num.RR` or `num.lv.c` and perhaps the random effects formulation with `randomB``
+1. Fit both models and compare the ordinations visually. Does conditioning on island change the pattern?
+2. Use `vegan::procrustes` to quantify how similar the ordinations are.
+3. Try conditioning on `transect` instead of `island`. Does the ordination change further?
+4. What does conditioning on a nuisance factor do to the interpretation of the ordination axes?
+
+# Part II: Constrained and partial ordination
+
+Now combine conditioning with constrained ordination. We condition on island (remove its effect) while constraining the ordination with environmental variables.
+
+```{r partial, cache=TRUE, message=FALSE, warning=FALSE}
+model3 <- gllvm(Y, X = X,
+                lv.formula = ~season + TOC + elevation + silt_clay + Chl.a,
+                num.RR = 2, randomB = "LV",
+                family = "tweedie", Power = NULL,
+                disp.formula = rep(1, ncol(Y)),
+                row.eff = ~(1|island), studyDesign = X,
+                n.init = 3)
+gllvm::ordiplot(model3, symbols = TRUE, s.cex = 1.5, arrow.ci = FALSE)
+```
+
+This is a **partial constrained ordination**: we show the community variation explained by the environment, after removing the island effect.
+
+## Tasks II
+
+1. Fit the partial constrained ordination and interpret the ordination plot. Which environmental variables drive the main axes?
+2. Try removing the conditioning (`row.eff`) — how does the constrained ordination change?
+3. Switch from `num.RR` to `num.lv.c` (concurrent ordination). What is the difference in interpretation?
+4. Use `coefplot(model3, which.Xcoef = "TOC")` to examine species-specific TOC effects.
+
+# Part III: Variance partitioning
+
+Variance partitioning (`VP()`) shows the relative contribution of each model component.
+
+```{r vp, message=FALSE}
+VP(model3)
+```
+
+## Tasks III
+
+1. Run `VP()` on model3. Which component explains the most variation?
+2. Fit a model with more environmental variables and compare the VP output. Does adding more covariates increase the explained variation?
+3. Try fitting a model with both `formula` (species-specific fixed effects) and `lv.formula` (constrained ordination). Use `VP()` to partition variance between these components.
+4. Which grouping would you use in `VP()` to contrast "environment" vs "residual"?
+5. Compare the `getResidualCov(model1)$trace` and `getResidualCov(model2)$trace`. Does conditioning reduce unexplained variation?

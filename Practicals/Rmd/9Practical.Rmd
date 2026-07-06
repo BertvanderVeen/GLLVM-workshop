@@ -1,131 +1,111 @@
 ---
-title: "Practical: extensions — spatial/temporal models and mixed responses"
+title: "Practical: Unimodal response models in gllvm"
 subtitle: "Physalia workshop on GLLVMs"
 author: "Bert van der Veen"
 output: html_document
 ---
 
-# Background
+# Description
 
-This practical covers two extensions to the basic GLLVM framework:
+If a response model is truly unimodal, fitting a linear model will poorly retrieve the latent variables, and can lead to poor estimation of species associations. That is something community ecologists have understood for decades, because it is a subject that has been at the basis of choosing an ordination method. 
 
-1. **Spatial and temporal autocorrelation** — accommodating non-independence of sampling units via structured covariance in the latent variables or row effects
-2. **Mixed response types** — fitting models where different species have different response distributions *(placeholder — see note below)*
+However, there have been no ordination methods that actually implement a unimodal response model. NMDS gained in popularity as it is said to be "robust" to the response model, but the only reason for that is because it completely ignores any species-specific information. That makes it a poor ordination method if you are interested in species, which we usually are in community ecology.
 
-The key `gllvm` arguments for spatial/temporal structure are:
+In <tt>gllvm</tt> we can truly implement an ordination where species respond quadratically to the latent variables. We explicitly estimate species' optima, and we estimate species' tolerances. This makes it the most complex ordination method for community ecology to date, and it is that complexity that keeps it from being suitable to all datasets; it is a little bit more "data hungry" than an ordination method with a linear response model.
 
-- `lvCor` — specifies correlation structure for the latent variables
-- `row.eff` — specifies correlation structure for the row effects
-- `distLV` — matrix of distances between sites (for spatial models)
-- `corAR1`, `corExp`, `corMatern`, `corSym` — available correlation structures
+In this practical, we will apply the first ordination method that is explicitly based on a unimodal response model.
 
-# Part I: Temporal autocorrelation
+# Part I
 
-We use a subset of the wadden sea data which has a temporal structure (seasons).
+Here, I will work with the wadden data. The mathematics for implementing the unimodal response model is very complex, and we have yet to figure out how to do it for beta responses (i.e., that is the only not supported response type for this model in the package). Hence, we cannot continue with the data from the last exercise.
 
-```{r setup, message=FALSE}
+```{r data}
+Y <- read.table("../../data/waddenY.csv", sep="," ,header=TRUE, row.names = 2)[,-1]
+```
+
+The model is fitted similarly as before, but instead we add the "quadratic" argument which takes the options TRUE, "LV", and FALSE. As covered in the lecture, these correspond to assuming species-specific (TRUE) and species-common ("LV") tolerances, while FALSE corresponds to equal or common tolerances only if we use a random row effect at the same level as the ordination (`row.eff = "random"` if the ordination is specified as random effect and at the observation-level, `row.eff = "fixed"` for a observation-level ordination with fixed effects).
+
+Because the model is more complex, so it also takes longer to fit it. I will fit it straight away with a negative-binomial distribution, since that was is also what this dataset required in the last exercise. We could also just include more latent variables, because that has a similar effect of accounting for residual variation (just within the model, instead of in the distribution). One thing to really keep in mind, is the increased complexity of the unimodal response model, i.e., there are more parameters to estimate, for which there needs to be enough information in the data. 
+
+```{r uo, cache = TRUE, message=FALSE}
 library(gllvm)
 TMB::openmp(parallel::detectCores()-1, autopar = TRUE, DLL = "gllvm")
-
-Y <- read.csv("../../data/waddenY2.csv")[, -c(1:2)]
-Y <- Y[, colSums(ifelse(Y == 0, 0, 1)) > 2]
-X <- read.csv("../../data/waddenX.csv")
-X <- X[, !apply(X, 2, anyNA)]
-X[, unlist(lapply(X, is.numeric))] <- scale(X[, unlist(lapply(X, is.numeric))])
+model1 <- gllvm(Y, num.lv = 2, quadratic = TRUE, n.init = 3, family = "negative.binomial", disp.formula = rep(1, ncol(Y)))
+gllvm::ordiplot(model1, biplot = TRUE)
 ```
 
-Fit a baseline model (IID latent variables) and compare to one with AR(1) structure across seasons:
+The `n.init` option is very necessary: the GLLVM with unimodal response is even more prone to finding a suboptimal solution than usually. That also means that fitting the model is much slower, so using <tt> gllvm</tt> its (new) option for parallel computation could help. `ordiplot` will plot the species optima, and if the optima are too far away from the estimated latent variable, it will plot the species effects as arrows instead.
 
-```{r ar1, cache=TRUE, message=FALSE, warning=FALSE}
-# Baseline: independent latent variables
-model_iid <- gllvm(Y, num.lv = 2, family = "tweedie", Power = NULL,
-                   disp.formula = rep(1, ncol(Y)), n.init = 3)
-
-# AR(1) structure across seasons in the row effect
-model_ar1 <- gllvm(Y, num.lv = 2, family = "tweedie", Power = NULL,
-                   disp.formula = rep(1, ncol(Y)),
-                   studyDesign = X[, "season", drop = FALSE],
-                   row.eff = ~corAR1(1|season), n.init = 3)
-
-AIC(model_iid, model_ar1)
+```{r uo2, message=FALSE, results="hide", echo = -1}
+library(gllvm)
+ordiplot(model1, biplot = TRUE)
 ```
 
-Inspect the estimated AR(1) correlation:
+Clearly, the optima are far away from the gradient, which means that on one of the latent variables we are estimating linear responses instead of unimodal responses: so we have one long and one short gradient. Let's inspect the optima
 
-```{r ar1_param}
-model_ar1$params$rho.row  # temporal correlation between seasons
+```{r opt}
+optima(model1, sd.errors = FALSE)
 ```
+
+and the tolerances
+
+```{r tol}
+tolerances(model1, sd.errors = FALSE)
+```
+
+manually. As expected, some optima and tolerances are very large, indicating that a few species respond linearly to the latent variable rather than unimodally. Predicting with the model might make this a little easier to visualize, so let's do that.
+
+```{r pred, results = "hide", echo = -1, fig.height = 10, fig.width = 10}
+par(mfrow=c(2,1))
+LVs = getLV(model1)
+newLV = cbind(LV1 = seq(min(LVs[,1]), max(LVs[,1]), length.out=1000), LV2 = 0)
+preds <- predict(model1, type = "response", newLV = newLV)
+plot(NA, ylim = range(preds), xlim = c(range(getLV(model1))), ylab  = "Predicted response", xlab = "LV1")
+segments(x0=optima(model1, sd.errors = FALSE)[,1],x1 = optima(model1, sd.errors = FALSE)[,1], y0 = rep(0, ncol(model1$y)), y1 = apply(preds,2,max), col = "red", lty = "dashed", lwd = 2)
+rug(getLV(model1)[,1])
+sapply(1:ncol(model1$y), function(j)lines(sort(newLV[,1]), preds[order(newLV[,1]),j], lwd = 2))
+
+newLV = cbind(LV1 = 0, LV2 =  seq(min(LVs[,2]), max(LVs[,2]), length.out=1000))
+preds <- predict(model1, type = "response", newLV = newLV)
+plot(NA, ylim = range(preds), xlim = c(range(getLV(model1))), ylab  = "Predicted response", xlab = "LV2")
+segments(x0=optima(model1, sd.errors = FALSE)[,2],x1 = optima(model1, sd.errors = FALSE)[,2], y0 = rep(0, ncol(model1$y)), y1 = apply(preds,2,max), col = "red", lty = "dashed", lwd = 2)
+rug(getLV(model1)[,2])
+sapply(1:ncol(model1$y), function(j)lines(sort(newLV[,2]), preds[order(newLV[,2]),j], lwd = 2))
+```
+
+We can also calculate turnover for these two estimated gradients, although that is a little difficult when we have unequal tolerances.
+
+```{r grad_length}
+# Extract tolerances
+tol <- tolerances(model1, sd.errors = FALSE)
+gradLength <- 4/apply(tol, 2, median)
+```
+
+```{r grad_length_res}
+cat("Gradient length:", gradLength)
+```
+
+As expected, the second gradient is -very- short; we might even be able to drop it from the model. Let's have a look:
+
+```{r compare}
+model2<-update(model1, num.lv=1)
+AIC(model1, model2)
+BIC(model1, model2)
+```
+
+It depends on how you look at it. We can just stick with the same model for now. Finally, we can calculate the median turnover:
+
+```{r turn}
+turn <- 2*qnorm(.999, sd = apply(tol, 2, median))
+cat("Turnover rate:", turn)
+```
+
+and as expected, turnover is slow on the second latent variable, as also reflected by the short gradient length.
 
 ## Tasks I
 
-1. Fit both models and compare AIC. Does adding temporal structure improve fit?
-2. Interpret the AR(1) correlation parameter. Is community composition persistent across seasons?
-3. Try `lvCor = ~corAR1(1|season)` instead of `row.eff`. What is the difference in interpretation?
-4. Visualize the ordination from both models. Does temporal structure change the ordination?
-
-# Part II: Spatial models
-
-If you have site coordinates, you can fit a model with spatial correlation. Here we simulate coordinates for illustration — in your own data, use real coordinates.
-
-```{r spatial_setup}
-# Simulate spatial coordinates for the wadden sites
-set.seed(42)
-n_sites <- nrow(Y)
-coords <- data.frame(
-  lon = runif(n_sites, 0, 100),
-  lat = runif(n_sites, 0, 100)
-)
-dist_mat <- as.matrix(dist(coords))
-```
-
-```{r spatial, cache=TRUE, message=FALSE, warning=FALSE, eval=FALSE}
-model_spatial <- gllvm(Y, num.lv = 2, family = "tweedie", Power = NULL,
-                       disp.formula = rep(1, ncol(Y)),
-                       lvCor = ~corExp(1|site),
-                       studyDesign = data.frame(site = factor(1:nrow(Y))),
-                       distLV = dist_mat,
-                       Lambda.struc = "UNN", NN = 5,
-                       n.init = 1)
-```
-
-Note: spatial models are computationally demanding. With real data, ensure you have sufficient memory and consider sparse approximations (`Lambda.struc = "bdNN"` or `"UNN"` with `NN` set to a small number of neighbours).
-
-## Tasks II
-
-1. Read through the code for fitting a spatial model. What does `distLV` do?
-2. What does the `NN` argument control? What are the trade-offs of using more vs. fewer neighbours?
-3. How would you use `VP()` to see how much variation the spatial structure explains?
-4. If you have your own spatial dataset, try fitting a `corExp` model to it.
-
-# Part III: Mixed response types *(placeholder)*
-
-Mixed response types — where different species have different distributions within a single joint model — are a newer feature in `gllvm`. For example, some species might be recorded as binary presence-absence while others are recorded as counts.
-
-```{r mixed_placeholder, eval=FALSE}
-# Example structure (functionality in active development)
-# model_mixed <- gllvm(y = Y,
-#                      family = list("binomial", "poisson", "negative.binomial"),
-#                      ...)
-```
-
-Check the `gllvm` package documentation and vignettes for the current state of mixed response type support:
-
-```{r help, eval=FALSE}
-?gllvm
-vignette(package = "gllvm")
-```
-
-## Tasks III
-
-1. Check the `gllvm` help page and package vignettes for mixed response types. What families are currently supported together?
-2. Think about your own data: do different species in your dataset call for different distributions? What combinations would you need?
-
-# Part IV: Own data
-
-Use the remaining time to apply what you have learned to your own dataset, or to explore further aspects of the models fitted in Parts I-III.
-
-Suggested directions:
-- Fit a temporal or spatial model to your own data
-- Compare IID vs structured models using AIC
-- Use `VP()` to partition spatial vs. environmental vs. residual variation
-- Explore the `gllvm` documentation for the latest features on mixed responses
+1. Fit the model with species-specific tolerances and go through the code.
+2. Also try fitting a model with species-common tolerances, a model without quadratic responses, and a model with `row.eff`.
+3. Compare the ordinations, are the estimated latent variables very different? You can do this via the `procrustes` function as demonstrated in the first practical today, or via `cor`.
+4. Use information criteria, or hypothesis testing, to determine which model is best.
+5. Add covariates into the ordination of the quadratic response model with `lv.formula`, `num.RR` or `num.lv.c` and perhaps the random effects formulation with `randomB``
