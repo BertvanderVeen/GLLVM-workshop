@@ -1,5 +1,6 @@
 ---
-title: "Model-based ordination"
+title: "Practical: Model-based ordination"
+subtitle: "Physalia workshop on GLLVMs"
 author: "Bert van der Veen"
 output: html_document
 ---
@@ -11,6 +12,8 @@ Yesterday, we learned that JSDMs are usually implemented using a latent variable
 With model-based ordination, we assume that there are underlying **ecological gradients** that have generated the data. These gradients can be represented completely without measured variables (unconstrained ordination), fully with measured variables (constrained ordination), or both; assuming that it is difficult to find the right variables to represent the ecological gradient, so that there always may be an unmeasured component.
 
 From a more statistical angle, model-based ordination is a way of fitting complex models to sparse data: we attempt to reduce dimensions of the effects so that we can still fit the models we want, even if we do not have so much data. This is a bit different than "classical" ordination methods, because model-based ordination retains connection with the original data, and therefore can also visualize species-specific responses (i.e., we have a lot more information from the model than just an ordination plot, such as correlations between species).
+
+In Part II, we will also briefly use the `lvCor` argument to place the (unconstrained) ordination at a higher grouping level (e.g., site rather than observation) instead of the default observation-level ordination. That is the only thing we use it for here; `lvCor` has more to offer for nested designs and partial ordination, which is the subject of Thursday's Conditioning lecture and practical.
 
 ## Part I
 
@@ -33,15 +36,15 @@ Y2 <- Y[,colSums(ifelse(Y==0,0,1))>3]
 ncol(Y2)
 ```
 
-In the subsetted dataset we end up excluding 90 species that were observed less than 3 times. There are also a few covariates in the data: "method": the restoration treatment (pn: planted natural, nat: naturally re-vegetated, ref: pristine vegetation, seed: seeded plots), dis_int_veg": distance to road, "caco": canopy cover, "slope", "grain_size_stand_f": soil grain size, "years_since_n": time since restoration, "gf": ecosystem type, "loi": loss on ignition (organic content), and "site": indicating that there were replications for each location. Here, we will focus on fitting unconstrained ordination, in the next practical we will bring in those covariates.
+In the subsetted dataset we end up excluding 90 species that were observed less than 3 times. There are also a few covariates in the data: "method": the restoration treatment (pn: planted natural, nat: naturally re-vegetated, ref: pristine vegetation, seed: seeded plots), "dis_int_veg": distance to road, "caco": canopy cover, "slope", "grain_size_stand_f": soil grain size, "years_since_n": time since restoration, "gf": ecosystem type, "loi": loss on ignition (organic content), and "site": indicating that there were replications for each location. Here, we will focus on fitting unconstrained ordination, in the next practical we will bring in those covariates.
 
-Cover data can be tricky to deal with: the observation process can be difficult to disentangle from the ecological process. [Korhonen et al. (2024)](https://besjournals.onlinelibrary.wiley.com/doi/full/10.1111/2041-210X.14437) discuss this to some extend, but there is a wide body of literature available on this issue. Some ecologists record presence-absences of species in subplots, and collate those to proportions at the plot-level. In that case, we might just as well model the data as binary responses, while accounting for pseudoreplication in the model, as it is not "truly" a cover process. We could do something similar with abundances; record them as percentages, or we could use a pin-point observation process. The point being, when it comes to percentages we have to think hard if a model truly based on percentages makes sense (besides the fact that there is usually loads of measurement error in percentages; the difference between 81-82% cover tends to be hard to guesstimate).
+Cover data can be tricky to deal with: the observation process can be difficult to disentangle from the ecological process. [Korhonen et al. (2024)](https://besjournals.onlinelibrary.wiley.com/doi/full/10.1111/2041-210X.14437) discuss this to some extent, but there is a wide body of literature available on this issue. Some ecologists record presence-absences of species in subplots, and collate those to proportions at the plot-level. In that case, we might just as well model the data as binary responses, while accounting for pseudoreplication in the model, as it is not "truly" a cover process. We could do something similar with abundances; record them as percentages, or we could use a pin-point observation process. The point being, when it comes to percentages we have to think hard if a model truly based on percentages makes sense (besides the fact that there is usually loads of measurement error in percentages; the difference between 81-82% cover tends to be hard to guesstimate).
 
-In any case, the <tt>gllvm</tt> R-package offers various option for fitting "true" percentage cover models. If you do not observe "true" cover (e.g., the presence-absence case, or classes), we should fit a different model (binomial or ordinal, respectively). The percentage cover models usually focus on the way to deal with full absence or presence. There are few statistical distributions that can deal with data on a limied scale (0-1); the beta distribution being one of the few, but that does not include 0 or 1. Hence, we need to use a "Hurdle" model, or an ordered beta model; the details are covered in the aforementioned publication. We will just continue with an ordered beta model here.
+In any case, the <tt>gllvm</tt> R-package offers various options for fitting "true" percentage cover models. If you do not observe "true" cover (e.g., the presence-absence case, or classes), we should fit a different model (binomial or ordinal, respectively). The percentage cover models usually focus on the way to deal with full absence or presence. There are few statistical distributions that can deal with data on a limited scale (0-1); the beta distribution being one of the few, but that does not include 0 or 1. Hence, we need to use a "Hurdle" model, or an ordered beta model; the details are covered in the aforementioned publication. We will just continue with an ordered beta model here.
 
 There are different philosophies to fitting ordinations, some people prefer starting with an unconstrained ordination. My philosophy is that, if you are interested in species-environment relationships, doing an unconstrained ordination does not make much sense. However, for pedagogical reasons, we will here start with unconstrained ordination anyway. The following model may be a bit fussy with convergence: if you get a message that the model has converged to infinity, just re-run until it does work! (this is not always a valid strategy, but here it is OK). 
 
-Repeatedly re-running the model essentially what the `n.init` argument does in the below code. This is good practice, because different model runs often result in a (somewhat) different result. You can set `seed` to ensure you get the same model every time, or use `starting.val = "zero"` instead (the latter option might be suboptimal in many cases, see [Niku et al. (2019)](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0216129)).
+Repeatedly re-running the model is essentially what the `n.init` argument does in the below code. This is good practice, because different model runs often result in a (somewhat) different result. You can set `seed` to ensure you get the same model every time, or use `starting.val = "zero"` instead (the latter option might be suboptimal in many cases, see [Niku et al. (2019)](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0216129)).
 
 To further facilitate the low number of observations for some species, we collect all dispersion parameters for this model using the same, via the `disp.formula` argument. By default this is species-specific, but for this dataset that simply requires more information than we have available.
 
@@ -67,7 +70,7 @@ ordiplot(model1, symbols = TRUE)
 ordiplot(model2, symbols = TRUE)
 ```
 
-If the plot looks odd in your R session, make sure that your plot window is expanded before you costruct the plots. We see that the two ordination actually look pretty similar; with and without the species that (technically) have too few observations. We can use the `procrustes` function from the <tt>vegan</tt> R-package to double check how similar exactly they are:
+If the plot looks odd in your R session, make sure that your plot window is expanded before you construct the plots. We see that the two ordinations actually look pretty similar; with and without the species that (technically) have too few observations. We can use the `procrustes` function from the <tt>vegan</tt> R-package to double check how similar exactly they are:
 
 ```{r}
 vegan::procrustes(getLV(model1), getLV(model2), symmetric = TRUE)
@@ -91,15 +94,15 @@ In the `ordiplot` function there are a range of arguments that can help you adju
 Everything from the first two practicals still applies: we can include random effects in `formula` or `row.eff` if we wish, we can fit the models in parallel or speed them up using the same tricks. We can visualize species associations via `corrplot` and `getResidualCor`. This particular dataset includes pseudo replication of sites, which we should probably account for. In essence, we will condition the ordination on a random effect of "site", to get the sampling variation out of the ordination:
 
 ```{r, cache = TRUE}
-model3  <- gllvm(y = Y2, num.lv = 2, 
-                 family = "orderedBeta", disp.formula = rep(1,ncol(Y2)), 
-                 starting.val = "res", row.eff = ~(1|site), studyDesign = X, 
-                 sd.errors = FALSE)
+model3  <- gllvm(y = Y2, num.lv = 2,
+                 family = "orderedBeta", disp.formula = rep(1,ncol(Y2)),
+                 starting.val = "res", row.eff = ~(1|site), studyDesign = X,
+                 sd.errors = FALSE, seed = 2)
 
-model4  <- gllvm(y = Y2, X = X, num.lv = 2, 
-                 family = "orderedBeta", disp.formula = rep(1,ncol(Y2)), 
+model4  <- gllvm(y = Y2, X = X, num.lv = 2,
+                 family = "orderedBeta", disp.formula = rep(1,ncol(Y2)),
                  starting.val = "res", formula = ~diag(1|site), randomX.start = "zero",
-                 Ab.struct = "diagonal", optim.method = "L-BFGS-B", sd.errors = FALSE)
+                 Ab.struct = "diagonal", sd.errors = FALSE, seed = 2)
 ```
 
 The fourth model includes many more random effects (20*98) than the third model (20) , as we conditioned the ordination on species-specific random effects with site-specific variances. In the third model we assume the random effects for all species are the same, and the variance of the random effects is the same for all sites. The latter is much closer to what `Condition` does in classical ordination methods. Comparing some of our ordinations again:
@@ -141,7 +144,7 @@ model5  <- gllvm(y = Y2, num.lv = 2, family = "orderedBeta", n.init = 10, lvCor 
 gllvm::ordiplot(model5)
 ```
 
-We only have 20 "sites" in this dataset, so the model is much quicker to fit. We have gone from `num.lv*nrow(Y)` random effects in the model to `num.lv*20` random effects (i.e., from $2*282$ to $2*20$). There is a problem with this model though: previously our ordination incorporated the variation due to the repeated observations of sites. At the moment, there is no ordination effect in the model except the ordination, so that all that sampling variation is left in the residuals.
+We only have 20 "sites" in this dataset, so the model is much quicker to fit. We have gone from `num.lv*nrow(Y)` random effects in the model to `num.lv*20` random effects (i.e., from $2*282$ to $2*20$). There is a problem with this model though: previously our ordination incorporated the variation due to the repeated observations of sites. At the moment, there is no random effect in the model except the ordination, so that all that sampling variation is left in the residuals.
 
 ```{r}
 resi <- residuals(model5)$resi
@@ -150,7 +153,7 @@ xxx <- boxplot(c(fitted), outline = FALSE, plot = FALSE)$stats
 plot(c(resi) ~ c(fitted), xlim = c(min(xxx), max(xxx)), col = rep(X$site, times = ncol(model5$y)), xlab = "Linear predictor", ylab = "Dunn-Smyth residuals")
 ```
 
-In this figure, where residuals are colored by site, we do see that there is variation in the replicates for each site. Ignoring this variation may become a problem when we start doing inference. We should incorporate this information into the model, so we will label the replicates within the sites as "plots" and include this as a random effects.
+In this figure, where residuals are colored by site, we do see that there is variation in the replicates for each site. Ignoring this variation may become a problem when we start doing inference. We should incorporate this information into the model, so we will label the replicates within the sites as "plots" and include this as a random effect.
 
 ```{r, cache = TRUE}
 X$plot<- factor(ave(seq_along(X$site), X$site, FUN = seq_along))

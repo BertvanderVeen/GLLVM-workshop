@@ -23,9 +23,9 @@ Here, I will work with the wadden data. The mathematics for implementing the uni
 Y <- read.table("../../data/waddenY.csv", sep="," ,header=TRUE, row.names = 2)[,-1]
 ```
 
-The model is fitted similarly as before, but instead we add the "quadratic" argument which takes the options TRUE, "LV", and FALSE. As covered in the lecture, these correspond to assuming species-specific (TRUE) and species-common ("LV") tolerances, while FALSE corresponds to equal or common tolerances only if we use a random row effect at the same level as the ordination (`row.eff = "random"` if the ordination is specified as random effect and at the observation-level, `row.eff = "fixed"` for a observation-level ordination with fixed effects).
+The model is fitted similarly as before, but instead we add the "quadratic" argument which takes the options TRUE, "LV", and FALSE. As covered in the lecture, these correspond to assuming species-specific (TRUE) and species-common ("LV") tolerances, while FALSE corresponds to equal or common tolerances only if we use a random row effect at the same level as the ordination (`row.eff = "random"` if the ordination is specified as random effect and at the observation-level, `row.eff = "fixed"` for an observation-level ordination with fixed effects).
 
-Because the model is more complex, so it also takes longer to fit it. I will fit it straight away with a negative-binomial distribution, since that was is also what this dataset required in the last exercise. We could also just include more latent variables, because that has a similar effect of accounting for residual variation (just within the model, instead of in the distribution). One thing to really keep in mind, is the increased complexity of the unimodal response model, i.e., there are more parameters to estimate, for which there needs to be enough information in the data. 
+Because the model is more complex, it also takes longer to fit it. I will fit it straight away with a negative-binomial distribution, since that was also what this dataset required in the last exercise. We could also just include more latent variables, because that has a similar effect of accounting for residual variation (just within the model, instead of in the distribution). One thing to really keep in mind, is the increased complexity of the unimodal response model, i.e., there are more parameters to estimate, for which there needs to be enough information in the data. 
 
 ```{r uo, cache = TRUE, message=FALSE}
 library(gllvm)
@@ -34,7 +34,7 @@ model1 <- gllvm(Y, num.lv = 2, quadratic = TRUE, n.init = 3, family = "negative.
 gllvm::ordiplot(model1, biplot = TRUE)
 ```
 
-The `n.init` option is very necessary: the GLLVM with unimodal response is even more prone to finding a suboptimal solution than usually. That also means that fitting the model is much slower, so using <tt> gllvm</tt> its (new) option for parallel computation could help. `ordiplot` will plot the species optima, and if the optima are too far away from the estimated latent variable, it will plot the species effects as arrows instead.
+The `n.init` option is very necessary: the GLLVM with unimodal response is even more prone to finding a suboptimal solution than usual. That also means that fitting the model is much slower, so using <tt> gllvm</tt>'s (new) option for parallel computation could help. `ordiplot` will plot the species optima, and if the optima are too far away from the estimated latent variable, it will plot the species effects as arrows instead.
 
 ```{r uo2, message=FALSE, results="hide", echo = -1}
 library(gllvm)
@@ -108,4 +108,4 @@ and as expected, turnover is slow on the second latent variable, as also reflect
 2. Also try fitting a model with species-common tolerances, a model without quadratic responses, and a model with `row.eff`.
 3. Compare the ordinations, are the estimated latent variables very different? You can do this via the `procrustes` function as demonstrated in the first practical today, or via `cor`.
 4. Use information criteria, or hypothesis testing, to determine which model is best.
-5. Add covariates into the ordination of the quadratic response model with `lv.formula`, `num.RR` or `num.lv.c` and perhaps the random effects formulation with `randomB``
+5. Add covariates into the ordination of the quadratic response model with `lv.formula`, `num.RR` or `num.lv.c` and perhaps the random effects formulation with `randomB`

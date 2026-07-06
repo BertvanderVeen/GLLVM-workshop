@@ -63,7 +63,7 @@ A JSDM produces a lot of output: intercepts, slopes, associations, predicted pro
 
 \pause
 
-Diversity indices — species richness, Shannon entropy, Simpson's index — are scalar summaries of the community matrix $\mathbf{Y}$.
+Diversity indices (species richness, Shannon entropy, Simpson's index) are scalar summaries of the community matrix $\mathbf{Y}$.
 
 \pause
 
@@ -79,8 +79,8 @@ Without a generative model:
 
 \begin{itemize}
   \item No uncertainty quantification: no standard errors, no confidence intervals
-  \item No ability to account for sampling: effort, detection probability, protocol differences
-  \item No ability to account for data properties: overdispersion, zero-inflation, censoring
+  \item No ability to account for sampling: effort, detection, protocol
+  \item No ability to account for data properties: overdispersion, zero-inflation
   \item No prediction for new sites, times, or conditions
 \end{itemize}
 
@@ -238,6 +238,7 @@ We do not model species richness directly; instead, \textbf{species richness eme
 - Uncertainty propagates naturally from species-level predictions
 - Assumptions are explicit and testable
 - Non-linear richness gradients emerge even from linear species responses
+- Inherits whatever structure the species model has: traits, phylogeny, spatial or hierarchical effects
 
 ## Works for any data type
 
@@ -284,7 +285,7 @@ goodnessOfFit(Y, object = model, measure = "AUC") # AUC per species
 
 ## Example: alpine plants in Switzerland
 
-```{r alpine_dat, echo=FALSE, message=FALSE}
+```{r alpine_dat, echo=FALSE, message=FALSE, cache=TRUE}
 Y <- read.csv("../data/alpineY.csv")[,-1]
 X <- read.csv("../data/alpineX.csv")[,-1]
 X <- X[rowSums(Y) > 0, ]
@@ -485,7 +486,7 @@ Poisson-Binomial quantile residuals: no systematic elevation trend remains after
 
 ## From richness to diversity
 
-Species richness is one dimension of diversity — and the model gives us a tractable distribution for it.
+Species richness is one dimension of diversity; the model gives us a tractable distribution for it.
 
 \pause
 
@@ -493,7 +494,11 @@ But diversity has many facets: how dominant is the community at a site? How simi
 
 \pause
 
-These all follow from the \textbf{variance structure of $\eta_{ij}$} — like $R^2$ in mixed models \footnotesize (Nakagawa \& Schielzeth 2013)\normalsize, we work on the link scale rather than the response scale.
+These all follow from the \textbf{variance structure of $\eta_{ij}$}; like $R^2$ in mixed models \footnotesize (Nakagawa \& Schielzeth 2013)\normalsize, we work on the link scale rather than the response scale.
+
+\pause
+
+Unlike species richness, \texttt{gllvm} does not (yet) have a dedicated function for these: what follows is computed directly from the fitted model's variance components, not a canned implementation. Still worth working through, since the ingredients are already sitting in every model you fit.
 
 ## Alpha, beta, and gamma diversity
 
@@ -585,7 +590,7 @@ The average pairwise similarity of site $i$ with all other sites is:
 
 \pause
 
-Sites at environmental extremes have high uniqueness: their communities differ most from the regional average — potential refugia, range edges, endemic communities.
+Sites at environmental extremes have high uniqueness: their communities differ most from the regional average, potential refugia, range edges, endemic communities.
 
 # Example 2
 
@@ -682,7 +687,7 @@ terra::values(alpha) <- rowSums(x * (x %*% model_birds$params$sigmaB))
 
 ## Dominance of Swiss birds
 
-```{r map, dpi = 300, echo = FALSE, cache = TRUE, dependson="maprep", warning=FALSE,message=FALSE}
+```{r map, dpi = 300, fig.height = 4.2, echo = FALSE, cache = TRUE, cache.lazy = FALSE, dependson="maprep", warning=FALSE,message=FALSE}
 library(ggplot2)
 library(tidyr)
 library(dplyr)
@@ -743,7 +748,7 @@ Environmental turnover increases with temperature difference; the LV component a
 
 ## Example: uniqueness
 
-```{r uniqueness_plot, echo=FALSE, dpi=300, cache=TRUE, dependson="maprep", message=FALSE, warning=FALSE}
+```{r uniqueness_plot, echo=FALSE, dpi=300, fig.height=4.2, cache=TRUE, dependson="maprep", message=FALSE, warning=FALSE}
 dat_u <- as.data.frame(uniqueness_rast, xy = TRUE) %>%
   pivot_longer(cols = -c(x, y), names_to = "layer", values_to = "value")
 ggplot() +

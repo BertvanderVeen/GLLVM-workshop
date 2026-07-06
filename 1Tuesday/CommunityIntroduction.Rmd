@@ -526,18 +526,21 @@ A model for the data opens up a coherent framework for forecasting:
 
 ## Summary: classical approach vs. GLLVM
 
+\begin{table}
 \footnotesize
-
-| Problem | Classical approach | GLLVM |
-|---|---|---|
-| Count/binary data | $\log(y+1)$ transformation | Poisson, NB, or binomial distribution |
-| Long gradient (arch) | DCA rescaling (heuristic) | Unimodal response model |
-| Nested / repeated design | None | Random effects |
-| Species correlation | Ignored | JSDM / residual covariance |
-| No environment measured | NMDS | Unconstrained ordination |
-| Uncertainty | None | Standard errors and CIs |
-
-\normalsize
+\begin{tabular}{p{2.4cm}p{3.3cm}p{3.6cm}}
+\toprule
+Problem & Classical approach & GLLVM \\
+\midrule
+Count/binary data & $\log(y+1)$ transformation & Poisson, NB, or binomial distribution \\
+Long gradient (arch) & DCA rescaling (heuristic) & Unimodal response model \\
+Nested / repeated design & None & Random effects \\
+Species correlation & Ignored & JSDM / residual covariance \\
+No environment measured & NMDS & Unconstrained ordination \\
+Uncertainty & None & Standard errors and CIs \\
+\bottomrule
+\end{tabular}
+\end{table}
 
 \pause
 

@@ -229,7 +229,7 @@ $\text{g}(\cdot)$ is the **link function**
 
 <!-- A smooth function with an inverse. -->
 
-\begin{columns}[onlytextwidth]
+\columnsbegin
 \column{0.5\textwidth}
 \begin{itemize}
 \item Is a smooth/monotone function
@@ -273,7 +273,7 @@ text(-3,125,"Inverse", cex=5)
 ```
 
 \columnsend
-\end{columns}
+\columnsend
 
 \vfill
 
@@ -377,7 +377,7 @@ knitr::kable(head(X), format="latex", booktabs = T)
 - Bioclimatic variables (bioclim)
 - Topography (slope, aspect, TPI, TWI) from a DEM
 - Potential evapotranspiration (PET) from solar radiation
-- Moisture index, degree days above  zero
+- Moisture index, degree days above zero
 - Vegetation structure from LiDAR
 
 ## Data format
@@ -605,7 +605,7 @@ abline(v=0,lty="dashed")
 segments(y0 =  1:p, y1 = 1:p, x0 = slps2 + qnorm(1-0.975)*ses, x1 = slps2 + qnorm(0.975)*ses)
 ```
 
-\footnotesize Average intercept: `r round(model4$params$beta0, 3)`, `r round(mean(ints2), 3)`. Average slope: `r round(model4$params$row.params.fixed[1], 3)`, `r round(mean(slps2), 3)`. \normalsize
+\footnotesize Intercept: common `r round(model4$params$beta0, 3)`, mean of effects `r round(mean(ints2), 3)`. Slope: common `r round(model4$params$row.params.fixed[1], 3)`, mean of effects `r round(mean(slps2), 3)`. \normalsize
 
 
 ## Swiss birds:  conclusions
@@ -889,8 +889,7 @@ Accounting for this residual co-occurrence structure requires modelling species 
 
 \centering
 
-\begin{columns}
-
+\columnsbegin
 \column{0.5\textwidth}
 
 \begin{itemize}
@@ -904,7 +903,7 @@ Accounting for this residual co-occurrence structure requires modelling species 
 \centering
 \includegraphics[width = 0.6\textwidth]{vglm.jpeg}
 
-\end{columns}
+\columnsend
 
 \centering
 

@@ -1,5 +1,5 @@
 ---
-title: "Practical: conditioning and partial ordination"
+title: "Practical: ordination with covariates"
 subtitle: "Physalia workshop on GLLVMs"
 author: "Bert van der Veen"
 output: html_document
@@ -7,96 +7,132 @@ output: html_document
 
 # Background
 
-In this practical we explore how to take information *out* of an ordination — using conditioning to remove variation due to nuisance factors, and combining conditioning with constrained ordination to perform partial ordination.
+In the previous practical we fitted unconstrained ordinations. Unconstrained ordination is useful for exploring patterns in the data, with covariates placed outside of the ordination if you prefer. However, if your data are sparse but you still want to study species-environment relationships, placing covariates outside of the ordination can be too large a burden on the dataset. Constrained ordination (and concurrent ordination) reduce the number of parameters for environmental effects by incorporating them into the ordination itself. In practice this means far fewer parameters, which is often more realistic for community ecological data. It comes at a price: we perform a "reduced rank" approximation to species' effects, which can introduce some bias.
 
-Key concepts from the lecture:
-
-- **Conditioning**: placing effects outside the ordination (in `formula` or `row.eff`) removes their contribution from the latent variables
-- **Partial ordination**: combining conditioning (effects outside) with constrained ordination (effects inside via `lv.formula`)
-- **Variance partitioning** (`VP()`): quantifying the contribution of each model component
-- **Nested designs**: `lvCor` places the ordination at a higher grouping level; `row.eff` accommodates plot-level variation
-
-We use the wadden sea macrozoobenthos data, which has a nested structure (transects within islands) and environmental covariates.
+This practical brings covariates into the ordination, either as fixed or as random effects. The main benefit compared to (e.g.) CCA or RDA is that many more response distributions are available, that we can combine this with random effects outside of the ordination (a partial constrained ordination, where the study design is accommodated with random effects), and that we keep a link to the original species-specific responses to the environmental covariates.
 
 ```{r setup, message=FALSE}
 library(gllvm)
 TMB::openmp(parallel::detectCores()-1, autopar = TRUE, DLL = "gllvm")
 
-Y <- read.csv("../../data/waddenY2.csv")[, -c(1:2)]
-Y <- Y[, colSums(ifelse(Y == 0, 0, 1)) > 2]
-X <- read.csv("../../data/waddenX.csv")
-X <- X[, !apply(X, 2, anyNA)]
-X[, unlist(lapply(X, is.numeric))] <- scale(X[, unlist(lapply(X, is.numeric))])
+Y <- read.csv("../../data/roadY.csv")[,-1]
+Y <- Y/100 # beta responses need to be in the range (0,1)
+Y <- Y[, colSums(ifelse(Y == 0, 0, 1)) > 3]
+X <- read.csv("../../data/roadX.csv")[,-1]
+X$site <- as.factor(X$site)
+X <- data.frame(lapply(X, function(x) if(is.numeric(x)){scale(x)}else{as.factor(x)}))
+X$plot <- factor(ave(seq_along(X$site), X$site, FUN = seq_along))
 ```
 
-# Part I: Unconstrained ordination and conditioning
+The covariates are: "method" (restoration treatment: pn = planted natural, nat = naturally re-vegetated, ref = pristine vegetation, seed = seeded plots), "dist_int_veg" (distance to road), "caco" (canopy cover), "slope", "grain_size_stand_f" (soil grain size), "years_since_n" (time since restoration), "gf" (ecosystem type), "loi" (loss on ignition, organic content), and "site" (replicated locations).
 
-Start with an unconstrained ordination — no covariates, no conditioning.
+# Part I
 
-```{r unc, cache=TRUE, message=FALSE}
-model1 <- gllvm(Y, num.lv = 2, family = "tweedie", Power = NULL,
-                disp.formula = rep(1, ncol(Y)), n.init = 3)
-gllvm::ordiplot(model1, symbols = TRUE, s.cex = 1.5)
+We start with a fixed-effects constrained ordination, similar in spirit to CCA:
+
+```{r mod1, cache=TRUE}
+model1 <- gllvm(y = Y, X = X,
+                lv.formula = ~dist_int_veg + caco + slope + loi + grain_size_stand_f + years_since_n + gf,
+                num.RR = 2, family = "orderedBeta", disp.formula = rep(1, ncol(Y)), n.init = 3)
+ordiplot(model1)
 ```
 
-Now condition on island (a nuisance factor) using `row.eff`:
+`num.RR` sets the number of constrained ordination axes, and `lv.formula` specifies the effects that go into the ordination. `disp.formula` collects the dispersion parameters for the beta distribution into a single shared parameter, to reduce the information burden on the data. The arrows in the ordination show the association of the environmental effects with the ordination axes; they are scaled so the largest effect has the longest arrow, so arrow length alone does not tell you relative importance. For the magnitude of the canonical coefficients themselves, extract them with `coef` or `summary`:
 
-```{r cond, cache=TRUE, message=FALSE}
-model2 <- gllvm(Y, num.lv = 2, family = "tweedie", Power = NULL,
-                disp.formula = rep(1, ncol(Y)),
-                row.eff = ~(1|island), studyDesign = X, n.init = 3)
-gllvm::ordiplot(model2, symbols = TRUE, s.cex = 1.5)
+```{r, fig.width=10}
+summary(model1)
+plot(summary(model1))
 ```
 
-Compare the two ordinations using a Procrustes rotation:
+A model-based constrained ordination has an explicit connection to the VGLMs from Tuesday: this model is an RR-VGLM ("reduced rank"). We can extract the species-specific responses to the environmental effects that the ordination implies:
 
-```{r procrustes}
-vegan::procrustes(getLV(model1), getLV(model2), symmetric = TRUE)
+```{r}
+coefplot(model1, which.Xcoef = "slope")
 ```
+
+This is interpreted exactly as in the VGLM, except that here two dimensions approximate the species-specific effects and their confidence intervals. As with the species associations in a JSDM, more dimensions eventually recover the same result as a full VGLM.
+
+You can combine a constrained ordination with species-common effects (`row.eff`) and species-specific effects (`formula`), or even `num.lv`, as you see fit. Start by adding a nested random row effect to accommodate the study design, as in the previous practical:
+
+```{r mod2, cache=TRUE}
+model2 <- gllvm(y = Y, X = X,
+                lv.formula = ~dist_int_veg + caco + slope + loi + grain_size_stand_f + years_since_n + gf,
+                num.RR = 2, row.eff = ~(1|site/plot), studyDesign = X,
+                family = "orderedBeta", disp.formula = rep(1, ncol(Y)))
+```
+
+The only difference with the first model is the `row.eff`, which adds a nested random effect of plots within sites to accommodate the study design. Under the hood this expands to `~(1|site) + (1|site:plot)`, each with its own variance parameter.
+
+If a constrained ordination includes the wrong environmental effects, ones with little relevance to the species response data, the ordination will be poor: all excess variation not explained by the covariates is discarded. Concurrent ordination adds an extra term so that all ordination axes remain optimally represented: all variation due to the species response data is retained even if the covariates do not explain the community well. This is unique to model-based methods, and is called **concurrent** ordination: constrained and unconstrained ordination performed simultaneously. The covariates inform the ordination rather than constraining it. Fit it with `num.lv.c`:
+
+```{r mod3, cache=TRUE}
+model3 <- gllvm(y = Y, X = X,
+                lv.formula = ~dist_int_veg + caco + slope + loi + grain_size_stand_f + years_since_n + gf,
+                num.lv.c = 2, row.eff = ~(1|site/plot), studyDesign = X,
+                family = "orderedBeta", disp.formula = rep(1, ncol(Y)), n.init = 10)
+```
+
+The only change from the second model is `num.RR = 2` becoming `num.lv.c = 2`, with `n.init` raised a little since some starting values do not converge.
+
+Concurrent ordination combines aspects of both unconstrained and constrained ordination: canonical coefficients and environmental effects in the ordination, species-specific effects via `coefplot`, and species associations as in a JSDM. This makes the ordination plot an efficient visualization of co-occurrence patterns due to both environmental effects and residual associations, something a correlogram cannot show together.
+
+For hypothesis testing, a fixed-effects constrained ordination is not nested in a random-effects unconstrained ordination, but a concurrent ordination is, and constrained ordination is nested in concurrent ordination. So for a hypothesis test of the constrained ordination, compare it against a fixed-effects unconstrained ordination:
+
+```{r comparemod, cache=TRUE}
+model4 <- gllvm(y = Y, X = cbind(X, obs = factor(1:nrow(X))), lv.formula = ~obs, num.RR = 2,
+                row.eff = ~(1|site/plot), studyDesign = X,
+                family = "orderedBeta", disp.formula = rep(1, ncol(Y)))
+anova(model2, model4)
+
+model5 <- gllvm(y = Y, num.lv = 2,
+                row.eff = ~(1|site/plot), studyDesign = X,
+                family = "orderedBeta", disp.formula = rep(1, ncol(Y)))
+anova(model3, model5)
+anova(model2, model3)
+```
+
+The fourth model is a fixed-effects unconstrained ordination: including the observation-level factor "obs" in `lv.formula` treats the ordination as a fixed effect, whereas `num.lv` treats it as random. You could equivalently keep `lv.formula ~ obs` with `num.RR` and add `randomB = "LV"`, which gives the same result as the fifth model (up to small differences from how starting values are calculated).
 
 ## Tasks I
 
-1. Fit both models and compare the ordinations visually. Does conditioning on island change the pattern?
-2. Use `vegan::procrustes` to quantify how similar the ordinations are.
-3. Try conditioning on `transect` instead of `island`. Does the ordination change further?
-4. What does conditioning on a nuisance factor do to the interpretation of the ordination axes?
+1. Fit a constrained ordination and produce an ordination diagram with `ordiplot`.
+2. Fit a concurrent ordination and check whether it differs much from the constrained ordination.
+3. For the concurrent ordination, `ordiplot` has a `type` argument with options "residual", "marginal", and "conditional". Try each and see what it shows.
+4. Extract species-specific effects with `coefplot` and compare them to what the ordination plot shows.
+5. Try out the hypothesis tests above.
 
-# Part II: Constrained and partial ordination
+# Part II
 
-Now combine conditioning with constrained ordination. We condition on island (remove its effect) while constraining the ordination with environmental variables.
+We now have covariates available in `row.eff`, `formula`, and `lv.formula`, each with a different meaning, so model formulation needs some care. Here we focus on `lv.formula`: a constrained ordination.
 
-```{r partial, cache=TRUE, message=FALSE, warning=FALSE}
-model3 <- gllvm(Y, X = X,
-                lv.formula = ~season + TOC + elevation + silt_clay + Chl.a,
-                num.RR = 2, randomB = "LV",
-                family = "tweedie", Power = NULL,
-                disp.formula = rep(1, ncol(Y)),
-                row.eff = ~(1|island), studyDesign = X,
-                n.init = 3)
-gllvm::ordiplot(model3, symbols = TRUE, s.cex = 1.5, arrow.ci = FALSE)
+So far the covariate effects in the ordination were treated as fixed. We can instead treat them as random effects, fitting a type of RR-VGLMM, via the `randomB` argument, writing `lv.formula` as a random-effects formula. There are two reasons to do this: random effects can stabilize the canonical coefficients when information content is low or covariates are collinear, and they induce correlation between species due to the environment, which can be extracted with `getEnvironCor`. As on Tuesday, this also lets us add correlation parameters between the random effects, now within the ordination:
+
+```{r mod6, cache=TRUE, warning=FALSE, message=FALSE, fig.width=10}
+model6 <- gllvm(y = Y, X = X,
+                lv.formula = ~(0+dist_int_veg|1) + (0+caco|1) + (0+slope|1) + (0+loi|1) + (0+grain_size_stand_f|1) + (0+years_since_n|1) + (0+gf|1),
+                num.RR = 2, randomB = "P",
+                family = "orderedBeta", disp.formula = rep(1, ncol(Y)), n.init = 10)
+gllvm::ordiplot(model6)
+summary(model6)
 ```
 
-This is a **partial constrained ordination**: we show the community variation explained by the environment, after removing the island effect.
+and
+
+```{r mod7, cache=TRUE, warning=FALSE, message=FALSE, fig.width=10}
+model7 <- gllvm(y = Y, X = X,
+                lv.formula = ~(0+dist_int_veg|1) + (0+caco|1) + (0+slope|1) + (0+loi|1) + (0+grain_size_stand_f|1) + (0+years_since_n|1) + (0+gf|1),
+                num.RR = 2, randomB = "LV",
+                family = "orderedBeta", disp.formula = rep(1, ncol(Y)), n.init = 10)
+gllvm::ordiplot(model7)
+corrplot::corrplot(getEnvironCor(model7), type = "lower", order = "AOE", diag = FALSE, tl.pos = "l", tl.cex = 0.2, addgrid.col = NA)
+```
+
+These might produce similar ordinations, but do not have to. Random effects placed in the same brackets get correlation parameters; examine these with `summary`. Switching to `num.lv.c` also makes residual species associations available, which `num.RR` alone does not provide.
+
+Species-specific random effects can again be reconstructed, now via `randomCoefPlot`.
 
 ## Tasks II
 
-1. Fit the partial constrained ordination and interpret the ordination plot. Which environmental variables drive the main axes?
-2. Try removing the conditioning (`row.eff`) — how does the constrained ordination change?
-3. Switch from `num.RR` to `num.lv.c` (concurrent ordination). What is the difference in interpretation?
-4. Use `coefplot(model3, which.Xcoef = "TOC")` to examine species-specific TOC effects.
-
-# Part III: Variance partitioning
-
-Variance partitioning (`VP()`) shows the relative contribution of each model component.
-
-```{r vp, message=FALSE}
-VP(model3)
-```
-
-## Tasks III
-
-1. Run `VP()` on model3. Which component explains the most variation?
-2. Fit a model with more environmental variables and compare the VP output. Does adding more covariates increase the explained variation?
-3. Try fitting a model with both `formula` (species-specific fixed effects) and `lv.formula` (constrained ordination). Use `VP()` to partition variance between these components.
-4. Which grouping would you use in `VP()` to contrast "environment" vs "residual"?
-5. Compare the `getResidualCov(model1)$trace` and `getResidualCov(model2)$trace`. Does conditioning reduce unexplained variation?
+1. Fit the constrained or concurrent ordination with random effects in the ordination instead.
+2. Compare the results to the fixed-effects version: are they very different?
+3. Visualize the associations due to environment as in the code above. How would you interpret them?

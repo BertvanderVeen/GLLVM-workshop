@@ -37,7 +37,8 @@ model1 <- gllvm(y = Y, X = X_sc,
                 num.lv = 2,
                 family = "binomial",
                 sd.errors = FALSE,
-                optim.method = "L-BFGS-B")
+                optim.method = "L-BFGS-B",
+                seed = 1)
 ```
 
 Now predict species richness along the elevation gradient:
@@ -46,7 +47,7 @@ Now predict species richness along the elevation gradient:
 elev_seq <- seq(min(X_sc$ELEV), max(X_sc$ELEV), length.out = 100)
 newX <- data.frame(ELEV = elev_seq)
 
-sr <- predictSR(model1, newX = newX)
+sr <- predictSR(model1, newX = newX, level = 0)
 ```
 
 Plot observed richness against predicted richness:
@@ -72,7 +73,7 @@ plot(residuals(sr))
 2. Add more covariates (e.g., `SLOPE`, `MIND`, `SOLRAD`) and see if the richness prediction improves.
 3. Change the number of latent variables (0, 1, 2, 3). How does this affect the richness prediction?
 4. Use `AIC()` or `BIC()` to compare models. Does including latent variables improve fit?
-5. Examine the `predictSR` residuals — do they look like random noise, or is there remaining structure?
+5. Examine the `predictSR` residuals: do they look like random noise, or is there remaining structure?
 
 # Part II: Diversity components
 
@@ -87,7 +88,7 @@ var.q <- getResidualCov(model1)$var.q
 var.q / sum(var.q)
 ```
 
-For the species-specific elevation effects (treated as random), the variance tells us how much species differ in their response to elevation — a measure of niche differentiation driving beta diversity.
+For the species-specific elevation effects (treated as random), the variance tells us how much species differ in their response to elevation, a measure of niche differentiation driving beta diversity.
 
 ```{r beta_diversity, eval=FALSE}
 model2 <- gllvm(y = Y, X = X_sc,
@@ -100,7 +101,7 @@ summary(model2)  # examine variance of elevation slopes
 
 ## Tasks II
 
-1. Extract and interpret the residual covariance trace — how much variation is captured by the latent variables?
+1. Extract and interpret the residual covariance trace: how much variation is captured by the latent variables?
 2. Compare the relative variation explained by each latent variable axis.
 3. Fit a model with a random slope for elevation across species. What is the variance of species' elevation responses?
 4. Try predicting species richness with the random-slope model. How does the uncertainty compare to the fixed-effect model?

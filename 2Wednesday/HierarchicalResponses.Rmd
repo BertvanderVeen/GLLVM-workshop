@@ -102,7 +102,7 @@ But what makes species prefer certain environments?
 
 ## Trait-environment relationship
 
-```{r teplot, echo = FALSE, dev = "png", fig.show = "hide", warning=FALSE, fig.height = 5}
+```{r teplot, echo = FALSE, dev = "png", fig.show = "hide", warning=FALSE, fig.height = 3,fig.width=5,fig.align="center",  dpi = 300}
 # Load libraries
 library(ggplot2)
 
@@ -132,13 +132,13 @@ ggplot(df, aes(x = x, y = suitability, color = species)) +
 \alt<2>{
 \columnsbegin
 \column{0.3\textwidth}
-\includegraphics{coldplant.jpg}
+\includegraphics[width=\linewidth]{coldplant.jpg}
 \column{0.3\textwidth}
-\includegraphics{HierarchicalResponses_files/figure-beamer/teplot-1.png}
+\includegraphics[width=\linewidth]{HierarchicalResponses_files/figure-beamer/teplot-1.png}
 \column{0.3\textwidth}
-\includegraphics{oxalis.jpg}
+\includegraphics[width=\linewidth]{oxalis.jpg}
 \columnsend
-}{\includegraphics{HierarchicalResponses_files/figure-beamer/teplot-1.png}}
+}{\includegraphics[height=0.55\paperheight, width = \linewidth]{HierarchicalResponses_files/figure-beamer/teplot-1.png}}
 
 ## Fourth corner analysis
 
@@ -218,22 +218,20 @@ For a long time, 4th-corner analysis was a recurring problem
 
 ## Often used trait-based analysis
 
-\begin{columns}
-\begin{column}{0.6\textwidth}
+\columnsbegin
+\column{0.6\textwidth}
 \begin{enumerate}
 \item RLQ \footnotesize Doledec et al. (1996) \normalsize
 \item CWM + RDA
 \item Double constrained ordination \footnotesize Lebreton et al. (1988), ter Braak et al. (2018) \normalsize
 \item Fourth corner LVMs \footnotesize Ovaskainen at al. (2017), Niku et al. (2021) \normalsize
 \end{enumerate}
-\end{column}
-\begin{column}{0.4\textwidth}
+\column{0.4\textwidth}
 
 ```{r echo=F, fig.align="center", fig.cap="Quadriplot \\newline \\footnotesize \\textit{ter Braak et al. (2018)} \\normalsize", dpi=300, out.width="99%"}
 knitr::include_graphics("quadriplot.jpg")
 ```
-\end{column}
-\end{columns}
+\columnsend
 
 <!-- ##  -->
 
@@ -257,7 +255,7 @@ knitr::include_graphics("quadriplot.jpg")
 \pause
 
  \begin{figure}
- \includegraphics{snowshoe2.png}
+ \includegraphics[scale=1.5]{snowshoe2.png}
  \caption{\href{https://onlinelibrary.wiley.com/doi/10.1111/ele.12568}{Zimova et al. 2016}}
  \end{figure}
  

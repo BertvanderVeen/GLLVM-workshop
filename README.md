@@ -49,10 +49,10 @@ Sessions from 14:00 to 20:00 (Tuesday to Friday). Sessions will consist of a mix
 |         |14:45 - 15:45| Vector Generalised Linear Models                               |
 |         |15:45 - 16:00| Break                                                          |
 |         |16:00 - 17:00| Practical 1: Fitting multispecies GLMs                         |
-|         |17:00 - 17:30| Vector Generalised Linear Mixed Models                         |
-|         |17:30 - 18:15| Break                                                          |
-|         |18:15 - 18:45| Model checking and comparison                                  |
-|         |18:45 - 20:00| Practical 2: Multispecies GLMMs and diagnostics                |
+|         |17:00 - 17:45| Vector Generalised Linear Mixed Models                         |
+|         |17:45 - 18:30| Break                                                          |
+|         |18:30 - 19:00| Model checking and comparison                                  |
+|         |19:00 - 20:00| Practical 2: Multispecies GLMMs and diagnostics                |
 |---------|-------------|----------------------------------------------------------------|
 |Wednesday|14:00 - 14:45| Hierarchically modelling environmental responses               |
 |         |14:45 - 15:45| Practical 3: Traits and phylogeny                              |
@@ -67,16 +67,16 @@ Sessions from 14:00 to 20:00 (Tuesday to Friday). Sessions will consist of a mix
 |         |14:45 - 15:45| Practical 6: Model-based ordination                            |
 |         |15:45 - 16:00| Break                                                          |
 |         |16:00 - 16:45| Ordination with covariates                                     |
-|         |16:45 - 17:45| Article reanalysis                                             |
+|         |16:45 - 17:45| Practical 7: Ordination with covariates                        |
 |         |17:45 - 18:30| Break                                                          |
 |         |18:30 - 19:15| Conditioning and nested designs                                |
-|         |19:15 - 20:00| Practical 7: Conditioning and partial ordination               |
+|         |19:15 - 20:00| Practical 8: Conditioning and partial ordination               |
 |---------|-------------|----------------------------------------------------------------|
 |Friday   |14:00 - 14:45| Unimodal response models                                       |
-|         |14:45 - 15:30| Practical 8: Unimodal responses                                |
+|         |14:45 - 15:30| Practical 9: Unimodal responses                                |
 |         |15:30 - 15:45| Break                                                          |
 |         |15:45 - 16:30| Extensions: spatial/temporal and mixed response types          |
-|         |16:30 - 17:30| Practical 9: Extensions                                        |
+|         |16:30 - 17:30| Practical 10: Extensions                                       |
 |         |17:30 - 18:15| Break                                                          |
 |         |18:15 - 20:00| Own data analysis and wrap-up                                  |
 |---------|-------------|----------------------------------------------------------------|
@@ -124,7 +124,7 @@ Sessions from 14:00 to 20:00 (Tuesday to Friday). Sessions will consist of a mix
 
 ## R packages for multivariate analysis
 
-The `gllvm` R package is the primary focus of this workshop, but several other packages implement related methods for model-based multivariate analysis of community data. A detailed overview with examples is available in [this presentation](old/otherPackages.pdf) and accompanying [practical](old/9Practical.pdf).
+The `gllvm` R package is the primary focus of this workshop, but several other packages implement related methods for model-based multivariate analysis of community data. A detailed overview with examples is available in [this presentation](old/otherPackages.pdf) and accompanying [practical](old/orphaned/Practicals/9Practical.html).
 
 | Package | Description |
 |---------|-------------|

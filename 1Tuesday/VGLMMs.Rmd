@@ -100,13 +100,13 @@ When to include a random effect:
 "Random" is in contrast to "fixed":
 
 \begin{itemize}
-\item Fixed effects are \textbf{maximised}: the likelihood is optimised directly over $\hat{\boldsymbol{\beta}}$
+\item Fixed effects are \textbf{maximised}: the likelihood is optimised directly over $\hat{\symbf{\beta}}$
 \item Random effects are \textbf{marginalised}: $\textbf{u}$ is integrated out of the likelihood
 \end{itemize}
 
 \pause
 
-Random effects are stochastic: like the data, they come from a distribution $\mathbf{u} \sim \mathcal{N}(\mathbf{0}, \boldsymbol{\Sigma})$.  \textcolor{red}{A \textbf{mixed-effects model} contains both.}
+Random effects are stochastic: like the data, they come from a distribution $\mathbf{u} \sim \mathcal{N}(\mathbf{0}, \symbf{\Sigma})$.  \textcolor{red}{A \textbf{mixed-effects model} contains both.}
 
 ## Our new likelihood
 
@@ -284,7 +284,7 @@ Effects within the same brackets are assumed to be correlated
 
 ## Random effects syntax: implications
 
-LHS determines the size of $\boldsymbol{\Sigma}$; RHS the number of draws per $1 \ldots n$ site ($p$ species).
+LHS determines the size of $\symbf{\Sigma}$; RHS the number of draws per $1 \ldots n$ site ($p$ species).
 
 \vspace{0.5em}
 
@@ -292,7 +292,7 @@ LHS determines the size of $\boldsymbol{\Sigma}$; RHS the number of draws per $1
 \footnotesize
 \begin{tabular}{lccc}
 \toprule
-Formula & $\boldsymbol{\Sigma}$ & REs per site & Total REs \\
+Formula & $\symbf{\Sigma}$ & REs per site & Total REs \\
 \midrule
 \texttt{(1|Site)} & $1 \times 1$ & $1$ & $n$ \\
 \texttt{(0+Species|Site)} & $p \times p$ & $p$ & $p \cdot n$ \\
@@ -926,8 +926,8 @@ m_rep <- gllvm(fy, X=fX,
 \normalsize
 
 \begin{itemize}
-\item \texttt{formula}: species-specific random DBH slope ($\sigma^2_\text{DBH}$) --- species vary in how strongly they filter by log size
-\item \texttt{row.eff}: reserve-level random effect ($\sigma^2_\text{res}$) --- shared reserve context affects all species
+\item \texttt{formula}: species-specific random DBH slope ($\sigma^2_\text{DBH}$); species vary in how strongly they filter by log size
+\item \texttt{row.eff}: reserve-level random effect ($\sigma^2_\text{res}$); shared reserve context affects all species
 \end{itemize}
 
 ## Species repeatability

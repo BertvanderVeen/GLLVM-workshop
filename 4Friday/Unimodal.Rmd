@@ -104,10 +104,10 @@ Both are unimodal
 
 ## Species packing
 
-```{r, fig.align="center", echo = FALSE, fig.height = 4, message=FALSE, results = FALSE}
+```{r, echo = FALSE, fig.height = 3.5, message=FALSE, results = FALSE}
 unimodal <-function(x, opt, tol)exp(1-0.5*(x-opt)^2/tol^2)
 
-plot(NA, type="n", ylim=c(0, exp(1)),yaxs="i",yaxt="n",xaxt="n",xlab="Niche dimension 1", ylab="Frequency", cex.lab=1.8,cex.axis=1.8, xlim = c(-2,2))
+plot(NA, type="n", ylim=c(0, exp(1)),yaxs="i",yaxt="n",xaxt="n",xlab="Niche dimension 1", ylab="Frequency", cex.lab=1.5,cex.axis=1.5, xlim = c(-2,2))
 sapply(1:10, function(j)lines(seq(-2,2,length.out=1000), unimodal(seq(-2,2,length.out=1000), seq(-2,2,length.out=10)[j], 0.5)))
 ```
 
@@ -125,7 +125,7 @@ sapply(1:10, function(j)lines(seq(-2,2,length.out=1000), unimodal(seq(-2,2,lengt
 - For example: temperature, space (environment or resources)
 - But so is the tolerance
 
-```{r, fig.align="center", fig.width=12, echo = FALSE}
+```{r, fig.width=5, fig.height = 3, echo = FALSE}
 #https://stats.stackexchange.com/questions/12209/percentage-of-overlapping-regions-of-two-normal-distributions
 min.f1f2 <- function(x, mu1, mu2, sd1, sd2) {
     f1 <- dnorm(x, mean=mu1, sd=sd1)
@@ -139,7 +139,7 @@ mu2 <- 1;    sd2 <- 1
 xs <- seq(min(mu1 - 3*sd1, mu2 - 3*sd2), max(mu1 + 3*sd1, mu2 + 3*sd2), .01)
 f1 <- dnorm(xs, mean=mu1, sd=sd1)
 f2 <- dnorm(xs, mean=mu2, sd=sd2)
-par(mar=c(5, 5, 4, 2) + 0.1)
+par(mar=c(5, 5, 1, 2) + 0.1)
 plot(xs, f1, type="l", ylim=c(0, max(f1,f2)), col="green",yaxs="i",yaxt="n",xaxt="n",xlab="Niche dimension 1", ylab="Frequency", cex.lab=1.8,cex.axis=1.8)
 axis(1,labels=c(expression(mu[1]),expression(mu[2])),at=c(mu1,mu2),lwd=0,line=NA,cex.axis=1.8)
 lines(xs[f2>0.001], f2[f2>0.001], col="blue")
@@ -154,7 +154,7 @@ segments(x0=mu2,y0=0,y1=0.4,lty="dashed",col="blue")
 - Commonly assumed equal (not here)
 - What is the probability of niche occurrence?
 
-```{r, fig.align="center", fig.width=12, echo = FALSE}
+```{r, fig.width=5, fig.height = 3, echo = FALSE}
 #https://stats.stackexchange.com/questions/12209/percentage-of-overlapping-regions-of-two-normal-distributions
 min.f1f2 <- function(x, mu1, mu2, sd1, sd2) {
     f1 <- dnorm(x, mean=mu1, sd=sd1)
@@ -168,7 +168,7 @@ mu2 <- 1;    sd2 <- 1
 xs <- seq(min(mu1 - 3*sd1, mu2 - 3*sd2), max(mu1 + 3*sd1, mu2 + 3*sd2), .01)
 f1 <- dnorm(xs, mean=mu1, sd=sd1)
 f2 <- dnorm(xs, mean=mu2, sd=sd2)
-par(mar=c(5, 5, 4, 2) + 0.1)
+par(mar=c(5, 5, 1, 2) + 0.1)
 plot(xs, f1, type="l", ylim=c(0, max(f1,f2)), col="green",yaxs="i",yaxt="n",xaxt="n",xlab="Niche dimension 1", ylab="Frequency", cex.lab=1.8,cex.axis=1.8)
 lines(xs[f2>0.001], f2[f2>0.001], col="blue")
 segments(x0=mu1,y0=0,y1=0.2,lty="dashed",col="green")
@@ -228,7 +228,7 @@ This allows us to:
   
 ## What does that mean?
 
-```{r, fig.align="center", echo = FALSE, fig.height = 6, results = FALSE, warning=FALSE, message=FALSE}
+```{r, echo = FALSE, fig.height = 6, results = FALSE, warning=FALSE, message=FALSE, fig.width = 10}
 par(mfrow=c(2,3))
 unimodal <-function(x, opt, tol)exp(1-0.5*(x-opt)^2/tol^2)
 
@@ -256,7 +256,7 @@ sapply(1:10, function(j)lines(seq(0,4,length.out=1000), unimodal(seq(0,4,length.
 
 ## Rare species
 
-```{r, fig.align="center", echo = FALSE, fig.height = 6, results = FALSE, warning=FALSE, message=FALSE}
+```{r, echo = FALSE, fig.height = 6, results = FALSE, warning=FALSE, message=FALSE, fig.width = 10}
 par(mfrow=c(2,3))
 unimodal <-function(x, maximum, opt, tol)exp(maximum-0.5*(x-opt)^2/tol^2)
 
@@ -376,7 +376,7 @@ But the site random effect $\alpha_i \sim \mathcal{N}(\textbf{0}, \sigma^2)$ whi
 - A-posteriori (after the model has seen the data) this is not (very) relevant
 - This is also why random site effects can accommodate non-linearity in the ordination
 
-## How to interpre the ordination plot
+## How to interpret the ordination plot
 
 - On an ordination plot we can usually interpret species' locations as optima
 - Instead of as the main direction of increase as in (for example) PCA
@@ -385,7 +385,7 @@ But the site random effect $\alpha_i \sim \mathcal{N}(\textbf{0}, \sigma^2)$ whi
 \columnsbegin
 \column{0.5\textwidth}
 
-```{r, fig.align="center", echo = FALSE, fig.height = 6, fig.cap = "Species effects as increase direction"}
+```{r, echo = FALSE, fig.height = 6, fig.cap = "Species effects as increase direction"}
 mu1 <- -2
 mu2 <- 1
 mu11 <- 2
@@ -408,7 +408,7 @@ arrows(x0=org[1], y0=org[2], x1 = org[1]+(org[1]-mu2), y1 = org[2]+(org[2]-mu21)
 \column{0.5\textwidth}
 
 
-```{r, fig.align="center", echo = FALSE, fig.height = 6, fig.cap = "Species effects as centroids"}
+```{r, echo = FALSE, fig.height = 6, fig.cap = "Species effects as centroids"}
 mu1 <- -2;    sd1 <- 2
 mu2 <- 1;    sd2 <- 1
 mu11 <- 2;  sd11 <- 1
@@ -440,13 +440,13 @@ text(-1,1,labels=5,col="black", cex = 2)
 - 26 predictor variables at 28 of the sites (soil dry matter content, reflection, amount of fallen leaves and such)
 - A classical dataset
 
-![](meow.jpg)
+![](meow.jpg){width=40%}
 
 ## Example: non-linear distortion
 
 \footnotesize
 
-```{r, message = FALSE, fig.height = 4.5, echo = -c(1:2), fig.show  = "hold"}
+```{r, message = FALSE, fig.height = 7, out.width = "49%", echo = -c(1:2), fig.show  = "hold"}
 data(spider, package = "mvabund")
 Y = spider$abund
 model1 <- gllvm(Y, num.lv = 2, family = "poisson")
@@ -461,7 +461,7 @@ We see: an arch! The residuals also do not look good (fanning)
 To deal with it: we adjust the model.
 \footnotesize
 
-```{r spid1, fig.height = 5, dev = "png"}
+```{r spid1, fig.height = 6, dev = "png", fig.show = "hide", echo = -4}
 model2 <- gllvm(Y, num.lv = 2, family = "poisson", row.eff = "random")
 ordiplot(model2, symbols = TRUE, pch = 16, main = "With row effect")
 ordiplot(model1, symbols = TRUE, pch = 16, main = "Without row effect")
@@ -470,12 +470,12 @@ plot(model2, which = 1)
 
 \columnsbegin
 \column{0.5\textwidth}
-\includegraphics{Unimodal_files/figure-beamer/spid1-1.png}
+\includegraphics[width=\linewidth]{Unimodal_files/figure-beamer/spid1-1.png}
 \column{0.5\textwidth}
 \alt<2>{
-\includegraphics{Unimodal_files/figure-beamer/spid1-3.png}
+\includegraphics[width=\linewidth]{Unimodal_files/figure-beamer/spid1-3.png}
 }{
-\includegraphics{Unimodal_files/figure-beamer/spid1-2.png}
+\includegraphics[width=\linewidth]{Unimodal_files/figure-beamer/spid1-2.png}
 }
 
 \columnsend
@@ -495,8 +495,9 @@ AIC(model1, model2)
 - To me, their method is a bit unclear
 - But, we can calculate it in our own way \tiny (van der Veen et al. 2021) \normalsize
 
-```{r, echo=FALSE, fig.align="center", fig.height = 3.4}
-curve(dnorm,from=-2,to=2, main = "Std. normal distribution", cex.main=2)
+```{r, echo=FALSE, fig.height = 2.5, fig.width = 5}
+par(mar=c(5,4,1,2))
+curve(dnorm,from=-2,to=2, main = "Std. normal distribution", cex.main = 0.8)
 ```
 
 ## Gradient length
@@ -570,7 +571,7 @@ Y <- Y[rowSums(Y)>0,]
 \tiny
 
 ```{r, cache = TRUE, warning=FALSE}
-model3 <- gllvm(Y, num.lv = 2, family = "binomial", quadratic = TRUE, sd.errors = FALSE, optim.method = "L-BFGS-B")
+model3 <- gllvm(Y, num.lv = 2, family = "binomial", quadratic = TRUE, sd.errors = FALSE, optim.method = "L-BFGS-B", seed = 2)
 model4 <- gllvm(Y, num.lv = 2, family = "binomial", quadratic = "LV", sd.errors = FALSE, optim.method = "L-BFGS-B", maxit = 10e3)
 model5 <- gllvm(Y, num.lv = 2, family = "binomial", row.eff = "random", sd.errors = FALSE, optim.method = "L-BFGS-B")
 model6 <- gllvm(Y, num.lv = 2, family = "binomial", sd.errors = FALSE, optim.method = "L-BFGS-B")
@@ -678,23 +679,23 @@ gradient.length <- function(object) {
 
 ## PM1: traditional methods
 
-```{r, message=FALSE, echo = FALSE, fig.height = 5, fig.align="center", warning=FALSE}
-par(mfrow=c(2,4))
+```{r, message=FALSE, echo = FALSE, fig.height = 3.2, warning=FALSE}
+par(mfrow=c(2,4), mar=c(2,2,2,1))
 PCA <- prcomp(PM1)
-vegan::ordiplot(PCA, type = "text", display = "sites", cex = 2, main = "PCA")
+vegan::ordiplot(PCA, type = "text", display = "sites", cex = 1.2, main = "PCA")
 CA <- vegan::cca(PM1)
-vegan::ordiplot(CA, type = "text", cex = 2, display = "sites", main = "CA")
+vegan::ordiplot(CA, type = "text", cex = 1.2, display = "sites", main = "CA")
 DCA <- vegan::decorana(PM1)
-vegan::ordiplot(DCA, type = "text", display = "sites", cex = 2, main = "DCA")
+vegan::ordiplot(DCA, type = "text", display = "sites", cex = 1.2, main = "DCA")
 plot.new()
 NMDS <- vegan::metaMDS(PM1, k =1, trace = 0)
-plot(NMDS$points, xlab = "Index", ylab = "Dim 1", main = "1D NMDS")
+plot(NMDS$points, xlab = "Index", ylab = "Dim 1", main = "1D NMDS", cex.main = 1)
 NMDS <- vegan::metaMDS(PM1, k =2, trace = 0)
-plot(NMDS$points, xlab = "Index", ylab = "Dim 1", main = "2D NMDS")
+plot(NMDS$points, xlab = "Index", ylab = "Dim 1", main = "2D NMDS", cex.main = 1)
 PCoA1 <- cmdscale(vegan::vegdist(PM1))
 PCoA2 <- cmdscale(vegan::vegdist(PM1, method = "gower"))
-vegan::ordiplot(PCoA1, type = "text", main = "PCoA Bray")
-vegan::ordiplot(PCoA2, type = "text", main = "PCoA Canberra")
+vegan::ordiplot(PCoA1, type = "text", main = "PCoA Bray", cex.main = 1)
+vegan::ordiplot(PCoA2, type = "text", main = "PCoA Canberra", cex.main = 1)
 ```
 
 Safe to say, they all do not do great.
@@ -709,7 +710,7 @@ load(file="quadmodnew.RData")
 gllvm::ordiplot(model, s.cex = 2)
 ```
 
-Note that successfully fitting a quadratic model usually takes a few runs, it tends to be numerically less stable than an ordinary GLLVM.
+Successfully fitting a quadratic model usually takes a few runs, it tends to be numerically less stable than an ordinary GLLVM.
 
 ## Minchin
 
@@ -724,7 +725,7 @@ MC[is.na(MC)] <- 0
 
 ## Recall: Results Minchin dataset
 
-```{r, echo=F, message=F, warning=F, fig.align="center", fig.height = 6, echo = FALSE}
+```{r, echo=F, message=F, warning=F, fig.height = 6, echo = FALSE}
 library(vegan)
 # Download the minchin dataset
 minchin <- read.csv("https://raw.githubusercontent.com/BertvanderVeen/Examples/master/Minchin87_2b_counts.csv") # Data frmo minchin 1987
@@ -762,7 +763,7 @@ model <- gllvm(MC, num.lv = 2, family = "poisson",
 
 ## Minchin
 
-```{r, fig.align="center", fig.height = 5, echo = FALSE}
+```{r, fig.height = 3.5, echo = FALSE}
 gllvm::ordiplot(model, rotate = FALSE, symbols = TRUE)
 ```
 

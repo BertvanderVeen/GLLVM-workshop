@@ -174,7 +174,7 @@ We could be omitting a plot-level random effect.
 
 Wadden sea data [Dewenter et al. (2023)](https://onlinelibrary.wiley.com/doi/full/10.1002/ece3.10815)
 
-\begin{columns}
+\columnsbegin
 \column{0.5\textwidth}
 \begin{itemize}
 \item Abundance (counts) or Biomass of macrozoobenthos
@@ -184,10 +184,10 @@ Wadden sea data [Dewenter et al. (2023)](https://onlinelibrary.wiley.com/doi/ful
 \column{0.5\textwidth}
 \begin{figure}[h]
 \centering
-\includegraphics{macrozoobenthos.jpg}
+\includegraphics[width=\linewidth]{macrozoobenthos.jpg}
 \caption{nioz.nl}
 \end{figure}
-\end{columns}
+\columnsend
 
 \tiny
 
@@ -219,12 +219,28 @@ gllvm::ordiplot(model1, s.cex = 2);gllvm::ordiplot(model2, s.cex = 2)
 
 \columnsbegin
 \column{0.5\textwidth}
-\includegraphics{Conditioning_files/figure-beamer/gord1-1.png}
+\includegraphics[width=\linewidth]{Conditioning_files/figure-beamer/gord1-1.png}
 This is an ordination at the island-level.
 \column{0.5\textwidth}
-\includegraphics{Conditioning_files/figure-beamer/gord1-2.png}
+\includegraphics[width=\linewidth]{Conditioning_files/figure-beamer/gord1-2.png}
 These are two ordinations with the same loadings.
 \columnsend
+
+## Shared co-occurrence pattern across scales
+
+Both terms in \texttt{\textasciitilde(1|island) + (1|transect)} share the same loadings $\symbf{\Gamma}$:
+
+$$\text{Cov}(\mathbf{y}_i) = \sigma^2_\text{island}\,\symbf{\Gamma}\symbf{\Gamma}^\top + \sigma^2_\text{transect}\,\symbf{\Gamma}\symbf{\Gamma}^\top$$
+
+The co-occurrence \textbf{pattern} is the same at both levels; only the \textbf{variance} differs.
+
+\pause
+
+Hmsc estimates a separate $\symbf{\Omega}_\text{island}$ and $\symbf{\Omega}_\text{transect}$, allowing the pattern to differ between scales.
+
+\pause
+
+The gllvm assumption is defensible: if \textit{Corophium} and \textit{Nereis} co-occur due to shared sediment preferences, that relationship does not change sign between the transect and island scale. What changes is how much unexplained variation exists at each level, not which species go together.
 
 ## Example 1: two ordinations with different loadings
 
@@ -242,9 +258,9 @@ gllvm::ordiplot(model3, s.cex = 2, type = "marginal", arrow.ci = FALSE);gllvm::o
 
 \columnsbegin
 \column{0.5\textwidth}
-\includegraphics{Conditioning_files/figure-beamer/gord2-1.png}
+\includegraphics[width=\linewidth]{Conditioning_files/figure-beamer/gord2-1.png}
 \column{0.5\textwidth}
-\includegraphics{Conditioning_files/figure-beamer/gord2-2.png}
+\includegraphics[width=\linewidth]{Conditioning_files/figure-beamer/gord2-2.png}
 \columnsend
 
 \begin{center}
@@ -276,7 +292,7 @@ or even:
 = 
 \tikzmarknode{t2}{\highlight{blue}{\beta_{0j}}}
 +
-\tikzmarknode{t4}{\highlight{grey}{\textbf{z}_k^\top\boldsymbol{\lambda}_j}}
+\tikzmarknode{t4}{\highlight{grey}{\textbf{z}_k^\top\symbf{\lambda}_j}}
 +
 \tikzmarknode{t6}{\highlight{yellow}{\textbf{u}_i^\top}}
 \tikzmarknode{t7}{\highlight{green}{\symbf{\gamma}_j}}
@@ -286,7 +302,7 @@ What is the difference between these two models? What assumptions do we make in 
 
 ## Conditioning
 
-In classical methods, we can use `Condition` to  remove effects due to a covariate from the ordination. Here, we adjust our model with terms outside of the ordination:
+In classical methods, we can use `Condition` to remove effects due to a covariate from the ordination. Here, we adjust our model with terms outside of the ordination:
 
 \begin{equation}
 \eta_{ij} = \beta_{0j} + \tikzmarknode{t1}{\highlight{grey}{...}} + \textbf{u}_i^\top\symbf{\gamma}_j
@@ -323,7 +339,7 @@ If we are interested in the effect of the treatment, but we need to \textbf{cont
 
 \pause
 
-$\eta_{ij} =\beta_{0j} + \textbf{x}_i^{\text{soil type}\top}\boldsymbol{\beta}_j^\text{soil type} + \textbf{x}_i^{\text{fertilizer}\top}\boldsymbol{\beta}_j^\text{fertilizer}$
+$\eta_{ij} =\beta_{0j} + \textbf{x}_i^{\text{soil type}\top}\symbf{\beta}_j^\text{soil type} + \textbf{x}_i^{\text{fertilizer}\top}\symbf{\beta}_j^\text{fertilizer}$
 
 \pause
 
@@ -336,7 +352,7 @@ What happens if we do not control for soil type? \pause \textcolor{red}{If we ad
 The same applies to the ordination. If we condition, the ordination captures what is not captured by the conditioning term, for example:
 
 \begin{equation}
-\eta_{ij} = \beta_{0j} + \textbf{x}_i^{\text{soil type}\top}\boldsymbol{\beta}_j^\text{soil type} + \textbf{u}_i^\top\boldsymbol{\gamma}_j
+\eta_{ij} = \beta_{0j} + \textbf{x}_i^{\text{soil type}\top}\symbf{\beta}_j^\text{soil type} + \textbf{u}_i^\top\symbf{\gamma}_j
 \end{equation}
 
 ## Sparse data
@@ -393,20 +409,21 @@ Note: random effects in `formula` assume species independence, in `randomB` they
 ```{r alpine, echo = FALSE, message = FALSE, fig.align = "center"}
 Y <- read.csv("../data/alpineY.csv")[,-1]
 X <- read.csv("../data/alpineX.csv")[,-1]
-X <- data.frame(scale(X[rowSums(Y)>0,]))
+X <- X[rowSums(Y)>0,]
 Y <- Y[rowSums(Y)>0,]
+XYraw <- X[,c("X","Y")]
+X <- data.frame(scale(X))
 ```
 
 - Data by [D'Amen et al. (2018)](https://nsojournals.onlinelibrary.wiley.com/doi/10.1111/ecog.03148)
 - Occurrence of 175 species at 840 $4m^2$ plots
 - Sampled on an elevation gradient
 
-\vspace*{-\baselineskip}
-
-```{r alpinemap, message = FALSE, cache = TRUE, echo = FALSE, fig.height = 6, warning=FALSE}
+```{r alpinemap, message = FALSE, cache = TRUE, echo = FALSE, fig.height = 4, warning=FALSE}
 library(dplyr)
+options(HTTPUserAgent = "GLLVM-workshop (https://github.com/BertvanderVeen/GLLVM-workshop)")
 swiss = rnaturalearth::ne_countries(country = 'switzerland', scale = 'large', returnclass = "sf") %>% sf::st_transform("EPSG:21781")
-pts <- sf:::st_as_sf(X, coords=c("X","Y"),crs = "EPSG:21781")
+pts <- sf:::st_as_sf(XYraw, coords=c("X","Y"),crs = "EPSG:21781")
 ch <- sf::st_convex_hull(sf::st_union(pts))
 plot(ch, lty = "dashed", lwd = 2)
 chb <- sf::st_buffer(ch, dist =20000)
@@ -421,7 +438,7 @@ plot(swissc, border = "red", add = TRUE, col = NA, lwd = 2)
 
 \tiny 
 ```{r, alpinefit, cache = TRUE}
-model4 <- gllvm(Y, num.lv = 2, family = "binomial", sd.errors = FALSE, diag.iter = 0, optim.method = "L-BFGS-B")
+model4 <- gllvm(Y, num.lv = 2, family = "binomial", sd.errors = FALSE, diag.iter = 0)
 model5 <- update(model4, X = X, formula=~ELEV)
 model6 <- update(model4, X = X, formula=~ELEV + I(ELEV^2))
 ```
@@ -449,11 +466,11 @@ gllvm::ordiplot(model6, symbols = TRUE, s.colors = cols, pch = 16, cex.main = 4,
 
 \columnsbegin
 \column{0.34\textwidth}
-\includegraphics{Conditioning_files/figure-beamer/alpord1-1.pdf}
+\includegraphics[width=\linewidth]{Conditioning_files/figure-beamer/alpord1-1.pdf}
 \column{0.34\textwidth}
-\includegraphics{Conditioning_files/figure-beamer/alpord1-2.pdf}
+\includegraphics[width=\linewidth]{Conditioning_files/figure-beamer/alpord1-2.pdf}
 \column{0.34\textwidth}
-\includegraphics{Conditioning_files/figure-beamer/alpord1-3.pdf}
+\includegraphics[width=\linewidth]{Conditioning_files/figure-beamer/alpord1-3.pdf}
 \columnsend
 
 ## Example: elevation effect (2)
@@ -522,9 +539,9 @@ gllvm::ordiplot(model6, symbols = TRUE, s.colors = "gray", pch = 16, biplot = TR
 \column{0.25\textwidth}
 \begin{figure}
 \captionsetup{labelformat=empty}
-\caption{\tiny Anthoxanthum odoratum}
- \tikz[remember picture,baseline] \node[inner sep=0pt] (anthodor){
-  \includegraphics[height=0.4\textheight]{anthoxanthum_odoratum.jpg}
+\caption{\tiny Saxifraga oppositifolia}
+\tikz[remember picture,baseline] \node[inner sep=0pt] (saxioppo){
+\includegraphics[height=0.4\textheight, width=\linewidth]{saxifraga_oppositifolia.jpg}
 };
 \end{figure}
 \column{0.25\textwidth}
@@ -532,7 +549,15 @@ gllvm::ordiplot(model6, symbols = TRUE, s.colors = "gray", pch = 16, biplot = TR
 \captionsetup{labelformat=empty}
 \caption{\tiny Trifolium repens}
 \tikz[remember picture,baseline] \node[inner sep=0pt] (trifrepe){
-\includegraphics[height=0.4\textheight]{trifolium_repens.jpg}
+\includegraphics[height=0.4\textheight, width=\linewidth]{trifolium_repens.jpg}
+};
+\end{figure}
+\column{0.25\textwidth}
+\begin{figure}
+\captionsetup{labelformat=empty}
+\caption{\tiny Anthoxanthum odoratum}
+ \tikz[remember picture,baseline] \node[inner sep=0pt] (anthodor){
+  \includegraphics[height=0.4\textheight, width=\linewidth]{anthoxanthum_odoratum.jpg}
 };
 \end{figure}
 \column{0.25\textwidth}
@@ -540,15 +565,7 @@ gllvm::ordiplot(model6, symbols = TRUE, s.colors = "gray", pch = 16, biplot = TR
 \captionsetup{labelformat=empty}
 \caption{\tiny Scabiosa lucida}
 \tikz[remember picture,baseline] \node[inner sep=0pt] (scabluci){
-\includegraphics[height=0.4\textheight]{scabiosa_lucida.jpg}
-};
-\end{figure}
-\column{0.25\textwidth}
-\begin{figure}
-\captionsetup{labelformat=empty}
-\caption{\tiny Saxifraga oppositifolia}
-\tikz[remember picture,baseline] \node[inner sep=0pt] (saxioppo){
-\includegraphics[height=0.4\textheight]{saxifraga_oppositifolia.jpg}
+\includegraphics[height=0.4\textheight, width=\linewidth]{scabiosa_lucida.jpg}
 };
 \end{figure}
 \columnsend
@@ -557,16 +574,16 @@ gllvm::ordiplot(model6, symbols = TRUE, s.colors = "gray", pch = 16, biplot = TR
 
 \begin{tikzpicture}[remember picture, overlay]
 \only<1->{
-  \draw[->, thick, red] (anthodor) -- ++(3, 4.6); % relative arrow
+  \draw[->, thick, red] (anthodor) -- ++(0.4, 3.9); % relative arrow
 }
 \only<1->{
-  \draw[->, thick, red] (saxioppo) -- ++(-3.1, 4.9); % relative arrow
+  \draw[->, thick, red] (saxioppo) -- ++(4.8, 5.4); % relative arrow
 }
 \only<1->{
-  \draw[->, thick, red] (trifrepe) -- ++(1, 3.8); % relative arrow
+  \draw[->, thick, red] (trifrepe) -- ++(1.5, 3.8); % relative arrow
 }
 \only<1->{
-  \draw[->, thick, red] (scabluci) -- ++(-1.6, 5.7); % relative arrow
+  \draw[->, thick, red] (scabluci) -- ++(-1.8, 5); % relative arrow
 }
 \end{tikzpicture}
 
@@ -598,7 +615,7 @@ I.e., separating drivers of community composition.
 We again take our model from before:
 
 \begin{equation}
-\eta_{ij} = \beta_{0j} + \tikzmarknode{t1}{\highlight{grey}{\textbf{x}_i^\top\boldsymbol{\beta}_j}}
+\eta_{ij} = \beta_{0j} + \tikzmarknode{t1}{\highlight{grey}{\textbf{x}_i^\top\symbf{\beta}_j}}
 \end{equation}
 
 Note, that the \tikzmarknode{t1}{\highlight{grey}{\text{grey term}}} can be represented as a constrained ordination. We take some of those covariates, and put them into an ordination:
@@ -606,19 +623,19 @@ Note, that the \tikzmarknode{t1}{\highlight{grey}{\text{grey term}}} can be repr
 \pause
  
 \begin{equation}
-\eta_{ij} = \beta_{0j} + \tikzmarknode{t1}{\highlight{grey}{\textbf{x}_i^\top\boldsymbol{\beta}_j}} + \highlight{yellow}{\textbf{x}_i^{lv,\top}\textbf{B}}\highlight{green}{\boldsymbol{\gamma}_j}
+\eta_{ij} = \beta_{0j} + \tikzmarknode{t1}{\highlight{grey}{\textbf{x}_i^\top\symbf{\beta}_j}} + \highlight{yellow}{\textbf{x}_i^{lv,\top}\textbf{B}}\highlight{green}{\symbf{\gamma}_j}
 \end{equation}
 
 \pause
 
-Now, we are conditioning our constrained ordination on $\highlight{grey}{\textbf{x}_i^\top\boldsymbol{\beta}_j}$
+Now, we are conditioning our constrained ordination on $\highlight{grey}{\textbf{x}_i^\top\symbf{\beta}_j}$
 
 ## Hybrid ordination
 
 Our next step could be to add residual latent variables:
 
 \begin{equation}
-\eta_{ij} = \beta_{0j} + \textbf{x}_i^\top\boldsymbol{\beta}_j +  \highlight{grey}{\textbf{x}_i^\top\textbf{B}\boldsymbol{\gamma}_j} + \textbf{u}_i^\top\symbf{\gamma}_j
+\eta_{ij} = \beta_{0j} + \textbf{x}_i^\top\symbf{\beta}_j +  \highlight{grey}{\textbf{x}_i^\top\textbf{B}\symbf{\gamma}_j} + \textbf{u}_i^\top\symbf{\gamma}_j
 \end{equation}
 
 - Combined constrained and unconstrained ordination is \textbf{hybrid} ordination
@@ -711,7 +728,7 @@ gllvm::ordiplot(model9, symbols = TRUE,
 \item Shape by Management NM
 \end{itemize}
 
-Now, the arrow for Moisture 5 and Management NM have disappeared, and the groups have been pulled together.
+Now, the arrows for Moisture 5 and Management NM have disappeared, and the groups have been pulled together.
 }
 \columnsend
 

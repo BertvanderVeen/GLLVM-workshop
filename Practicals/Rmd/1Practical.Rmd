@@ -9,7 +9,7 @@ output: html_document
 
 The data that is collected in community ecology is almost always non-normal, and very often discrete, which makes GLMs a good fit (much better than LMs). When fitting GLMs, there are many decisions that you need to make before it comes to the actual fitting: a suitable response distribution, formulation of the model, and such. In the first part of this practical, we will fit GLMs, and in the second part vector GLMs.
 
-In the first lecture, we learned about the basics of fitting models to multispecies data. The models so far included basic Generalised Linear Models (GLM), as well as Vector Generalised Linear Models (VGLM). The main difference between the models is one critical assumption. Both can be fitted to multispecies data, but which do we choose?  In a GLM, we assume that 1) The response distribution is in the exponential family, 2) We have selected the correct link function, 3) We have selected the correct variance function, 3) There are no outliers that have a large influence on the model, 4) The model is linear on the link scale, 5) Independence of observations, 6) The dispersion parameter is the same for all observations. VGLMs relax assumption 6), which is often much more realistic, but there are distributions where GLMs and VGLMs are the same; namely for the so-called single-parameter exponential distributions. Later today we will consider how we can check if these assumptions are violated. For now, we just focus on understanding and fitting the models.
+In the first lecture, we learned about the basics of fitting models to multispecies data. The models so far included basic Generalised Linear Models (GLM), as well as Vector Generalised Linear Models (VGLM). The main difference between the models is one critical assumption. Both can be fitted to multispecies data, but which do we choose?  In a GLM, we assume that 1) The response distribution is in the exponential family, 2) We have selected the correct link function, 3) We have selected the correct variance function, 4) There are no outliers that have a large influence on the model, 5) The model is linear on the link scale, 6) Independence of observations, 7) The dispersion parameter is the same for all observations. VGLMs relax assumption 7), which is often much more realistic, but there are distributions where GLMs and VGLMs are the same; namely for the so-called single-parameter exponential distributions. Later today we will consider how we can check if these assumptions are violated. For now, we just focus on understanding and fitting the models.
 
 The exponential family likelihood looks like:
 
@@ -17,9 +17,9 @@ The exponential family likelihood looks like:
 \mathcal{L}(\Theta) = \prod \limits^m \limits \prod^n\exp\{\frac{y_{ij}-b(\eta_{ij})}{a(\phi)} + c(y_{ij}, \phi)\}
 \end{equation}
 
-In the single-parameter exponential family, $a(\phi) = 1$, and the last term $c(y_{ij}, \phi) = c(y_{ij})$ only depends on the data. The dispersion parameter accommodates excess variation that cannot be explained by the model; as  with $\sigma^2$ in the normal distribution or linear regression.
+In the single-parameter exponential family, $a(\phi) = 1$, and the last term $c(y_{ij}, \phi) = c(y_{ij})$ only depends on the data. The dispersion parameter accommodates excess variation that cannot be explained by the model; as with $\sigma^2$ in the normal distribution or linear regression.
 
-We have also discussed the model structure; how we can have effects that are the same for all species, and effects that are species-specific. This is a similar idea as with the dispersion parameter, but for the model on $\eta_{ij}$. That has ecological implication; it speaks to the process we believe are data to be generated from. Estimating effects that are common for all species is easier, because we can leverage from all information in our dataset. For species-specific effects, we only have the information from a particular species. That's why the latter tend to be more difficult to accurately estimate, and more uncertain.
+We have also discussed the model structure; how we can have effects that are the same for all species, and effects that are species-specific. This is a similar idea as with the dispersion parameter, but for the model on $\eta_{ij}$. That has ecological implications; it speaks to the process we believe the data to be generated from. Estimating effects that are common for all species is easier, because we can leverage from all information in our dataset. For species-specific effects, we only have the information from a particular species. That's why the latter tend to be more difficult to accurately estimate, and more uncertain.
 
 # Data
 
@@ -30,10 +30,10 @@ The github repository has a "data" folder. You can pick any of the datasets:
 2. Birds (abundance)
 3. wadden (abundance)
 4. wadden (biomass)
-4. fungi (presence-absence)
-5. eucalypt (presence-absence)
+5. fungi (presence-absence)
+6. eucalypt (presence-absence)
 
-Note, as a rule-of-thumb, discrete data has less information in than continuous data, with binary data having the least information, so we need more of it than (say) count data, to accurately estimate parameters.
+Note, as a rule-of-thumb, discrete data has less information than continuous data, with binary data having the least information, so we need more of it than (say) count data, to accurately estimate parameters.
 
 The packages installed for the workshop also includes datasets, for example the <tt>vegan</tt>, <tt>mvabund</tt> or <tt>gllvm</tt> packages, which you can explore via `data(package="...")`. The <tt>mvabund</tt> package has:
 
@@ -72,13 +72,13 @@ this function plots the variance of each species against its mean. That gives us
 plot(apply(Y,2,var)~colMeans(Y),log="xy", ylab = "Variance (log scale)", xlab="Mean (log scale)")
 ```
 
-we see that the log of the (sample) variance is linearly related to the log of the (sample) mean. Thus the following equations holds:
+we see that the log of the (sample) variance is linearly related to the log of the (sample) mean. Thus the following equation holds:
 
 \begin{equation}
 \log{var(y_{ij}) = \alpha\log(\mu_{ij}) + c},
 \end{equation}
 
-for some constant $c$ (the intercept of the line) and coefficient $\alpha$, the slope of the line. This kind of mean-variance relationship is very common in ecological data. It indicates a power-law relationship, where we "just" need to figure out what hte value of $\alpha$ is to determine a suitable response distribution.
+for some constant $c$ (the intercept of the line) and coefficient $\alpha$, the slope of the line. This kind of mean-variance relationship is very common in ecological data. It indicates a power-law relationship, where we "just" need to figure out what the value of $\alpha$ is to determine a suitable response distribution.
 
 For a Poisson distribution, we have $c = 1$ and $\alpha = 1$, so that the variance and mean are the same. For a negative-binomial distribution (2), we have $var(y_{ij}) = \mu_{ij} + \mu_{ij}^2/\theta$, so the line would have to follow the relationship for $\alpha = 2$ and $c = \mu_{ij}$. We can try this by fitting a linear regression:
 
@@ -122,14 +122,14 @@ Looking at the results:
 ```{r res1}
 summary(model1)
 ```
-we see loads of significane! Yay! Or, is that good? Statistical significance is mostly a function of information; the more information we have, the more significant a result will be. Here, because we assumed the effects to be the same for all species, there is loads of information to estimate them. So, the statistical significance is probably of minor relevance. We also see that the effects are pretty close to zero, but that may not be meaningful as we have not standardised our covariates. Let's try that again:
+we see loads of significance! Yay! Or, is that good? Statistical significance is mostly a function of information; the more information we have, the more significant a result will be. Here, because we assumed the effects to be the same for all species, there is loads of information to estimate them. So, the statistical significance is probably of minor relevance. We also see that the effects are pretty close to zero, but that may not be meaningful as we have not standardised our covariates. Let's try that again:
 
 ```{r glm2}
 model2 <- glm(count~scale(silt_clay) + scale(elevation), data = datalong, family = "poisson")
 summary(model2)
 ```
 
-The benefit of centering and standardizing the covariates, is that we can compare the magnitude of the coefficients for different covariates. Now, a coefficient further from zero means there is a stronger effect on the response variable. You may think that we changed the model, but we have not, we have just reparameterized it. We can check this by extracting the log-likelihood of the two models, so that we see they are the same:
+The benefit of centering and standardising the covariates, is that we can compare the magnitude of the coefficients for different covariates. Now, a coefficient further from zero means there is a stronger effect on the response variable. You may think that we changed the model, but we have not, we have just reparameterized it. We can check this by extracting the log-likelihood of the two models, so that we see they are the same:
 
 ```{r}
 logLik(model1)
@@ -160,7 +160,7 @@ axis(2, 1:length(est), c("Intercept", labels(terms(model2))), las = 1)
 segments(CIs[,"2.5 %"], 1:length(est), CIs[,"97.5 %"], 1:length(est))
 ```
 
-Excellent, this makes thing much easier to interpret. So, on average over all species, elevation is estimated to have a negative effect, and silt_clay a positive effect. We have assumed these to be the same for all species, the intercept too. This makes for a nice and small, easy to interpret model, but it is not ecologically realistic. In the next models, we will incorporate the species identities too. 
+Excellent, this makes things much easier to interpret. So, on average over all species, elevation is estimated to have a negative effect, and silt_clay a positive effect. We have assumed these to be the same for all species, the intercept too. This makes for a nice and small, easy to interpret model, but it is not ecologically realistic. In the next models, we will incorporate the species identities too. 
 I did not clarify this in the presentation, but you may have heard once upon a time "do not include higher order terms without lower order terms"; the general advice when fitting a statistical model. This is a good place to operate from, but we will ignore it anyway (and it is OK to do so).
 
 ```{r}
@@ -169,7 +169,7 @@ model3 <- glm(count~ 0 + Species + scale(silt_clay):Species + scale(elevation):S
 
 The `0+` serves to ensure that the estimates are not all relative to the first species (we absorb the global intercept term into the other terms).
 
-This model throws a warning, do you understand why? I will tell you:  we did not screen the data for species with few observations. Now, we are fitting a model with 3 parameter per species: the intercept, and two slope parameters (one for silt_clay and another for elevation). That means we need at least 3 (non-zero) observations to be able to (inacurrately) estimate the parameters. Let's check how many we have:
+This model throws a warning, do you understand why? I will tell you:  we did not screen the data for species with few observations. Now, we are fitting a model with 3 parameters per species: the intercept, and two slope parameters (one for silt_clay and another for elevation). That means we need at least 3 (non-zero) observations to be able to (inaccurately) estimate the parameters. Let's check how many we have:
 
 ```{r}
 table(colSums(ifelse(Y==0,0,1)))
@@ -214,7 +214,7 @@ The goal of this first part is to get familiar with the ideas of multispecies mo
 1. Explore the models displayed above. Either for the used dataset, or any of the other listed datasets. Fit them in your own R session and explore the results. You can also select different covariates.
 2. Consider doing model selection, with `AIC` or with `anova`, for example. Can you figure out what drives this community?
 3. If you want to do something really daring, try changing the contrast for the 'Species' covariate to a sum-to-zero contrast (and isolate the species-common effect)
-4. After a while  we will discuss together how far you got, questions or challenges that have come up, and what conclusions you were able to draw.
+4. After a while we will discuss together how far you got, questions or challenges that have come up, and what conclusions you were able to draw.
 
 # Part II
 
@@ -262,7 +262,7 @@ You already know how to create caterpillar plots (the name for the plots we made
 coefplot(model5, order = FALSE)
 ```
 
-if we confidence interval crosses zero, the species' effect is greyed out as it is  too uncertain to draw any conclusions. The confidence intervals are again drawn assuming asymptotic normality.
+if the confidence interval crosses zero, the species' effect is greyed out as it is too uncertain to draw any conclusions. The confidence intervals are again drawn assuming asymptotic normality.
 
 Compared to the models we have fitted before, the models in <tt>gllvm</tt> correspond to "dummy coding", so that there is no "common" effect, but species-specific effects instead, as long as things are treated as fixed. In this framework, we can now straightforwardly move to a distribution outside of the single-parameter exponential family; so we can fit (for example) a negative-binomial model that accommodates overdispersion per species.
 
@@ -274,7 +274,7 @@ I will not show equivalence with separate negative-binomial GLMs fitted to the d
 
 Similar functionality applies here: we can apply `anova` or `aic` for model comparison, we can use  `confint` to get the confidence intervals, `coef` for the coefficients (estimates), `summary` to get some useful information on the model, and `coefplot` we already used before.
 
-From here, we could choose to explore the biomass equivalent of the same data ("WaddenY2"), with a Tweedie distribution. Without going into too much detail, the Tweedie family is a class of distributions, include the Poisson distribution, for positive continuous data with zeros (such as biomass). It has a dispersion parameter and a Power parameter. The variance function looks like:
+From here, we could choose to explore the biomass equivalent of the same data ("WaddenY2"), with a Tweedie distribution. Without going into too much detail, the Tweedie family is a class of distributions, including the Poisson distribution, for positive continuous data with zeros (such as biomass). It has a dispersion parameter and a Power parameter. The variance function looks like:
 
 \begin{equation}
 \begin{aligned}
@@ -284,11 +284,11 @@ From here, we could choose to explore the biomass equivalent of the same data ("
 \end{equation}
  
 where $p$ is the power parameter and $\phi$ is the dispersion parameter as before. Note, this looks very similar to the variance function written above!
-The Power parameter controls the exact distribution that you have, and can be estimated by the package, so that is provides for very flexible modeling of biomass.
+The Power parameter controls the exact distribution that you have, and can be estimated by the package, so that it provides for very flexible modeling of biomass.
 
 ## Tasks
 
-Try fitting a few models with the <tt>gllvm</tt> package; it's why you are here afterall! Each data type has its own "quirks" (ordinal classes different cover, different from biomass, and so on), and it is best to understand these before getting into more complex models. The data directory on the github as most types, so go through some modeling with different data types at this point.
+Try fitting a few models with the <tt>gllvm</tt> package; it's why you are here after all! Each data type has its own "quirks" (ordinal classes are different from cover, which is different from biomass, and so on), and it is best to understand these before getting into more complex models. The data directory on the github has most types, so go through some modeling with different data types at this point.
 
 1. Biomass data (e.g., the waddensea data)
 2. Cover data (e.g., the road data)

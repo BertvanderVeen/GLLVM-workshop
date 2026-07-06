@@ -79,9 +79,10 @@ y_{ij} = \alpha + \textbf{x}_i^\top\symbf{\beta}
 - Potentially based on future climate scenarios
 - Similar to the model from yesterday
 
+<!--
 ## Co-occurrence of Swiss birds
 
-```{r alphamap, dpi = 300, echo = FALSE, cache = TRUE, warning=FALSE,message=FALSE, fig.height = 7, dev = "png", fig.show="hide"}
+```{r alphamap, eval = FALSE, dpi = 300, echo = FALSE, cache = TRUE, warning=FALSE,message=FALSE, fig.height = 7, dev = "png", fig.show="hide"}
 model6 <- knitr::load_cache(path="../1Tuesday/VGLMMs_cache/beamer/", "cor","model6")
 
 slp_scale <- knitr::load_cache(path="../1Tuesday/VGLMMs_cache/beamer/", "maprep","slp_scale")
@@ -103,7 +104,7 @@ plt<-ggplot() +         # layer 3
 plt
 ```
 
-```{r predmap, cache = TRUE, echo = FALSE, message = FALSE, warning=FALSE, dpi = 300, fig.width = 3, fig.height = 4.5, dev = "png", fig.show="hide"}
+```{r predmap, eval = FALSE, cache = TRUE, echo = FALSE, message = FALSE, warning=FALSE, dpi = 300, fig.width = 3, fig.height = 4.5, dev = "png", fig.show="hide"}
 source("../1Tuesday/switzerland/slope.R")
 X = cbind(1, 
           (terra::values(aspect)-attr(asp_scale,"scaled:center"))/attr(asp_scale,"scaled:scale"),
@@ -146,21 +147,21 @@ plt
 
 \textbf{Can the distribution of one species inform us of other species'?}
 
-\begin{columns}[c] % [c] ensures vertical centering within the column
-  \column{0.5\textwidth}
-  \centering
-  \tikzmarknode{leftimg}{\includegraphics[width=0.9\linewidth]{JSDM_files/figure-beamer/alphamap-1.png}}
-
-  \column{0.5\textwidth}
-  \centering
-  \tikzmarknode{rightimg}{\includegraphics[width=0.8\linewidth]{JSDM_files/figure-beamer/predmap-1.png}}
-\end{columns}
+\columnsbegin
+\column{0.5\textwidth}
+\centering
+\tikzmarknode{leftimg}{\includegraphics[width=0.9\linewidth]{JSDM_files/figure-beamer/alphamap-1.png}}
+\column{0.5\textwidth}
+\centering
+\tikzmarknode{rightimg}{\includegraphics[width=0.8\linewidth]{JSDM_files/figure-beamer/predmap-1.png}}
+\columnsend
 
 \begin{tikzpicture}[remember picture, overlay]
   \draw[-{Triangle[width=18pt,length=8pt]}, line width=10pt] (rightimg) -- (leftimg);
 \end{tikzpicture}
 
 \textcolor{red}{More on diversity prediction later.}
+-->
 
 ## Leveraging shared information
 
@@ -181,7 +182,7 @@ Sharing information across species helps; on some species we have more informati
 
 If we fit a GLM to data of multiple species, we assume \textbf{independence} \footnotesize (so we need much more information for accurate estimates) \normalsize
 
-\textcolor{red}{But, observations of the same species form groups. Co-occurring species have  more similar observations than for other species}
+\textcolor{red}{But, observations of the same species form groups. Co-occurring species have more similar observations to each other than to other species}
 
 In GLMM language: \textbf{observations of species exhibit correlation}
 
@@ -257,7 +258,7 @@ A decade ago, Joint Species Distribution Models (JSDM) were introduced to model 
 
 What induces covariation between species?
 
-\begin{columns}
+\columnsbegin
 \column{0.5\textwidth}
 \begin{itemize}
 \item Shared environmental responses (abiotic conditions)
@@ -269,8 +270,8 @@ What induces covariation between species?
 \includegraphics[height=25mm]{Pollock_et_al_fig1b.png}
 \caption{\footnotesize Pollock et al. (2015, fig. 1)}
 \end{figure}
-\end{columns}
-\begin{columns}
+\columnsend
+\columnsbegin
 \column{0.5\textwidth}
 \begin{figure}
 \includegraphics[height=25mm]{Pollock_et_al_fig1a.png}
@@ -279,7 +280,7 @@ What induces covariation between species?
 \begin{figure}
 \includegraphics[height=25mm]{Pollock_et_al_fig1c.png}
 \end{figure}
-\end{columns}
+\columnsend
 
 ## Interactions and co-occurrence
 
@@ -339,7 +340,7 @@ Realized niche: the space occupied due to other species
 
 ![[Poggiato et al. (2021)](https://doi.org/10.1016/j.tree.2021.01.002)](niche.jpg){width=50%}
 
-Niches are shaped more than by environment and interactions; historical limitations, dispersal, and other processes prevent us from estimating the fundamental niche.
+Niches are shaped by more than environment and interactions; historical limitations, dispersal, and other processes prevent us from estimating the fundamental niche.
 
 \tikzset{
   mybox/.style={
@@ -559,13 +560,11 @@ Blue: species that are predicted to co-occur\newline
 Red: species that are predicted to avoid each other
 \columnsend
 
-## Example: adding a environmental variable
+## Example: adding an environmental variable
 
 \footnotesize
 
 Now that we have incorporated associations, we can add in environmental variables as yesterday (fixed or random):
-
-\vspace*{-\baselineskip}
 
 ```{r cors2, warning=FALSE, cache = TRUE, echo = -c(2,3), dev = "png", fig.show="hide", fig.height = 10} 
 model2 <- gllvm(Y, X = X, formula = ~Snow, family = "binomial")
@@ -578,6 +577,8 @@ coefplot(model2, xlim = list(c(-20,10)))
 ```
 
 \normalsize
+
+\vspace*{-\baselineskip}
 
 Adding environmental covariates tends to improve the model, but reduce the signal in the associations.
 
@@ -862,8 +863,8 @@ polygon(c(x[x<eta], rev(x[x<eta])),
 \begin{equation}
 \begin{aligned}
 p_i &= 1 - \exp\{-\exp(\eta_i)\} \\
-\eta_i &= \mathbf{x}_i^\top \boldsymbol{\beta} \\
-\eta_i^\star &= \mathbf{x}_i^\top \boldsymbol{\beta} + \epsilon_i,\quad \epsilon_i \sim \mathcal{Gumbel}(0,1)
+\eta_i &= \mathbf{x}_i^\top \symbf{\beta} \\
+\eta_i^\star &= \mathbf{x}_i^\top \symbf{\beta} + \epsilon_i,\quad \epsilon_i \sim \mathcal{Gumbel}(0,1)
 \end{aligned}
 \end{equation}
 

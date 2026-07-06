@@ -7,11 +7,11 @@ output: html_document
 
 # Description
 
-So far we have focused on answering the question "what environmental preference do species prefer?". VGLM(M)s estimate species responses to the environment, so the coefficients and statistical uncertainties help us to answer the question. A good part of community ecology is more occupied with answering the question "why do species prefer particular environmental conditions?" using functional traits.
+So far we have focused on answering the question "what environmental conditions do species prefer?". VGLM(M)s estimate species responses to the environment, so the coefficients and statistical uncertainties help us to answer the question. A good part of community ecology is more occupied with answering the question "why do species prefer particular environmental conditions?" using functional traits.
 
-The idea is species' physical characteristics are the driver of their ability to thrive in particular conditions. In the lecture, I took the example of leaf thickness of plants, or color of the fur for the snowshoe hare. Of course, there is individual variation in traits; some individuals have thicker leaves than others, or the fur color differs from hare to hare, but as we are analysing data at the species-level we will ignore intra-specific trait variation for the moment (also, few models currently exist that can incorporate it)!
+The idea is that species' physical characteristics are the driver of their ability to thrive in particular conditions. In the lecture, I took the example of leaf thickness of plants, or color of the fur for the snowshoe hare. Of course, there is individual variation in traits; some individuals have thicker leaves than others, or the fur color differs from hare to hare, but as we are analysing data at the species-level we will ignore intra-specific trait variation for the moment (also, few models currently exist that can incorporate it)!
 
-Traditionally, community ecologists would explore this question using community weighted means in combination with a constrained ordination. Analyzing data in that matter has significant flaws, which two-step approaches usually do (for example, propagation of uncertainty, but also you will simply get the estimators wrong when your data is non-normally distributed, as it often is).
+Traditionally, community ecologists would explore this question using community weighted means in combination with a constrained ordination. Analysing data in that manner has significant flaws, which two-step approaches usually do (for example, propagation of uncertainty, but also you will simply get the estimators wrong when your data is non-normally distributed, as it often is).
 
 As explained in the lecture, this approach of using traits to inform how species respond to the environment has long been referred to as the "fourth-corner problem". In a statistical model, we pose this as an interaction of traits and environment, so that the interaction coefficients explain if species with a particular trait respond differently to the environment. That makes the models an extension of what we looked at yesterday.
 
@@ -57,7 +57,7 @@ X <- scale(model.matrix(~.,X))[,-1] # environmental variables
 TR <- scale(model.matrix(~.,TR))[,-1] # species traits
 ```
 
-A fourth-corner model in <tt>gllvm</tt> is fitted by providing environment and trait covariates simultaneously. The arguments passed to the `formula` argument corresponds to the (hierarchical) equation for species responses; trait-environment interaction coefficients are the same for all species, environment terms are the same for all species, random effects are species-specific. The effects that are the same across all species could also be specified via `row.eff`. That makes that specification of the `formula` argument deviates a little from that of the previous models that we have fitted, but the principles are largely the same. We can also use the `beta0comm` option if we want to assume a global intercept (rather than the default of species-specific intercepts). 
+A fourth-corner model in <tt>gllvm</tt> is fitted by providing environment and trait covariates simultaneously. The arguments passed to the `formula` argument correspond to the (hierarchical) equation for species responses; trait-environment interaction coefficients are the same for all species, environment terms are the same for all species, random effects are species-specific. The effects that are the same across all species could also be specified via `row.eff`. That means the specification of the `formula` argument deviates a little from that of the previous models that we have fitted, but the principles are largely the same. We can also use the `beta0comm` option if we want to assume a global intercept (rather than the default of species-specific intercepts). 
 
 Niku et al. used only a few covariates, so I will do the same here:
 
@@ -118,9 +118,9 @@ polygon(x_vals, y_vals, col = NA, border = "black", lwd = 2)
 }
 ```
 
-where the effects that have confidence intervals overlapping zero are not outlined. The traits labeled "BRE" represent different breeding period. The reference category is spring, the two periods visualized here are summer (2) and autumn/winter (3). Consequently, we see that species that breed in summer are more negatively affected by intenser management than species that breed in spring, and species that breed in winter are more positively affected by intenser management than species that breed in spring (i.e., it's best to be a species that breeds in autum/winter if there is intense management). OVE represents the overwintering strategy, with the reference category being "adults only" and the second category representing "adults and larvae or larvae only". All species seem to exhibit higher abundance in response to elevation, relative to the reference category of species that breed in spring and overwinter only as adults. The other effects are interpreted in a similar fashion; relative to the reference category (as these things usually are in statistical models).
+where the effects that have confidence intervals overlapping zero are not outlined. The traits labeled "BRE" represent different breeding periods. The reference category is spring, the two periods visualized here are summer (2) and autumn/winter (3). Consequently, we see that species that breed in summer are more negatively affected by intenser management than species that breed in spring, and species that breed in winter are more positively affected by intenser management than species that breed in spring (i.e., it's best to be a species that breeds in autumn/winter if there is intense management). OVE represents the overwintering strategy, with the reference category being "adults only" and the second category representing "adults and larvae or larvae only". All species seem to exhibit higher abundance in response to elevation, relative to the reference category of species that breed in spring and overwinter only as adults. The other effects are interpreted in a similar fashion; relative to the reference category (as these things usually are in statistical models).
 
-The previous assumption of species' responses fully due to traits is fine the right traits are included, but if the chosen traits are not important to determining species' environmental responses, it will result in lack-of-fit. So, in this next model we relax that assumption by also including species-specific random effects. We do need to run the model a few times, as it includes a lot of effects and does not always converge well.
+The previous assumption of species' responses fully due to traits is fine if the right traits are included, but if the chosen traits are not important to determining species' environmental responses, it will result in lack-of-fit. So, in this next model we relax that assumption by also including species-specific random effects. We do need to run the model a few times, as it includes a lot of effects and does not always converge well.
 
 ```{r traits2, cache = TRUE, warning=FALSE}
 model2 <- gllvm(y = Y, X = X, TR = TR, 
@@ -215,10 +215,10 @@ colnames(X2)
 colnames(TR)
 ```
 
-This a binary dataset by [Abrego et al. (2022)](https://besjournals.onlinelibrary.wiley.com/doi/full/10.1111/1365-2745.13839), of 215 wood inhabiting fungi inhabiting 1666 logs. `TR` include the trait covariates, and `X` includes environmental variables related to the forest, or the deadwood, that the fungi occurred in/on. First, we will fit a model without phylogeny but with traits, and including "REGION" and "RESERVE" as random row effects to account for the nested design. We will use a couple tricks to speed up fitting the model: parallel computation (because I am impatient!). 
+This is a binary dataset by [Abrego et al. (2022)](https://besjournals.onlinelibrary.wiley.com/doi/full/10.1111/1365-2745.13839), of 215 wood inhabiting fungi inhabiting 1666 logs. `TR` includes the trait covariates, and `X` includes environmental variables related to the forest, or the deadwood, that the fungi occurred in/on. First, we will fit a model without phylogeny but with traits, and including "REGION" and "RESERVE" as random row effects to account for the nested design. We will use a couple tricks to speed up fitting the model: parallel computation (because I am impatient!). 
 
 ```{r, cache = TRUE}
-TMB::openmp(parallel::detectCores()-1, autopar = TRUE)
+TMB::openmp(parallel::detectCores()-1, autopar = TRUE, DLL = "gllvm")
 model4 <- gllvm(Y2, X = X2, TR = TR, formula = ~DBH.CM+AVERDP+CONNECT10+TEMPR+PRECIP+
                   (DBH.CM+AVERDP+CONNECT10+TEMPR+PRECIP):(PC1.1+PC1.2+PC1.3), 
                 row.eff = ~(1|REGION/RESERVE), studyDesign =  X2[,c("REGION","RESERVE")],
@@ -241,7 +241,7 @@ plot.4th <- levelplot((as.matrix(fourth)), xlab = "Environmental Variables",
 plot.4th
 ```
 
-Excellent! The trait-environment interaction coefficients have been included, and visualized. You can also examine them using the model its `summary`. With this model we again assumed that species' responses to the environment are fully determined by species' traits. Usually, we do not know if we have measured the right traits, so incorporating "residual" information in species' responses to the environmental covariates is vital. We relax our assumption by fitting another model (this might take a little). To speed it up further we combine this we a slightly rougher approximation to the log-likelihood (`Ab.struct = "diagonal"`):
+Excellent! The trait-environment interaction coefficients have been included, and visualized. You can also examine them using the model's `summary`. With this model we again assumed that species' responses to the environment are fully determined by species' traits. Usually, we do not know if we have measured the right traits, so incorporating "residual" information in species' responses to the environmental covariates is vital. We relax our assumption by fitting another model (this might take a little). To speed it up further we combine this with a slightly rougher approximation to the log-likelihood (`Ab.struct = "diagonal"`):
 
 ```{r, cache= TRUE}
 model5 <- gllvm(Y2, X = X2, TR = TR, formula = ~DBH.CM+AVERDP+CONNECT10+TEMPR+PRECIP+
@@ -252,7 +252,7 @@ model5 <- gllvm(Y2, X = X2, TR = TR, formula = ~DBH.CM+AVERDP+CONNECT10+TEMPR+PR
                 optim.method = "L-BFGS-B", Ab.struct = "diagonal", maxit=1e5)
 ```
 
-this formulation ensures that the relevant correlations between species' random effects are incorporated, which we can also examine with `summary`. Before we do that, we will add the final component to our model; the phylogeny. The <tt>gllvm</tt> package broadly implements phylogenetic mixed-effects models, which can also be used to fit models for traits or individuals (i.e., where traits are the response variables), but here we focus on our species data. Phylogenetic random effects make the model considerably more computer intensive (complex), and there are a range of considerations that we need to make when fitting it. In particular, the nearest neighbour approximation and the ordering of the species. There are various ways to find the "optimal" setting for both those things, which we will not go further into here (but ask if you want to know!). For further details see [the corresponding vignette in the package](https://jenniniku.github.io/gllvm/articles/vignette7.html). For the following models, you will need at least 30 minutes computing time. A smaller number of nearest neighbours will fit the model more quickly, but lead to less accurate results. Mind yourself, this is incredibly fast; it took the original authors ten days with the Hmsc R-package. For the exercises, you can reduce this further by (e.g.,) subsetting the data and fitting the models to a smaller number of species and sites.
+this formulation ensures that the relevant correlations between species' random effects are incorporated, which we can also examine with `summary`. Before we do that, we will add the final component to our model; the phylogeny. The <tt>gllvm</tt> package broadly implements phylogenetic mixed-effects models, which can also be used to fit models for traits or individuals (i.e., where traits are the response variables), but here we focus on our species data. Phylogenetic random effects make the model considerably more computer intensive (complex), and there are a range of considerations that we need to make when fitting it. In particular, the nearest neighbour approximation and the ordering of the species. There are various ways to find the "optimal" setting for both those things, which we will not go further into here (but ask if you want to know!). For further details see [the corresponding vignette in the package](https://jenniniku.github.io/gllvm/articles/vignette7.html). For the following models, you will need at least 30 minutes computing time. A smaller number of nearest neighbours will fit the model more quickly, but lead to less accurate results. Mind you, this is incredibly fast; it took the original authors ten days with the Hmsc R-package. For the exercises, you can reduce this further by (e.g.,) subsetting the data and fitting the models to a smaller number of species and sites.
 
 ```{r, cache = TRUE}
 e <- eigen(covMat)$vectors[,1]
@@ -285,8 +285,6 @@ phyloplot(model6, tree = tree)
 and plot the associations due to the environmental variables and phylogeny:
 
 ```{r, fig.width = 15, fig.height = 10}
-# little bug that will be addressed on next CRAN submission
-model6$col.eff$colMat <- model6$col.eff$colMat[[1]]
 library(Matrix)
 corrplot::corrplot(cov2cor(getEnvironCov(model6)$cov), type = "lower", order = "AOE", diag = FALSE, tl.pos = "l", tl.cex = 0.2, addgrid.col = NA)
 ```

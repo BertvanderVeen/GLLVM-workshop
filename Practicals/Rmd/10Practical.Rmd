@@ -1,0 +1,129 @@
+---
+title: "Practical: extensions, spatial/temporal models and mixed responses"
+subtitle: "Physalia workshop on GLLVMs"
+author: "Bert van der Veen"
+output: html_document
+---
+
+# Background
+
+This practical covers two extensions to the basic GLLVM framework:
+
+1. **Spatial and temporal autocorrelation**: accommodating non-independence of sampling units via structured covariance in the latent variables or row effects
+2. **Mixed response types**: fitting models where different species have different response distributions
+
+The key `gllvm` arguments for spatial/temporal structure are:
+
+- `lvCor`: specifies correlation structure for the latent variables
+- `row.eff`: specifies correlation structure for the row effects
+- `distLV`: matrix of distances between sites (for spatial models)
+- `corAR1`, `corExp`, `corMatern`, `corCS`: available correlation structures
+
+# Part I: Temporal autocorrelation
+
+We use a subset of the wadden sea data which has a temporal structure (seasons).
+
+```{r setup, message=FALSE}
+library(gllvm)
+TMB::openmp(parallel::detectCores()-1, autopar = TRUE, DLL = "gllvm")
+
+Y <- read.csv("../../data/waddenY2.csv")[, -c(1:2)]
+Y <- Y[, colSums(ifelse(Y == 0, 0, 1)) > 2]
+X <- read.csv("../../data/waddenX.csv")
+X <- X[, !apply(X, 2, anyNA)]
+X[, unlist(lapply(X, is.numeric))] <- scale(X[, unlist(lapply(X, is.numeric))])
+```
+
+Fit a baseline model (IID latent variables) and compare to one with AR(1) structure across seasons:
+
+```{r ar1, cache=TRUE, message=FALSE, warning=FALSE}
+# Baseline: independent latent variables
+model_iid <- gllvm(Y, num.lv = 2, family = "tweedie", Power = NULL,
+                   disp.formula = rep(1, ncol(Y)), n.init = 3)
+
+# AR(1) structure across seasons in the row effect
+model_ar1 <- gllvm(Y, num.lv = 2, family = "tweedie", Power = NULL,
+                   disp.formula = rep(1, ncol(Y)),
+                   studyDesign = X[, "season", drop = FALSE],
+                   row.eff = ~corAR1(1|season), n.init = 3)
+
+AIC(model_iid, model_ar1)
+```
+
+Inspect the estimated AR(1) correlation:
+
+```{r ar1_param}
+model_ar1$params$sigma  # the ".rho"-suffixed entry is the temporal correlation between seasons
+```
+
+## Tasks I
+
+1. Fit both models and compare AIC. Does adding temporal structure improve fit?
+2. Interpret the AR(1) correlation parameter. Is community composition persistent across seasons?
+3. Try `lvCor = ~corAR1(1|season)` instead of `row.eff`. What is the difference in interpretation?
+4. Visualize the ordination from both models. Does temporal structure change the ordination?
+
+# Part II: Spatial models
+
+If you have site coordinates, you can fit a model with spatial correlation. Here we simulate coordinates for illustration; in your own data, use real coordinates.
+
+```{r spatial_setup}
+# Simulate spatial coordinates for the wadden sites
+set.seed(42)
+n_sites <- nrow(Y)
+coords <- data.frame(
+  lon = runif(n_sites, 0, 100),
+  lat = runif(n_sites, 0, 100)
+)
+dist_mat <- as.matrix(dist(coords))
+```
+
+```{r spatial, cache=TRUE, message=FALSE, warning=FALSE, eval=FALSE}
+model_spatial <- gllvm(Y, num.lv = 2, family = "tweedie", Power = NULL,
+                       disp.formula = rep(1, ncol(Y)),
+                       lvCor = ~corExp(1|site),
+                       studyDesign = data.frame(site = factor(1:nrow(Y))),
+                       distLV = dist_mat,
+                       Lambda.struc = "UNN", NN = 5,
+                       n.init = 1)
+```
+
+Note: spatial models are computationally demanding. With real data, ensure you have sufficient memory and consider sparse approximations (`Lambda.struc = "bdNN"` or `"UNN"` with `NN` set to a small number of neighbours).
+
+## Tasks II
+
+1. Read through the code for fitting a spatial model. What does `distLV` do?
+2. What does the `NN` argument control? What are the trade-offs of using more vs. fewer neighbours?
+3. How would you use `VP()` to see how much variation the spatial structure explains?
+4. If you have your own spatial dataset, try fitting a `corExp` model to it.
+
+# Part III: Mixed response types
+
+Different species in a single dataset can call for different response distributions — for example, rare species recorded as presence-absence and common species recorded as counts. As covered in the lecture, `gllvm` supports this by passing a **character vector** to `family`, with one entry per species column (matching column order), rather than a single distribution for the whole community.
+
+To illustrate on data we already have, we will treat the first 10 species in `Y` as presence-absence (thresholding to 0/1) and leave the rest as counts:
+
+```{r mixed, cache=TRUE, message=FALSE, warning=FALSE}
+Y_mixed <- Y
+Y_mixed[, 1:10] <- ifelse(Y_mixed[, 1:10] > 0, 1, 0)
+
+family_vec <- c(rep("binomial", 10), rep("negative.binomial", ncol(Y_mixed) - 10))
+
+model_mixed <- gllvm(Y_mixed, num.lv = 2, family = family_vec, n.init = 3, sd.errors = FALSE)
+```
+
+## Tasks III
+
+1. Compare `model_mixed` to a model that (incorrectly) treats all species in `Y_mixed` as counts (`family = "negative.binomial"`). What goes wrong for the thresholded species?
+2. Think about your own data: do different species call for different distributions? Build a `family` vector for it, matching column order.
+3. Check `?gllvm` for the full list of families that can be mixed together in one model.
+
+# Part IV: Own data
+
+Use the remaining time to apply what you have learned to your own dataset, or to explore further aspects of the models fitted in Parts I-III.
+
+Suggested directions:
+- Fit a temporal or spatial model to your own data
+- Compare IID vs structured models using AIC
+- Use `VP()` to partition spatial vs. environmental vs. residual variation
+- Build a mixed-response `family` vector for your own data, if it has species that call for different distributions

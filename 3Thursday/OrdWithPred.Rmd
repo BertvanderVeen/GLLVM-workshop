@@ -133,8 +133,8 @@ The covariate coefficients $\textbf{B}$ are referred to as **canonical** coeffic
 
 \begin{itemize}
 \item RR-VGLMs \tiny (Yee et al. 1996,2003,2010,2015) \normalsize
-\item Row-column interaction models  \tiny (Hawinkel  et al. 2019) \normalsize
-\item GLLVMs \tiny (van der Veen  et al. 2023) \normalsize
+\item Row-column interaction models \tiny (Hawinkel et al. 2019) \normalsize
+\item GLLVMs \tiny (van der Veen et al. 2023) \normalsize
 \end{itemize}
 
 Model-based constrained ordination had been around for a while, but not so often used (lack of user-friendly software). \newline
@@ -218,7 +218,7 @@ ordiplot(model1, main = "Without species loadings")
 ## Example: \footnotesize extracting species-specific coefficients with 95% CI \normalsize
 \footnotesize
 
-```{r cord1, fig.height = 5, dev = "png", echo = -c(2,3)}
+```{r cord1, fig.height = 5, dev = "png", echo = -c(2,3), warning=FALSE, fig.show = "hide"}
 coefplot(model1, which.Xcoef = "A1")
 model2 <- gllvm(Y, X = X, formula = ~A1 + Management + Moisture + Use + Manure, family = "ordinal", num.lv = 0, starting.val = "zero")
 coefplot(model2, which.Xcoef = "A1")
@@ -227,12 +227,12 @@ coefplot(model2, which.Xcoef = "A1")
 \normalsize
 
 \columnsbegin
+\column{0.49\textwidth}
 \textbf{VGLM}
-\column{0.5\textwidth}
-\includegraphics{OrdWithPred_files/figure-beamer/cord1-2.png}
-\column{0.5\textwidth}
+\includegraphics[width=\linewidth]{OrdWithPred_files/figure-beamer/cord1-2.png}
+\column{0.49\textwidth}
 \textbf{RR-VGLM}
-\includegraphics{OrdWithPred_files/figure-beamer/cord1-1.png}
+\includegraphics[width=\linewidth]{OrdWithPred_files/figure-beamer/cord1-1.png}
 \columnsend
 
 # Constrained ordination: extensions
@@ -241,7 +241,7 @@ coefplot(model2, which.Xcoef = "A1")
 
 - Species effects can be retrieved for any covariate
 - Extreme results occur, usually due to insufficient data
-- GLLVMs picks up on extreme clustering -very- well
+- GLLVMs pick up on extreme clustering -very- well
 
 ## Constrained ordination
 
@@ -337,7 +337,7 @@ knitr::include_graphics("demonstration.jpg")
 
 Wadden sea data [Dewenter et al. (2023)](https://onlinelibrary.wiley.com/doi/full/10.1002/ece3.10815)
 
-\begin{columns}
+\columnsbegin
 \column{0.5\textwidth}
 \begin{itemize}
 \item Abundance (counts) or Biomass of macrozoobenthos
@@ -347,10 +347,10 @@ Wadden sea data [Dewenter et al. (2023)](https://onlinelibrary.wiley.com/doi/ful
 \column{0.5\textwidth}
 \begin{figure}[h]
 \centering
-\includegraphics{macrozoobenthos.jpg}
+\includegraphics[width=\linewidth]{macrozoobenthos.jpg}
 \caption{nioz.nl}
 \end{figure}
-\end{columns}
+\columnsend
 
 \tiny
 
@@ -517,8 +517,8 @@ gllvm::ordiplot(model4, type = "residual", rotate = FALSE)
 
 ## Example 3: Random coefficient plot of species
 
-```{r cnord2_rancoef, cache = TRUE, warning = FALSE, message = FALSE, fig.height = 5, fig.align="center"}
-gllvm::randomCoefplot(model4, which.Xcoef="elevation")
+```{r cnord2_rancoef, cache = TRUE, warning = FALSE, message = FALSE, fig.height = 2.5, fig.width = 5.5}
+gllvm::randomCoefplot(model4, which.Xcoef="elevation", y.label=FALSE, mar=c(3,1,1,1))
 ```
 
 # Summary

@@ -7,7 +7,7 @@ output: html_document
 
 # Background
 
-In this practical we explore how to take information *out* of an ordination — using conditioning to remove variation due to nuisance factors, and combining conditioning with constrained ordination to perform partial ordination.
+In this practical we explore how to take information *out* of an ordination, using conditioning to remove variation due to nuisance factors, and combining conditioning with constrained ordination to perform partial ordination.
 
 Key concepts from the lecture:
 
@@ -31,7 +31,7 @@ X[, unlist(lapply(X, is.numeric))] <- scale(X[, unlist(lapply(X, is.numeric))])
 
 # Part I: Unconstrained ordination and conditioning
 
-Start with an unconstrained ordination — no covariates, no conditioning.
+Start with an unconstrained ordination: no covariates, no conditioning.
 
 ```{r unc, cache=TRUE, message=FALSE}
 model1 <- gllvm(Y, num.lv = 2, family = "tweedie", Power = NULL,
@@ -81,7 +81,7 @@ This is a **partial constrained ordination**: we show the community variation ex
 ## Tasks II
 
 1. Fit the partial constrained ordination and interpret the ordination plot. Which environmental variables drive the main axes?
-2. Try removing the conditioning (`row.eff`) — how does the constrained ordination change?
+2. Try removing the conditioning (`row.eff`): how does the constrained ordination change?
 3. Switch from `num.RR` to `num.lv.c` (concurrent ordination). What is the difference in interpretation?
 4. Use `coefplot(model3, which.Xcoef = "TOC")` to examine species-specific TOC effects.
 

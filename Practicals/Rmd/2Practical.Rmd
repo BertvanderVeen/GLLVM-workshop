@@ -7,9 +7,9 @@ output: html_document
 
 # Background
 
-So far, we have spoken a little about aspects of community ecological data, and learned about multispecies GLMs. In both cases, nested study designs is something that was encountered; plot-based sampling is very common in community ecology.
+So far, we have spoken a little about aspects of community ecological data, and learned about multispecies GLMs. In both cases, nested study designs are something that was encountered; plot-based sampling is very common in community ecology.
 
-What we saw during the first practical, was that some of the species' effects were very extreme. When we observe species in just a few environments, or only on a particular place on a gradient, the models can become very sure of themselves about where the species occurs. This gives extreme results, as we will also encounter in ordinations on Thursday. This also comes together with a load of uncertainty (remember the confidence intervals for some species were extremely wide for the VGLMs) because the effects will most likely change considerably if we resampled the data. Makes sense when we have few observations, right?
+What we saw during the first practical, was that some of the species' effects were very extreme. When we observe species in just a few environments, or only on a particular place on a gradient, the models can become very sure of themselves about where the species occurs. This gives extreme results, as we will also encounter in ordinations on Thursday. This also comes together with a load of uncertainty (remember the confidence intervals for some species were extremely wide for the VGLMs) because the effects will most likely change considerably if we resample the data. Makes sense when we have few observations, right?
 
 Anyway, this practical is about random effects. As covered in the lecture, random effects have multiple purposes. One of them, is to "get rid" of effects that we are not interested in or consider unmeasured. This can be the case for variation in community composition due to a nested design, or variation due to repeated measurements. Random effects can also help to induce "shrinkage"; we assume that the random effects have a mean effect (the common effect for all species), so that if we do not have enough information for any particular species to estimate its effect, it reverts to the average of the whole community.
 
@@ -23,8 +23,8 @@ I collected some datasets that we can work with, but if you have your own data y
 2. Birds (abundance)
 3. wadden (abundance)
 4. wadden (biomass)
-4. fungi (presence-absence)
-5. eucalypt (presence-absence)
+5. fungi (presence-absence)
+6. eucalypt (presence-absence)
 
 Feel free to continue where you left off in the last exercises, for example with one of the datasets <tt>mvabund</tt> has:
 
@@ -56,7 +56,7 @@ model1 <- gllvm(Y, X, formula = ~scale(silt_clay) + scale(elevation), family = "
 coefplot(model1)
 ```
 
-The catterpillar plots created with `coefplot` showed some extreme results: species with very large estimates and large confidence intervals. By specifying the effects as random, we can pull these closer to the average effect, reigning their variability. Let's go ahead and specify the equivalent of this model, but with random effects:
+The caterpillar plots created with `coefplot` showed some extreme results: species with very large estimates and large confidence intervals. By specifying the effects as random, we can pull these closer to the average effect, reining their variability. Let's go ahead and specify the equivalent of this model, but with random effects:
 
 ```{r}
 model2 <- gllvm(Y, X, formula = ~(0+scale(silt_clay)|1) + (0+scale(elevation)|1), family = "negative.binomial", num.lv = 0)
@@ -78,7 +78,7 @@ these two parameterisations are equivalent. The $\mu_k$ are the species-common e
 summary(model2)
 ```
 
-Which also reports the estimates for the variances of the random effects. If these are (very) close to zero, the random effect can be omitted from the model, but in this case there is a good reason to include it for both covariates. Some people prefer keeping random effects with zero variance in the model, out of theoretical reasons. For example, in the case it is a variable that accounts for a nested design. However, in that case the model is equivalent to the model without the random effect, and calculated uncertainties for fixed effects will be more accurate when we omit the random effect, so omission hhas my (personal) preference.
+Which also reports the estimates for the variances of the random effects. If these are (very) close to zero, the random effect can be omitted from the model, but in this case there is a good reason to include it for both covariates. Some people prefer keeping random effects with zero variance in the model, out of theoretical reasons. For example, in the case it is a variable that accounts for a nested design. However, in that case the model is equivalent to the model without the random effect, and calculated uncertainties for fixed effects will be more accurate when we omit the random effect, so omission has my (personal) preference.
 
 By default, the (fixed) common effect is included with random effects in the <tt>gllvm</tt> package. However, it is controlled by `row.eff`, so we can exclude it if we want, or choose to include it only for particular covariates:
 
@@ -98,14 +98,14 @@ It is marginally improved, as it turns out. The typical rule-of-thumb (Burnham a
 
 The model above includes random slopes. However, as I mentioned, the dataset has a nested design; transects at islands, which we should incorporate. We can choose to include this as random effect in `formula` or in `row.eff`. The latter is a simplification of the former; it does not allow for correlation between random effects (only within random effects, such as due to spatial autocorrelation), and it assumes that all random effect estimates are the same for all species. 
 
-Let's go ahead, fit these two models, and compare them. Note that this might take a little, as there are quite a few of random effects to estimate: $3*58+58*2$ and another 58 fixed effects parameters for species' intercepts (which are included by default). If we instead formulated the random effect below as transect/island, the number of random effects would instead be $3*3*58+58*2$ (as there are also 3 transects). There are some ways to speed this up, but we will consider those tomorrow instead. By default, the package includes correlations between the different categories of the same random effect, which we (for now) omit using `diag`.
+Let's go ahead, fit these two models, and compare them. Note that this might take a little, as there are quite a few random effects to estimate: $3*58+58*2$ and another 58 fixed effects parameters for species' intercepts (which are included by default). If we instead formulated the random effect below as transect/island, the number of random effects would instead be $3*3*58+58*2$ (as there are also 3 transects). There are some ways to speed this up, but we will consider those tomorrow instead. By default, the package includes correlations between the different categories of the same random effect, which we (for now) omit using `diag`.
 
 ```{r}
 model4 <- gllvm(Y, X, formula = ~diag(0+island|1) + (0+scale(silt_clay)|1) + (0+scale(elevation)|1), row.eff =~1, family = "negative.binomial", num.lv = 0)
-model5 <- gllvm(Y, studyDesign=X, row.eff = ~(1|island) + (0+scale(silt_clay)+scale(elevation)|1), family = "negative.binomial", num.lv = 0)
+model5 <- gllvm(Y, studyDesign=X, row.eff = ~(1|island), family = "negative.binomial", num.lv = 0)
 ```
 
-The "model5" assumes the same variance for the terms in brackets; this is sensible because there are 2 random effects (one for silt_clay and one for elevation), which means there are only two replicates to estimate the variance parameter. Anyway, we can go ahead and compare them with AIC:
+The "model5" treats island as a species-common random intercept instead of the species-specific version in "model4", and drops the silt_clay/elevation random slopes entirely. We can go ahead and compare them with AIC:
 
 ```{r}
 AIC(model4, model5)
@@ -121,13 +121,13 @@ model6 <- gllvm(Y, X, formula = ~diag(0+island|1) + scale(silt_clay) + scale(ele
 
 Whether we include an effect as random or as fixed requires careful deliberation. Inducing shrinkage can result in (too) conservative estimates if we do not have enough data. When we have enough data, results of the two will (at least in this particular instance) be very similar; the random effect will then act like a fixed effect.
 
-One of the benefits of maintaining an effect as random, is that we can calculate diversity for our system from the model, as explained in the lecture. We can also predict how diversity changes along a gradient. For the model above with silt_clay and elevation as random effects, alpha diversity is:
+One of the benefits of maintaining an effect as random, is that we can calculate diversity for our system directly from the model — this connects to the alpha/beta/gamma diversity framework covered in Wednesday's Diversity lecture, but we can get a first taste of it already here. We can also predict how diversity changes along a gradient. For the model above with silt_clay and elevation as random effects, alpha diversity is:
 
 \begin{equation}
 \text{var}(\eta_{ij}) = elevation_i^2\sigma^2_{elevation} + silt_clay_i^2\sigma^2_{silt_clay}.
 \end{equation}
 
-Which tells us that we can visualize the change in alphha diversity due to one of the covariates, by keeping the other constant. For example, for elevation:
+Which tells us that we can visualize the change in alpha diversity due to one of the covariates, by keeping the other constant. For example, for elevation:
 
 ```{r}
 xnew <- seq(min(scale(X$elevation)), max(scale(X$elevation)), length.out = 100)
@@ -150,7 +150,7 @@ so that alpha diversity increases with elevation.
 
 So far, we have fitted random effects models where the random effects are independent (have no correlation). Especially when it comes to shrinkage, or when we do not have so much information, this is a sensible thing to do. It requires quite a lot of information to estimate correlation parameters, where with "information" I mean "levels of the random effect". In our case, the number of species represent the number of replicates for the random effect that we have. Fortunately, we often have a bunch of them! So, we can probably go ahead and estimate the correlation of random effects.
 
-Ecologically, correlation of random effects corresponds best with *trait syndromes*, where species' environmental responses are a type of latent trait. Positive correlation of random effects means that a species' response to one effect is similar to that of another, and negative that they are opposites. If the correlation is close to zero, a species response to two effects is entirely different.
+Ecologically, correlation of random effects corresponds best with *trait syndromes*, where species' environmental responses are a type of latent trait. Positive correlation of random effects means that a species' response to one effect is similar to that of another, and negative that they are opposites. If the correlation is close to zero, a species' response to two effects is entirely different.
 
 Syntax-wise, terms that share the same brackets get correlation parameters; simple, right?! It is important to note that the number of correlation parameters increases quite quickly with the number of effects, and that it tends to slow model fitting down considerably, due to the added complexity. Having said that, let's go ahead and add a correlation parameter for silt_clay and elevation:
 
@@ -188,11 +188,67 @@ The random effects for the three islands act on the mean abundance. So, we see t
 plot(X$silt_clay, X$elevation)
 ```
 
+## ICC and repeatability
+
+Variance components also let us compute the intraclass correlation (ICC): the fraction of variance attributable to a particular random effect grouping. Using the variance components already estimated in `model4` (species-specific island effects, and random slopes for silt_clay and elevation):
+
+```{r}
+sigmaB <- diag(model4$params$sigmaB)
+names(sigmaB) <- colnames(model4$params$sigmaB)
+sigmaB / sum(sigmaB)
+```
+
+This shows what fraction of the explained variance in the linear predictor is due to island, versus to the silt_clay and elevation slopes. A high ICC for island would mean that community composition is driven more by which island a sample came from than by the measured environmental gradients.
+
+Repeatability extends the same idea by also including the residual (observation-level) variance in the denominator, so it answers "how much of the total variation, sampling noise included, is explained by this grouping?" rather than "how much of the explained variance is due to it?" For a negative binomial model the residual variance depends on the mean and dispersion parameter, so repeatability has to be evaluated species by species rather than as a single community-wide number.
+
 ## Tasks
 
 1. Include correlation parameters between some (or all) of the terms in your model
-2. Can you make ecological sense of the estimates for the correlation parameters? 
+2. Can you make ecological sense of the estimates for the correlation parameters?
 3. Try to change the model a bit and see if different fixed and random effects, or different independent random effect terms, have a large impact on the sign (minus or plus) of the correlation parameters (i.e., a little sensitivity analysis)
+4. Compute the ICC for `island` in `model4`. Is community composition dominated by island identity, or by the environmental slopes?
+5. Pick one species and estimate its repeatability for island (include the residual variance implied by its dispersion parameter). How does it compare to the community-average ICC?
+
+# Part III
+
+So far we focused on random effects that account for variation between species. Let's turn to random effects for the sites or samples themselves. The waddensea data are collected from three islands (Norderney, Spiekeroog, Wangerooge), with three transects (A, B, C) at each island, and three sampling stations within each transect. At each station, three samples were taken in spring and summer.
+
+```{r}
+head(X[,1:4], 12)
+```
+
+Continuing from `model3` above: accounting for transect and station with species-specific random effects becomes too complex, since the number of unique sampling locations (stations with unique coordinates) is 3x3x3 = 27. A simpler way to account for the possible dependency between samples from the same location is to introduce a random effect common to all species. Let's build a study design data frame. Island and season only have three and two levels respectively, which is not enough to estimate their variance properly if treated as a species-specific random effect; they are better handled with community-level effects for island and season instead:
+
+```{r}
+StudyDesign <- data.frame(X[,1:4], sample = rownames(X))
+model10 <- gllvm(Y, X, formula = ~(0+scale(silt_clay)|1) + (0+scale(elevation)|1),
+                 studyDesign = StudyDesign,
+                 row.eff = ~(1|island:transect) + (1|island:transect:station) + (1|sample) + island + season,
+                 family = "negative.binomial", num.lv = 0)
+```
+
+The fixed effects from `summary`:
+
+```{r}
+summary(model10)
+```
+
+show that abundance overall is higher in summer than spring, and lower in Spiekeroog and Wangerooge than in Norderney.
+
+Variation between transects, stations, and samples shows up in the standard deviations of the random effects:
+
+```{r}
+model10$params$sigma
+confint(model10, parm = "sigma")
+```
+
+Community-level variation in abundance between transects and between samples is small (the standard deviations are close to zero) once all levels of the sampling design are accounted for along with silt_clay and elevation. There is, however, some variation between stations.
+
+## Tasks
+
+1. Include random effects that account for the sampling design in your model.
+2. Compare a model with community-level random effects for the sampling design to one without. Does it change the fixed-effect estimates or their uncertainty?
 
 # Technical caveats
 
@@ -209,33 +265,42 @@ The Wald statistics and $p$-values reported by `summary()` are approximate. For 
 
 ## Model selection
 
-`AIC()` works for comparing models fitted with the same method, but there is a subtlety: variance components should be compared with REML, fixed effects with ML.
+`AIC()` works for comparing models fitted with the same method, but there is a subtlety: `gllvm` always fits by (marginal) maximum likelihood, it does not implement a REML-corrected likelihood. That means AIC comparisons of models differing only in a random-effect variance are subject to the same boundary problem as the likelihood ratio test above, and should be interpreted cautiously.
 
 **Questions:**
 
-3. Compare two models that differ in a fixed effect using both ML and REML. Does the ranking change? Which should you trust?
+3. Compare two models that differ only in a fixed effect using AIC. Now compare two models that differ only in a random-effect variance (as in the previous question). Which comparison do you trust more, and why?
 4. What is the penalty for including a random slope vs. a fixed slope in terms of AIC? Does AIC favour the simpler model when $\hat\sigma^2 \approx 0$?
 
 # Residual diagnostics
 
-Residual diagnostics for VGLMMs are covered in depth in the **Checking** lecture and its accompanying practical. For now, a quick sanity check using simulation-based residuals:
+Residual diagnostics are covered in depth in the **Checking** lecture; here is a worked example on this practical's own data. `gllvm` objects have a `plot` method that produces five diagnostic plots from the Dunn-Smyth (randomized quantile) residual: residuals vs. linear predictors, a normal QQ-plot, residuals vs. rows, residuals vs. columns, and a scale-location plot.
 
-```{r, eval=FALSE}
-library(DHARMa)
-# fit your model first, then:
-res <- simulateResiduals(model)
-plot(res)
+Suppose we had not accounted for overdispersion, and fitted `model1` with a Poisson distribution instead of negative binomial:
+
+```{r}
+model_pois <- gllvm(Y, X, formula = ~scale(silt_clay) + scale(elevation), family = "poisson", num.lv = 0)
+plot(model_pois, which = c(1, 2))
 ```
 
-For VGLMMs it is also worth checking the normality of estimated random effects:
+The QQ-plot shows heavy departure in the tails, and the residuals-vs-fitted plot fans out: both point at overdispersion, i.e. the Poisson variance function (mean = variance) is too restrictive for this data. Compare this to `model1`, which uses the negative binomial:
 
-```{r, eval=FALSE}
-qqnorm(ranef(model))
+```{r}
+plot(model1, which = c(1, 2))
+```
+
+No systematic pattern remains: the QQ-plot tracks the diagonal, and the fan pattern is gone. That does not make `model1` the "correct" model, only one whose distributional assumption is no longer visibly violated.
+
+For VGLMMs it is also worth checking the normality of the estimated random effects, for example for `model2`'s species-specific silt_clay and elevation slopes (stored in `params$Br`):
+
+```{r}
+qqnorm(as.vector(model2$params$Br))
+qqline(as.vector(model2$params$Br))
 ```
 
 **Questions:**
 
-5. Do your simulation-based residuals show any pattern? If so, what might be missing from the model?
+5. Reproduce the Poisson-vs-negative-binomial comparison above for one of your own fitted models. Which of the five diagnostic plots first reveals the misspecification?
 6. Do the estimated random effects look normally distributed? What would a long-tailed distribution suggest about the random effects assumption?
 
 See the Checking lecture for a full treatment of conditional vs. unconditional residuals and what violations look like.

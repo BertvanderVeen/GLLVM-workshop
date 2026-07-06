@@ -306,7 +306,7 @@ Audience    & Community ecologists & Macro ecologists \\
 
 \textcolor{red}{JSDMs build more heavily on SDMs than on traditional multivariate analysis} \vspace*{0.5\baselineskip} \newline
 \textcolor{red}{Ordination methods have been criticised for being too
-descriptive rather than predictive nature}\newline
+descriptive rather than of a predictive nature}\newline
 \hfill\footnotesize Ovaskainen and Abrego 2021 \normalsize
 
 \pause
@@ -316,7 +316,7 @@ descriptive rather than predictive nature}\newline
 
 ## JSDM vs. ordination
 
-The differences is in how we think of the model:
+The differences are in how we think of the model:
 
 - Do we formulate on the basis of latent variables or associations
 - Do we look at patterns in the ordination, or patterns on a map?
@@ -497,7 +497,7 @@ par(parold)
 \item We usually assume the environment drives patterns in an ordination 
 \end{itemize}
 \column{0.5\textwidth}
-\includegraphics{ModelbasedOrdination_files/figure-beamer/ord1-1.png}
+\includegraphics[width=\linewidth]{ModelbasedOrdination_files/figure-beamer/ord1-1.png}
 \columnsend
 
 ## Ordination plot
@@ -540,7 +540,7 @@ par(parold)
 \item So, covariates help interpret the ordination
 \end{itemize}
 \column{0.5\textwidth}
-\includegraphics{ModelbasedOrdination_files/figure-beamer/ord2-1.png}
+\includegraphics[width=\linewidth]{ModelbasedOrdination_files/figure-beamer/ord2-1.png}
 \columnsend
 
 ## Rotation and orthogonality
@@ -555,9 +555,9 @@ Ordination methods are defined by their rotation (except NMDS?), here:
 
 ## Rotation of ordination
 
-\only<1>{\includegraphics{ModelbasedOrdination_files/figure-beamer/ord1-1.png}}
-\only<2>{\includegraphics{ModelbasedOrdination_files/figure-beamer/ord1-2.png}}
-\only<3>{\includegraphics{ModelbasedOrdination_files/figure-beamer/ord1-3.png}}
+\only<1>{\includegraphics[width=\linewidth]{ModelbasedOrdination_files/figure-beamer/ord1-1.png}}
+\only<2>{\includegraphics[width=\linewidth]{ModelbasedOrdination_files/figure-beamer/ord1-2.png}}
+\only<3>{\includegraphics[width=\linewidth]{ModelbasedOrdination_files/figure-beamer/ord1-3.png}}
 
 \only<3>{\vspace*{-\baselineskip} Our inference of site and species (dis)similarity remains the same.}
 
@@ -648,12 +648,12 @@ points(nmds, col = model.matrix(~0+., dune.env)[,5]+1, pch= model.matrix(~0+., d
 \columnsbegin
 \column{0.5\textwidth}
 \textbf{GLLVM}
-\includegraphics{ModelbasedOrdination_files/figure-beamer/duneord2-1.png}
+\includegraphics[width=\linewidth]{ModelbasedOrdination_files/figure-beamer/duneord2-1.png}
 \column{0.5\textwidth}
 \textbf{CA}
-\includegraphics{ModelbasedOrdination_files/figure-beamer/duneord3-1.png}
+\includegraphics[width=\linewidth]{ModelbasedOrdination_files/figure-beamer/duneord3-1.png}
 \textbf{NMDS}
-\includegraphics{ModelbasedOrdination_files/figure-beamer/duneord3-2.png}
+\includegraphics[width=\linewidth]{ModelbasedOrdination_files/figure-beamer/duneord3-2.png}
 \columnsend
 
 ## Example: comparing ordinations (2)
@@ -695,10 +695,10 @@ gllvm::ordiplot(model2, symbols = TRUE,
 \columnsbegin
 \column{0.5\textwidth}
 \textbf{Species-common cut-offs}
-\includegraphics{ModelbasedOrdination_files/figure-beamer/duneord2-1.png}
+\includegraphics[width=\linewidth]{ModelbasedOrdination_files/figure-beamer/duneord2-1.png}
 \column{0.5\textwidth}
 \textbf{Species-specific cut-offs}
-\includegraphics{ModelbasedOrdination_files/figure-beamer/duneord4-1.png}
+\includegraphics[width=\linewidth]{ModelbasedOrdination_files/figure-beamer/duneord4-1.png}
 \columnsend
 
 ## Example: Comparing ordinations (4)
@@ -776,9 +776,9 @@ text(x=lv1new[apply(preds[,,spp],1,which.max)], apply(preds[,,spp],1,max)+0.05, 
 ```
 
 \alt<2>{
-\includegraphics[height=0.75\paperheight]{ModelbasedOrdination_files/figure-beamer/dunepred-2.png}
+\includegraphics[height=0.75\paperheight]{ModelbasedOrdination_files/figure-beamer/dunepred1-2.png}
 }{
-\includegraphics[height=0.75\paperheight]{ModelbasedOrdination_files/figure-beamer/dunepred-1.png}
+\includegraphics[height=0.75\paperheight]{ModelbasedOrdination_files/figure-beamer/dunepred1-1.png}
 }
 
 \footnotesize
@@ -821,12 +821,12 @@ text(x=lv1new[apply(preds[1:max(model2$y[,spp]),,spp],1,which.max)], apply(preds
 \columnsbegin
 \column{0.5\textwidth}
 \textbf{Species-common cut-offs}
-\includegraphics[height=0.75\paperheight]{ModelbasedOrdination_files/figure-beamer/dunepred-1.png}
-\includegraphics[height=0.75\paperheight]{ModelbasedOrdination_files/figure-beamer/dunepred-2.png}
+\includegraphics[height=0.75\paperheight, width = \linewidth]{ModelbasedOrdination_files/figure-beamer/dunepred1-1.png}
+\includegraphics[height=0.75\paperheight, width = \linewidth]{ModelbasedOrdination_files/figure-beamer/dunepred1-2.png}
 \column{0.5\textwidth}
 \textbf{Species-specific cut-offs}
-\includegraphics[height=0.75\paperheight]{ModelbasedOrdination_files/figure-beamer/dunepred2-1.png}
-\includegraphics[height=0.75\paperheight]{ModelbasedOrdination_files/figure-beamer/dunepred2-2.png}
+\includegraphics[height=0.75\paperheight, width = \linewidth]{ModelbasedOrdination_files/figure-beamer/dunepred2-1.png}
+\includegraphics[height=0.75\paperheight, width = \linewidth]{ModelbasedOrdination_files/figure-beamer/dunepred2-2.png}
 \columnsend
 
 ## Variation explained
@@ -945,11 +945,11 @@ gllvm::ordiplot(model5, symbols = TRUE, s.colors = cols, pch = 16, main = "4 LV 
 
 \columnsbegin
 \column{0.34\textwidth}
-\includegraphics{ModelbasedOrdination_files/figure-beamer/alpord1-1.pdf}
+\includegraphics[width = \linewidth]{ModelbasedOrdination_files/figure-beamer/alpord1-1.pdf}
 \column{0.34\textwidth}
-\includegraphics{ModelbasedOrdination_files/figure-beamer/alpord1-2.pdf}
+\includegraphics[width = \linewidth]{ModelbasedOrdination_files/figure-beamer/alpord1-2.pdf}
 \column{0.34\textwidth}
-\includegraphics{ModelbasedOrdination_files/figure-beamer/alpord1-3.pdf}
+\includegraphics[width = \linewidth]{ModelbasedOrdination_files/figure-beamer/alpord1-3.pdf}
 \columnsend
 
 - After rotation all three show the same (elevation) pattern
@@ -1024,7 +1024,7 @@ Predictive performance might not be best from the model with 2 dimensions, but i
 ```{r, echo = FALSE, fig.width = 10, fig.height = 4.5}
 par(mar=c(5,6,2,2))
 row.names(model3$params$theta) <- vegan::make.cepnames(colnames(model3$y))
-gllvm::ordiplot(model3, symbols = TRUE, s.colors = adjustcolor(cols,alpha.f=0.5), pch = 16, main = NA, cex.lab = 1, biplot = TRUE, cex.spp = 1.2, ind.spp = 20, xlim = c(-3.5,3.5), alpha = 0.6)
+gllvm::ordiplot(model3, symbols = TRUE, s.colors = adjustcolor(cols,alpha.f=0.5), pch = 16, main = NA, cex.lab = 1, biplot = TRUE, cex.spp = 1.2, ind.spp = 21, xlim = c(-3.5,3.5), alpha = 0.6)
 ```
 
 \vspace*{-\baselineskip}
@@ -1061,22 +1061,22 @@ gllvm::ordiplot(model3, symbols = TRUE, s.colors = adjustcolor(cols,alpha.f=0.5)
   \draw[->, thick, red] (pritz) -- ++(2.4, 4.85); % relative arrow
 }
 \only<3->{
-  \draw[->, thick, red] (salix) -- ++(-1, 6); % relative arrow
+  \draw[->, thick, red] (salix) -- ++(-0.5, 3.8); % relative arrow
 }
 \only<3->{
-  \draw[->, thick, red] (loli) -- ++(-3.6, 4); % relative arrow
+  \draw[->, thick, red] (loli) -- ++(-4, 6); % relative arrow
 }
 \end{tikzpicture}
 
 ## Example: prediction regions
 
-```{r, echo = FALSE, fig.width = 10, cache = TRUE}
+```{r, echo = FALSE, fig.width = 10, cache = TRUE, warning=FALSE}
 par(mar=c(5,6,2,2))
 ses <- se.gllvm(model3) # for prediction regions
 model3$sd <- ses$sd
 model3$Hess <- ses$Hess
 row.names(model3$params$theta) <- vegan::make.cepnames(colnames(model3$y))
-gllvm::ordiplot(model3, symbols = TRUE, s.colors = cols, pch = 16, main = NA, cex.lab = 1, biplot = TRUE, cex.spp = 1.2, ind.spp = 20, xlim = c(-3.5,3.5), predict.region = TRUE, alpha = 0.6, col.ellips = adjustcolor(cols,alpha.f=0.5))
+gllvm::ordiplot(model3, symbols = TRUE, s.colors = cols, pch = 16, main = NA, cex.lab = 1, biplot = TRUE, cex.spp = 1.2, ind.spp = 21, xlim = c(-3.5,3.5), predict.region = TRUE, alpha = 0.6, col.ellips = adjustcolor(cols,alpha.f=0.5))
 ```
 
 

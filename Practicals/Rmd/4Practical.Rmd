@@ -1,5 +1,5 @@
 ---
-title: "Joint Species Distribution Models"
+title: "Practical: Joint Species Distribution Models"
 subtitle: "Physalia workshop on GLLVMs"
 author: "Bert van der Veen"
 output: html_document
@@ -9,7 +9,7 @@ output: html_document
 
 In this lecture today, we learned that JSDMs relax the assumption of species' independence. The phylogenetic model already did that, but often we do not have access to a phylogeny, or just want to estimate species' correlation in an unconstrained fashion (because there are other drivers of species co-occurrence patterns). The independence assumption is one of the more critical assumptions made in VGLMMs, that tends to be ecologically unrealistic. It is unrealistic, because we often expect species to co-occur, which results in positive correlation, or the opposite of co-occurring (avoidance) results in negative correlation between species.
 
-These (residual) correlations are difficult to interpret. They can be caused by species interactions, but are confounded with all other sources of unmeasured variation. For example, if we forget to include an important covariate in the model, this will also result in residual correlations. That makes that the associations are useful for improving prediction, but perhaps not so much for inference?
+These (residual) correlations are difficult to interpret. They can be caused by species interactions, but are confounded with all other sources of unmeasured variation. For example, if we forget to include an important covariate in the model, this will also result in residual correlations. That means the associations are useful for improving prediction, but perhaps not so much for inference?
 
 Technically, JSDMs are models for binary data: presence-absence of species. However, we can generalize this to other data types and responses by keeping the model on the link-scale the same. In the gllvm R-package it is pretty straightforward: we just change the `family` argument to (for example) "Poisson", "ordinal", "beta" or "tweedie" (see `?gllvm`). In this exercise, we will fit JSDMs to binary data.
 
@@ -33,7 +33,7 @@ dim(Y)
 colnames(X)
 ```
 
-The data are presence-absences, and there are 912 rows and 175 columns (species). Because we will be modelling species-specific responses, we should ensure that each species has enough observations in the data. There area large number of rows, and although the method can technically accommodate sites without any observations, we can speed things up a little by removing the ones that are empty.
+The data are presence-absences, and there are 912 rows and 175 columns (species). Because we will be modelling species-specific responses, we should ensure that each species has enough observations in the data. There are a large number of rows, and although the method can technically accommodate sites without any observations, we can speed things up a little by removing the ones that are empty.
 
 ```{r}
 min(colSums(Y))
@@ -55,7 +55,7 @@ Y <- Y[rowSums(Y)>0,]
 
 The modeling goes as before, with the `gllvm` function. However, now we also use `num.lv`, which stands for the number of latent variables added to the model. Here, we fit JSDMs using the "factor-analytic" approach, or latent variable modeling. Few latent variables makes for a fast model, but potentially poor estimation of the correlation of species. So, we are left with trade-off: wait for a long time for an accurate estimate, or quickly get something slightly less accurate. 
 
-A good place to start, is two latent variables (the default). We can also add covariates, or random effects, to the model, but we will start without. We will use a few arguments to speed up the model, as well as fitting the model in parallel (**TIP:** you might want to open a task manager or system monitor to keep an eye on your computer's resources). The argument `Lambda.struc` simplifies the approximation to the likelihood and should be used cautiously, the argument `sd.errors` turns off calculation of standard errors as that can take longer than the actual model fitting at times, `optim.method` selects the numerical optimisation algorithm, because "L-BFGS-B" is often much faster with parallelisation than the default "BFGS". All together, this significantly reduces the time to fit the model from tens of minutes to about half a minute (with 7 CPU). If you work on a laptop, ensure that your battery settings are not set to "balanced", as this too will slow model fitting.
+A good place to start, is two latent variables (the default). We can also add covariates, or random effects, to the model, but we will start without. We will use a few arguments to speed up the model, as well as fitting the model in parallel (**TIP:** you might want to open a task manager or system monitor to keep an eye on your computer's resources). The argument `Lambda.struc` simplifies the approximation to the likelihood and should be used cautiously, the argument `sd.errors` turns off calculation of standard errors as that can take longer than the actual model fitting at times, `optim.method` selects the numerical optimisation algorithm, because "L-BFGS-B" is often much faster with parallelisation than the default "BFGS". Altogether, this significantly reduces the time to fit the model from tens of minutes to about half a minute (with 7 CPUs). If you work on a laptop, ensure that your battery settings are not set to "balanced", as this too will slow model fitting.
 
 ```{r jsdm1, cache = TRUE, warning=FALSE, message=FALSE}
 library(gllvm)
@@ -63,7 +63,7 @@ TMB::openmp(parallel::detectCores()-1, DLL = "gllvm", autopar = TRUE)
 model1  <- gllvm(y = Y, num.lv = 2, family = "binomial", Lambda.struc = "diagonal", sd.errors = FALSE, optim.method = "L-BFGS-B")
 ```
 
-Turning off standard error calculation is often a good idea when in gllvm, when working with large datasets or complex models. When we have decided on our "final" model, we can post-hoc calculate the standard errors using the `se.gllvm` function (an example is shown on the help page of that function). For now, let's visualize the estimated associations:
+Turning off standard error calculation is often a good idea in gllvm when working with large datasets or complex models. When we have decided on our "final" model, we can post-hoc calculate the standard errors using the `se.gllvm` function (an example is shown on the help page of that function). For now, let's visualize the estimated associations:
 
 ```{r, fig.width = 10, fig.height = 10, echo = -1, message=FALSE, warning=FALSE, message = FALSE}
 library(gllvm)
@@ -80,7 +80,7 @@ model2  <- gllvm(y = Y, X = X, formula = ~ scale(SLOPE), num.lv = 2, family = "b
 
 Now that we have a covariate in the model, we can think of including species' correlations as a way to "correct" the coefficients for the covariates. If we assume independence, and we estimate species' environmental responses while the assumption is violated, this will likely bias our parameter estimates. That makes a JSDM often a better fit for multispecies data than (e.g.,) a VGLM(M) that does not incorporate species' correlations.
 
-JSDMs are geard towards prediction: often on a map. Let's go ahead and do that, so we can see what our model tells us about any of the species in the data. I've already prepared a slope raste for you, it comes form the `unmarked` R-package. It is located in the "data" folder of the github repository, so we load it straight from there.
+JSDMs are geared towards prediction: often on a map. Let's go ahead and do that, so we can see what our model tells us about any of the species in the data. I've already prepared a slope raster for you, it comes from the `unmarked` R-package. It is located in the "data" folder of the github repository, so we load it straight from there.
 
 ```{r}
 download.file("https://raw.githubusercontent.com/BertvanderVeen/GLLVM-workshop/main/data/slope.tif", 
@@ -103,7 +103,7 @@ par(mfrow = c(1,2))
 plot(predrast[[1]], main = colnames(Y)[1])
 plot(predrast[[2]], main = colnames(Y)[2])
 ```
-Taking a look at their coefficients with `coefplot` that the first species is estimated to have a (small) positive response to slope, and the second species a negative response. The north of Switzerland is a plateau, so that steeper places occur in the south, so our predictions corresponds pretty well to my limited understanding of Swiss topography.
+Taking a look at their coefficients with `coefplot`, we see that the first species is estimated to have a (small) positive response to slope, and the second species a negative response. The north of Switzerland is a plateau, so that steeper places occur in the south, so our predictions correspond pretty well to my limited understanding of Swiss topography.
 
 ## Tasks
 
