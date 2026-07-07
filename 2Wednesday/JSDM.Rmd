@@ -453,7 +453,7 @@ g\{\mathams{E}(\textbf{y}_i \vert \symbf{\epsilon}_i)\} = \symbf{\beta}_0 + \tex
 
 - Difficult to estimate: there are usually too many parameters
 - The number of pairwise associations grows quadratically
-  - 2 with 2 species, 6 for 4 species, 45 for 10 species, 4950 for 100
+  - 1 with 2 species, 6 for 4 species, 45 for 10 species, 4950 for 100
 
 \begin{equation}
 \symbf{\Sigma} = \begin{bmatrix}
@@ -473,11 +473,11 @@ The JSDM is "just" a mixed-effects model. So we can fit it with available softwa
 
 \footnotesize
 ```{r,eval=FALSE}
-glmmVA(abundance ~ species + x:species + (0+species|sites), data = data)
+glmmVA(abundance ~ species + x:species + (0+species|sites), data = data, family = "poisson")
 ```
 \normalsize
 
-- There are $p(p+1)/2$ correlations between species
+- There are $p(p-1)/2$ correlations between species
 - This model becomes (very) large very quickly \footnotesize do not try this at home
 \normalsize
 - Will usually not fit

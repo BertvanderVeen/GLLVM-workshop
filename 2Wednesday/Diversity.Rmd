@@ -276,7 +276,7 @@ The `predictSR()` function computes:
 ```{r, eval=FALSE}
 sr_pred <- predictSR(model, newX = newdata,
                      newLV = matrix(0, ncol = 2, nrow = nrow(newX)))
-sr_pred$expected     # expected species richness
+sr_pred$expected$fit  # expected species richness
 residuals(sr_pred, model)   # Dunn-Smyth residuals
 goodnessOfFit(Y, object = model, measure = "AUC") # AUC per species
 ```

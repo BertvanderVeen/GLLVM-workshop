@@ -338,7 +338,7 @@ Extracting the coefficients:
 B <- (coef(model2, "B"))
 Bx <- B[1:2]
 Bxtr <- matrix(B[-c(1:2)], ncol = 2, byrow =  TRUE)
-beta <- Bx + model2$TR%*%Bxtr
+beta <- sweep(model2$TR%*%t(Bxtr), 2, Bx, "+")
 ```
 
 You can also get $\hat{\textbf{B}}_{x,tr}$ via `gllvm:::getFourthCorner(model2)`

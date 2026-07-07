@@ -571,7 +571,7 @@ Ordination methods are defined by their rotation (except NMDS?), here:
 library(vegan)
 data(dune); Y <- dune
 data(dune.env); X <- dune.env
-knitr::kable(head(dune, 10), format="latex", booktabs = T)
+knitr::kable(head(dune, 10)[, 1:6], format="latex", booktabs = T)
 ```
 
 - A classic dataset, originally by Jongman et al. (1995)
@@ -848,7 +848,7 @@ Latent variable models are not that straightforward. \newline
 \begin{equation}
 \begin{aligned}
 \symbf{\eta}_i &= \beta_{0j} + \sum \limits^d_{q=1} z_{iq}\symbf{\gamma}_q, \qquad \text{where } \textbf{z}_i \sim  \mathcal{N}(\textbf{0},\textbf{I})\\
-&= \beta_{0j} + \symbf{\epsilon}_i, \qquad \text{where } \symbf{\epsilon}_i \sim \mathcal{N}(\textbf{0}, \sum \limits^d_{q=1}\symbf{\gamma}_q)
+&= \beta_{0j} + \symbf{\epsilon}_i, \qquad \text{where } \symbf{\epsilon}_i \sim \mathcal{N}(\textbf{0}, \sum \limits^d_{q=1}\symbf{\gamma}_q\symbf{\gamma}_q^\top)
 \end{aligned}
 \end{equation}
 
@@ -917,9 +917,12 @@ plot(swissc, border = "red", add = TRUE, col = NA, lwd = 2)
 
 \tiny 
 ```{r, alpinefit, cache = TRUE}
-model3 <- gllvm(Y, num.lv = 2, family = "binomial", sd.errors = FALSE, diag.iter = 0, optim.method = "L-BFGS-B")
-model4 <- gllvm(Y, num.lv = 3, family = "binomial", sd.errors = FALSE, diag.iter = 0, optim.method = "L-BFGS-B")
-model5 <- gllvm(Y, num.lv = 4, family = "binomial", sd.errors = FALSE, diag.iter = 0, optim.method = "L-BFGS-B")
+model3 <- gllvm(Y, num.lv = 2, family = "binomial", sd.errors = FALSE,
+                diag.iter = 0, optim.method = "L-BFGS-B")
+model4 <- gllvm(Y, num.lv = 3, family = "binomial", sd.errors = FALSE,
+                diag.iter = 0, optim.method = "L-BFGS-B")
+model5 <- gllvm(Y, num.lv = 4, family = "binomial", sd.errors = FALSE,
+                diag.iter = 0, optim.method = "L-BFGS-B")
 ```
 
 ```{r alpord1, cache = TRUE, dev ="pdf", fig.show = "hide", fig.height = 10, echo = FALSE}

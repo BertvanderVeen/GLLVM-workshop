@@ -74,7 +74,7 @@ So far: only unconstrained ordination
 ## Constrained ordination methods
 
 - Redundancy analysis \footnotesize (RDA, Rao 1964) \normalsize
-- Canonical Correspondence Analysis \footnotesize (CCA, ter Braak 1985)\normalsize
+- Canonical Correspondence Analysis \footnotesize (CCA, ter Braak 1986)\normalsize
 
 \begin{enumerate}
 \item These methods filter the variation in the community based on covariates. \newline
@@ -383,9 +383,9 @@ coef(model3, parm="Cancoef")
 
 ```{r cnord_ordi, cache = FALSE, warning = FALSE, message = FALSE, dev="png", fig.show = "hide", fig.height = 7, dpi = 150}
 layout(matrix(c(1,1,2,3), 2, 2, byrow=TRUE))
-gllvm::ordiplot(model3, type= "conditional", rotate = FALSE) 
-gllvm::ordiplot(model3, type = "marginal", rotate = FALSE) 
-gllvm::ordiplot(model3, type = "residual", rotate = FALSE)
+gllvm::ordiplot(model3, type= "conditional", rotate = FALSE, symbols = TRUE)
+gllvm::ordiplot(model3, type = "marginal", rotate = FALSE, symbols = TRUE)
+gllvm::ordiplot(model3, type = "residual", rotate = FALSE, symbols = TRUE)
 ```
 
 ## Example 2: Ordination plots of different scores
@@ -457,7 +457,7 @@ We can also incorporate \textbf{correlation} of the effects. This is a model whe
 
 - Associations due to environment `getEnvironCor`
 - Correlation between environment effects (requires `lv.formula` \texttt{lme4}-style)
-- Which means we can examine the reduced-rank approximated random effects `RandomCoefPlot`
+- Which means we can examine the reduced-rank approximated random effects `randomCoefplot`
 
 ## Random canonical coefficients: mathy bits
 
@@ -510,9 +510,9 @@ corrplot::corrplot(model4$params$corsLvXcoef, type = "lower", diag = FALSE, tl.p
 
 ```{r cnord2_ordiplot, cache = TRUE, warning = FALSE, message = FALSE, fig.height = 6, echo = FALSE, dpi = 150}
 layout(matrix(c(1,1,2,3), 2, 2, byrow=TRUE))
-gllvm::ordiplot(model4, type= "conditional", rotate = FALSE) 
-gllvm::ordiplot(model4, type = "marginal", rotate = FALSE) 
-gllvm::ordiplot(model4, type = "residual", rotate = FALSE)
+gllvm::ordiplot(model4, type= "conditional", rotate = FALSE, symbols = TRUE)
+gllvm::ordiplot(model4, type = "marginal", rotate = FALSE, symbols = TRUE)
+gllvm::ordiplot(model4, type = "residual", rotate = FALSE, symbols = TRUE)
 ```
 
 ## Example 3: Random coefficient plot of species

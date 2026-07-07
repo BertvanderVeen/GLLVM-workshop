@@ -576,7 +576,7 @@ To model \textbf{correlation} between species responses, we need a full covarian
 
 # Example 1
 
-Remember: we have 14 species. Enough for variances, not for correlations.
+Remember: we have 13 species. Enough for variances, not for correlations.
 
 In the previous presentation, we saw that NO3 had no statistically significant effect. A small estimated variance produces strong **shrinkage** toward the community mean: species-specific estimates are regularized rather than fit freely to noisy data.
 
@@ -919,7 +919,7 @@ m_rep <- gllvm(fy, X=fX,
                studyDesign=data.frame(RESERVE=fX$RESERVE),
                formula=~(0+DBH.CM|1),
                row.eff=~(1|RESERVE),
-               family="binomial", num.lv=0,
+               family="binomial", link="logit", num.lv=0,
                beta0com=FALSE)
 ```
 

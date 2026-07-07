@@ -152,10 +152,10 @@ The orderedBeta distribution places point masses at 0 and 1 with a Beta distribu
 
 \pause
 
-`zeta.cutoff` controls the quantile threshold for the zero/one mixture; default is usually fine, but set explicitly for stability:
+`zetacutoff` controls the quantile threshold for the zero/one mixture; default is usually fine, but set explicitly for stability:
 
 ```{r}
-fit <- gllvm(..., family = "orderedBeta", zeta.cutoff = c(-2, 2))
+fit <- gllvm(..., family = "orderedBeta", zetacutoff = c(-2, 2))
 ```
 
 ## Combining families in a single model
@@ -173,7 +173,7 @@ fit <- gllvm(y      = Y,
              family = family_vec,
              Ntrials = Ntrials,
              num.lv = 2,
-             zeta.cutoff = c(-2, 2))
+             zetacutoff = c(-2, 2))
 ```
 
 ## What does a joint model across datasets look like?
@@ -354,6 +354,7 @@ With `num.lv.c` and `lv.formula`, we can combine this with spatial/temporal stru
 fit_conc <- gllvm(
   y          = Y,
   X          = X,
+  family     = "poisson",
   num.lv.c   = 2,
   lv.formula = ~ temperature + moisture,
   distLV     = site_coords,
@@ -624,13 +625,15 @@ AIC favours the more complex models, but the models target different questions: 
 
 ## Summary
 
+\footnotesize
+
 **Mixed responses**
 
 - `family` accepts a vector; each species gets its own distribution and link
 - Shared LVs connect all species into one ordination space
 - Enables joint modelling across datasets with different measurement scales
 
-\vspace{0.5em}
+\vspace{0.3em}
 
 **Spatial and temporal autocorrelation**
 
@@ -638,9 +641,11 @@ AIC favours the more complex models, but the models target different questions: 
 - `distLV` provides coordinates for spatial kernels
 - Short fitted ranges are informative, not a failure
 
-\vspace{0.5em}
+\vspace{0.3em}
 
 **Combining both**
 
 - Mixed responses + spatial LVs + concurrent ordination: all composable in `gllvm`
 - The Garchinger example shows how far this can be pushed on real data
+
+\normalsize

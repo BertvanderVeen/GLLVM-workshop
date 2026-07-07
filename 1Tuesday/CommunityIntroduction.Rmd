@@ -169,7 +169,7 @@ The field built its analytical culture around these tools. \newline
 
 \pause
 
-Now there is.
+Now there is a principled alternative.
 
 ## What do classical methods assume?
 
@@ -198,6 +198,8 @@ PERMANOVA & Hypothesis test & Homogeneous within-group dispersion \\
 
 ## What do classical methods do well?
 
+\footnotesize
+
 These methods have been the backbone of community ecology for 50+ years, and for good reason:
 
 \begin{itemize}
@@ -208,6 +210,8 @@ These methods have been the backbone of community ecology for 50+ years, and for
 \item \textbf{Variance partitioning}: straightforward with \texttt{vegan::varpart()}
 \item \textbf{Widely understood}: biplots and triplots are familiar to most referees and readers
 \end{itemize}
+
+\normalsize
 
 \pause
 
@@ -311,7 +315,7 @@ Community data is sparse, overdispersed, and non-normal. Classical methods apply
 
 ## Distance-based methods confound location and dispersion
 
-\small [Warton et al. (2012)](https://besjournals.onlinelibrary.wiley.com/doi/full/10.1111/j.2041-210X.2011.00127.x): when communities differ only in mean abundance (a location effect), Bray-Curtis ordination suggests a dispersion effect. \normalsize
+\small [Warton et al. (2012)](https://besjournals.onlinelibrary.wiley.com/doi/full/10.1111/j.2041-210X.2011.00127.x): equal dispersion parameter, different means. Bray-Curtis ordination still suggests a dispersion effect. \normalsize
 
 ```{r confound, echo=FALSE, fig.height=2.5, fig.width=8, message=FALSE, warning=FALSE}
 library(vegan)
@@ -324,7 +328,7 @@ grp <- rep(1:2, each = n)
 invisible(capture.output(nmds <- metaMDS(Y, k = 2, trace = FALSE)))
 par(mfrow = c(1,2), mar = c(4,4,2,1))
 plot(nmds$points, col = grp, pch = c(1,2)[grp], cex = 1.5,
-     xlab = "MDS1", ylab = "MDS2",
+     xlab = "NMDS1", ylab = "NMDS2",
      main = "NMDS (Bray-Curtis)", cex.main = 0.9)
 legend("topright", c("High mean abund.","Low mean abund."),
        col = 1:2, pch = 1:2, cex = 0.7)
@@ -337,7 +341,7 @@ plot(log(c(m1,m2)+0.01), log(c(v1,v2)+0.01),
 legend("topleft", c("High abund.","Low abund."), col=1:2, pch=16, cex=0.7)
 ```
 
-\footnotesize Low-abundance group appears more dispersed in NMDS. The mean-variance plot shows both groups share the same relationship. \textcolor{red}{There is no dispersion effect.} The apparent dispersion is an artefact of Bray-Curtis weighting. \normalsize
+\footnotesize Low-abundance group appears more dispersed in NMDS, but the dispersion parameter is identical; variance just tracks the mean. \textcolor{red}{This is a Bray-Curtis artefact, not a real dispersion effect.} \normalsize
 
 
 # Why model-based?

@@ -968,7 +968,7 @@ AIC(model7, model8)
 
 \normalsize
 
-There are `14` more parameters in model7 than model8, so AIC needs to be `14*2` points lower.
+There are `13` more parameters in model7 than model8, so AIC needs to be `13*2` points lower.
 
 <!-- ## VGLM in gllvm -->
 

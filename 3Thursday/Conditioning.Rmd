@@ -267,6 +267,8 @@ gllvm::ordiplot(model3, s.cex = 2, type = "marginal", arrow.ci = FALSE);gllvm::o
 These are two ordinations with different loadings.
 \end{center}
 
+\footnotesize Combining \texttt{lvCor} with \texttt{num.RR} is more prone to convergence issues than either alone; check the optimizer warnings and consider increasing \texttt{n.init} if you see them.\normalsize
+
 # Conditioning
 
 
@@ -659,7 +661,7 @@ So, inference is more challenging, but it does improve the model (\textit{and ca
 ```{r, echo = FALSE, eval = TRUE, message=FALSE}
 data(dune, package = "vegan"); Y <- dune
 data(dune.env, package = "vegan"); X <- dune.env
-knitr::kable(head(dune, 5), format="latex", booktabs = T)
+knitr::kable(head(dune, 5)[, 1:6], format="latex", booktabs = T)
 ```
 
 - A classic dataset, originally by Jongman et al. (1995)
