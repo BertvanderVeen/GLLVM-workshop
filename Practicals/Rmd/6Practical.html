@@ -390,6 +390,20 @@ ordination, which is the subject of Thursday’s Conditioning lecture and
 practical.</p>
 <div id="part-i" class="section level2">
 <h2>Part I</h2>
+<div id="data" class="section level3">
+<h3>Data</h3>
+<p>Today’s lecture used the Dutch Dune data (<tt>vegan</tt>) and the
+Alpine data for the unconstrained ordination examples. Unconstrained
+ordination does not need environmental covariates, so almost any species
+dataset works; besides the road data used below, you could use:</p>
+<ol style="list-style-type: decimal">
+<li>Dune (“dune”, percentage cover, in <tt>vegan</tt>; used in the
+lecture)</li>
+<li>Alpine (“alpineX/Y”, presence-absence; used in the lecture)</li>
+<li>wadden (abundance)</li>
+<li>Wetlands (counts)</li>
+<li>Beetles (counts)</li>
+</ol>
 <p>I will explore fitting model-based ordination using a (restoration)
 vegetation dataset by <a href="https://onlinelibrary.wiley.com/doi/full/10.1111/avsc.12673">Mehlhoop
 et al. (2022)</a>. We can read it in as follows:</p>
@@ -523,7 +537,7 @@ vegan::procrustes(getLV(model1), vegan::scores(NMDS, choices = 1:2), symmetric =
 ## vegan::procrustes(X = getLV(model1), Y = vegan::scores(NMDS,      choices = 1:2), symmetric = TRUE) 
 ## 
 ## Procrustes sum of squares:
-## 0.498</code></pre>
+## 0.6279</code></pre>
 <pre class="r"><code>vegan::procrustes(getLV(model1), vegan::scores(CA, choices = 1:2), symmetric = TRUE)</code></pre>
 <pre><code>## 
 ## Call:
@@ -627,6 +641,7 @@ to fit as much information on the first two axes, in a way that best
 represents the data. In this it is a little different than (for example)
 eigenvector-based ordination methods, because here we find the
 ordination axes by “best fit”.</p>
+</div>
 </div>
 <div id="tasks-i" class="section level2">
 <h2>Tasks I</h2>

@@ -17,14 +17,14 @@ Random effects also offer great opportunities in estimating the variability or c
 
 # Data
 
-I collected some datasets that we can work with, but if you have your own data you can also start by analyzing that instead. 
+I collected some datasets that we can work with, but if you have your own data you can also start by analyzing that instead. Today's lecture used Wetlands (counts) and fungi (presence-absence, for the repeatability example); both are listed below.
 
 1. Beetles (abundance)
-2. Birds (abundance)
-3. wadden (abundance)
-4. wadden (biomass)
-5. fungi (presence-absence)
-6. eucalypt (presence-absence)
+2. Birds (presence-absence)
+3. Wetlands (counts; used in the lecture)
+4. wadden (abundance)
+5. wadden (biomass)
+6. fungi (presence-absence; used in the lecture)
 
 Feel free to continue where you left off in the last exercises, for example with one of the datasets <tt>mvabund</tt> has:
 
@@ -36,7 +36,7 @@ Feel free to continue where you left off in the last exercises, for example with
 
 and there are more datasets (e.g., "dune", "pyrifos", "mite", and "BCI") in the <tt>vegan</tt> R-package. 
 
-# Part I
+# Part I: Fitting GLMMs
 
 If you chose to work with a dataset that you did not work with during the last exercise, please make sure to start with some basic visualizations. I will continue with the waddensea data; it has a nested study design which makes it perfect for demonstrating the use of random effects.
 
@@ -139,14 +139,14 @@ plot(xnew, alphadiv, type = "l") # backtransform
 
 so that alpha diversity increases with elevation.
 
-## Tasks
+## Tasks I
 
 1. Fit models with random intercepts and/or random slopes, to get a hang on the syntax.
 2. Try both standardized and centered covariates, as well as uncentered and unscaled. How does it affect the model?
 3. Experiment with fixed and random effects in the model; which one performs better for your chosen dataset?
 4. Try to build an ecological understanding of variance parameters in terms of diversity and turnover
 
-# Part II
+# Part II: Correlation and repeatability of random effects
 
 So far, we have fitted random effects models where the random effects are independent (have no correlation). Especially when it comes to shrinkage, or when we do not have so much information, this is a sensible thing to do. It requires quite a lot of information to estimate correlation parameters, where with "information" I mean "levels of the random effect". In our case, the number of species represent the number of replicates for the random effect that we have. Fortunately, we often have a bunch of them! So, we can probably go ahead and estimate the correlation of random effects.
 
@@ -202,7 +202,7 @@ This shows what fraction of the explained variance in the linear predictor is du
 
 Repeatability extends the same idea by also including the residual (observation-level) variance in the denominator, so it answers "how much of the total variation, sampling noise included, is explained by this grouping?" rather than "how much of the explained variance is due to it?" For a negative binomial model the residual variance depends on the mean and dispersion parameter, so repeatability has to be evaluated species by species rather than as a single community-wide number.
 
-## Tasks
+## Tasks II
 
 1. Include correlation parameters between some (or all) of the terms in your model
 2. Can you make ecological sense of the estimates for the correlation parameters?
@@ -210,7 +210,7 @@ Repeatability extends the same idea by also including the residual (observation-
 4. Compute the ICC for `island` in `model4`. Is community composition dominated by island identity, or by the environmental slopes?
 5. Pick one species and estimate its repeatability for island (include the residual variance implied by its dispersion parameter). How does it compare to the community-average ICC?
 
-# Part III
+# Part III: Nested random effects
 
 So far we focused on random effects that account for variation between species. Let's turn to random effects for the sites or samples themselves. The waddensea data are collected from three islands (Norderney, Spiekeroog, Wangerooge), with three transects (A, B, C) at each island, and three sampling stations within each transect. At each station, three samples were taken in spring and summer.
 
@@ -245,7 +245,7 @@ confint(model10, parm = "sigma")
 
 Community-level variation in abundance between transects and between samples is small (the standard deviations are close to zero) once all levels of the sampling design are accounted for along with silt_clay and elevation. There is, however, some variation between stations.
 
-## Tasks
+## Tasks III
 
 1. Include random effects that account for the sampling design in your model.
 2. Compare a model with community-level random effects for the sampling design to one without. Does it change the fixed-effect estimates or their uncertainty?

@@ -19,6 +19,12 @@ The key `gllvm` arguments for spatial/temporal structure are:
 - `distLV`: matrix of distances between sites (for spatial models)
 - `corAR1`, `corExp`, `corMatern`, `corCS`: available correlation structures
 
+Today's lecture demonstrated these ideas on small synthetic examples, plus a real case study: the Garchinger Heide calcareous grassland data (Bauer & Albrecht 2020), combining ordinal and zero-inflated count families with a spatial correlation structure. That dataset is not in the shared `data` folder, so here we work with wadden instead. If you want a dataset with real (rather than simulated) spatial or temporal replication, the <tt>gllvm</tt> package ships two:
+
+1. wadden (abundance; simulated coordinates for the spatial part, real seasons for the temporal part; used below)
+2. Skabbholmen (counts, `data(Skabbholmen)`; real repeated transects surveyed over several years, a genuine temporal succession dataset)
+3. kelpforest (counts, `data(kelpforest)`; real site/year/transect structure, suitable for both the spatial and temporal parts)
+
 # Part I: Temporal autocorrelation
 
 We use a subset of the wadden sea data which has a temporal structure (seasons).

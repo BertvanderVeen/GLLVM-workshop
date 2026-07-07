@@ -5,7 +5,7 @@ author: "Bert van der Veen"
 output: html_document
 ---
 
-# Description
+# Background
 
 So far we have focused on answering the question "what environmental conditions do species prefer?". VGLM(M)s estimate species responses to the environment, so the coefficients and statistical uncertainties help us to answer the question. A good part of community ecology is more occupied with answering the question "why do species prefer particular environmental conditions?" using functional traits.
 
@@ -15,17 +15,16 @@ Traditionally, community ecologists would explore this question using community 
 
 As explained in the lecture, this approach of using traits to inform how species respond to the environment has long been referred to as the "fourth-corner problem". In a statistical model, we pose this as an interaction of traits and environment, so that the interaction coefficients explain if species with a particular trait respond differently to the environment. That makes the models an extension of what we looked at yesterday.
 
-# Part I
+# Part I: Fitting a fourth-corner model
 
 ## Data
 
-Because we need functional traits in this exercise, we are now a bit more limited in the datasets that we can use. The following datasets include species response data, environmental variables, and traits:
+Because we need functional traits in this exercise, we are now a bit more limited in the datasets that we can use. Today's lecture used the Alpine2 (traits) and fungi (traits and phylogeny) data; the following datasets include species response data, environmental variables, and traits:
 
 1. Carabid beetles ("beetles", abundance)
-2. French Alpine plants ("Alpine2", presence-absence)
-3. Wood-inhabiting fungi ("fungi", presence-absence)
-4. Eucalyptus trees ("eucalypt", presence-absence)
-5. Hunting spiders ("spider", counts in <tt>mvabund</tt>)
+2. French Alpine plants ("Alpine2", presence-absence; used in the lecture)
+3. Wood-inhabiting fungi ("fungi", presence-absence, also has a phylogeny; used in the lecture)
+4. Hunting spiders ("spider", counts in <tt>mvabund</tt>)
 
 ## Background
 
@@ -178,7 +177,7 @@ anova(model2, model3)
 
 The models differ by 20 parameters, as indicated by the "df.diff" output. The resulting test is statistically significant; we conclude that species' responses to the environment really do depend on these traits.
 
-## Tasks
+## Tasks I
 
 Suggestions for this practical:
 
@@ -186,7 +185,7 @@ Suggestions for this practical:
 2) Try to make ecological sense of the fourth-corner coefficients. Don't forget that the species-common effects are also present as shown by `summary`
 3) Use `anova` to test the environment-trait hypothesis. You can also try using information criteria with `AIC`, `BIC` or `AICc`
 
-# Part II
+# Part II: Adding a phylogeny
 
 ## Background
 

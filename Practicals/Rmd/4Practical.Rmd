@@ -15,7 +15,15 @@ Technically, JSDMs are models for binary data: presence-absence of species. Howe
 
 ## Data
 
-We will explore fitting JSDMs using a binary dataset of alpine plants by [D'Amen et al. (2018)](https://nsojournals.onlinelibrary.wiley.com/doi/epdf/10.1111/ecog.03148), used to demonstrate GLLVMs by [van der Veen et al. (2021)](https://besjournals.onlinelibrary.wiley.com/doi/full/10.1111/2041-210X.13595). The data is available in the github repository as "Alpine", in the data folder. You are of course free to use another dataset, but for this dataset we also have a raster file so we can predict with the model, and visualize that prediction.
+We will explore fitting JSDMs using a binary dataset of alpine plants by [D'Amen et al. (2018)](https://nsojournals.onlinelibrary.wiley.com/doi/epdf/10.1111/ecog.03148), used to demonstrate GLLVMs by [van der Veen et al. (2021)](https://besjournals.onlinelibrary.wiley.com/doi/full/10.1111/2041-210X.13595). The data is available in the github repository as "Alpine", in the data folder. We also have a raster file for this dataset, so we can predict with the model and visualize that prediction, which is why it is the default here.
+
+Today's lecture used this same Alpine data, plus Alpine2 and Wetlands for other examples. You are free to use another dataset instead; options with binary or count response data include:
+
+1. Alpine ("alpineX/Y", presence-absence; default here, used in the lecture)
+2. Alpine2 ("alpine2X/Y", presence-absence; used in the lecture)
+3. Wetlands (counts; used in the lecture)
+4. wadden (abundance)
+5. fungi (presence-absence)
 
 We can read it in as follows:
 
@@ -49,7 +57,7 @@ X <- X[rowSums(Y)>0, ]
 Y <- Y[rowSums(Y)>0,]
 ```
 
-# Part I
+# Part I: Fitting a JSDM
 
 ## Fitting a Joint Species Distribution Model
 
@@ -105,12 +113,12 @@ plot(predrast[[2]], main = colnames(Y)[2])
 ```
 Taking a look at their coefficients with `coefplot`, we see that the first species is estimated to have a (small) positive response to slope, and the second species a negative response. The north of Switzerland is a plateau, so that steeper places occur in the south, so our predictions correspond pretty well to my limited understanding of Swiss topography.
 
-## Tasks
+## Tasks I
 
 1) Fit the models, you can also try using random effects instead of fixed effects for "slope"
 2) Try to understand the code for predicting on the map. We can also use the `predict` function in the package, but that is still a bit of a construction site; especially for models with species-specific random effects it will be extended in the next months.
 
-# Part II
+# Part II: Model comparison and selection
 
 There are two directions we can take this now: add species-specific effects (fixed or random), or species-common effects (fixed or random), or try to go through a procedure of selecting the optimal number of latent variables to represent the associations, with `AIC`, `BIC`, `goodnessOfFit`. `?goodnessOfFit` helps you to calculate some metrics for the predictive performance of the model, such as Tjur's $R^2$:
 
@@ -119,6 +127,8 @@ goodnessOfFit(Y, object = model1, measure = "TjurR2")
 ```
 
 this is used in distribution modeling to quantify "discriminative power"; if observations (presence or absence) can perfectly be classified by the model, it will equal 1. With more latent variables, or by adding covariates, it will probably improve.
+
+## Tasks II
 
 1. Explore the model with latent variables displayed above; fit it in your own R session, extract the associations, and visualize them with the `corrplot` function
 2. Fit models with different number of latent variables, and perform comparison. Here, I want you to use `goodnessOfFit` to try and find the model with the highest discriminative power

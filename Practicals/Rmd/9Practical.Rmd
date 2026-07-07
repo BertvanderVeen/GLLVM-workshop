@@ -5,7 +5,7 @@ author: "Bert van der Veen"
 output: html_document
 ---
 
-# Description
+# Background
 
 If a response model is truly unimodal, fitting a linear model will poorly retrieve the latent variables, and can lead to poor estimation of species associations. That is something community ecologists have understood for decades, because it is a subject that has been at the basis of choosing an ordination method. 
 
@@ -14,6 +14,12 @@ However, there have been no ordination methods that actually implement a unimoda
 In <tt>gllvm</tt> we can truly implement an ordination where species respond quadratically to the latent variables. We explicitly estimate species' optima, and we estimate species' tolerances. This makes it the most complex ordination method for community ecology to date, and it is that complexity that keeps it from being suitable to all datasets; it is a little bit more "data hungry" than an ordination method with a linear response model.
 
 In this practical, we will apply the first ordination method that is explicitly based on a unimodal response model.
+
+Today's lecture used the Alpine data (elevation gradient), the spider data (in <tt>mvabund</tt>), and the Podani/Minchin data (downloaded directly in the Rmd) to illustrate unimodal responses. Any dataset where you expect species to have optima along a gradient is suitable here, except beta-distributed responses (not yet supported for the quadratic model); besides the wadden data used below, you could use:
+
+1. Alpine ("alpineX/Y", presence-absence, elevation gradient; used in the lecture)
+2. spider (counts, in <tt>mvabund</tt> via `data(spider, package = "mvabund")`; used in the lecture)
+3. Dune ("dune", percentage cover, in <tt>vegan</tt>; a classic case for unimodal-response ordination methods)
 
 # Part I
 

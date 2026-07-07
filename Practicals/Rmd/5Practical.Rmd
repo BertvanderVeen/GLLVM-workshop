@@ -1,5 +1,5 @@
 ---
-title: "Practical: predicting species richness and diversity"
+title: "Practical: predicting species richness"
 subtitle: "Physalia workshop on GLLVMs"
 author: "Bert van der Veen"
 output: html_document
@@ -7,14 +7,22 @@ output: html_document
 
 # Background
 
-In this practical we use a multispecies model to predict species richness and explore diversity components. The key ideas from the lecture are:
+In this practical we use a multispecies model to predict species richness. The key ideas from the lecture are:
 
 - Species richness is an emergent property of the joint species model
 - The correct distribution for species richness is the Poisson-Binomial
-- `predictSR()` computes expected richness from any fitted `gllvm` model
-- Variance components connect to alpha, beta, and gamma diversity
+- `predictSR()` computes expected richness from any fitted `gllvm` model, for any response distribution
+- A missing nonlinear term in the fixed effects can be silently absorbed by the latent variables, so the usual conditional diagnostics look fine even when richness predictions for new sites are biased
 
-We will use the alpine plant dataset (binary presence-absence) which we have used before. The goal is to fit a multispecies model, predict species richness along the elevation gradient, and explore how model components relate to diversity.
+We use two datasets. Part I and Part III use the alpine plant data (binary presence-absence, elevation gradient) that we have used before. Part II uses the carabid beetle data (counts, already used in Practicals 1 and 3) to check whether the lack-of-fit problem demonstrated in the lecture also shows up elsewhere.
+
+Today's lecture used this same Alpine data, plus Swiss birds for the diversity examples. `predictSR()` works for any response distribution, so any dataset with binary or count responses is fair game if you would rather use something else for Part I:
+
+1. Alpine ("alpineX/Y", presence-absence; default here, used in the lecture)
+2. Beetles (counts; used here in Part II)
+3. Birds (presence-absence; used in the lecture)
+4. wadden (abundance)
+5. fungi (presence-absence)
 
 ```{r setup, message=FALSE}
 library(gllvm)
@@ -36,18 +44,23 @@ model1 <- gllvm(y = Y, X = X_sc,
                 formula = ~ELEV,
                 num.lv = 2,
                 family = "binomial",
-                sd.errors = FALSE,
-                optim.method = "L-BFGS-B",
                 seed = 1)
 ```
 
+
+Check residuals from the Poisson-Binomial distribution:
+
+```{r resid}
+sr <- predictSR(model1, se.fit = FALSE)
+plot(sr, model1)
+```
 Now predict species richness along the elevation gradient:
 
 ```{r predict}
 elev_seq <- seq(min(X_sc$ELEV), max(X_sc$ELEV), length.out = 100)
 newX <- data.frame(ELEV = elev_seq)
 
-sr <- predictSR(model1, newX = newX, level = 0)
+srNew <- predictSR(model1, newX = newX, level = 0)
 ```
 
 Plot observed richness against predicted richness:
@@ -56,15 +69,9 @@ Plot observed richness against predicted richness:
 obs_sr <- rowSums(Y)
 plot(X_sc$ELEV, obs_sr, pch = 16, col = rgb(0,0,0,0.3),
      xlab = "Elevation (scaled)", ylab = "Species richness")
-lines(elev_seq, sr$expected$fit, col = "red", lwd = 2)
-lines(elev_seq, sr$expected$lower, col = "red", lwd = 1, lty = 2)
-lines(elev_seq, sr$expected$upper, col = "red", lwd = 1, lty = 2)
-```
-
-Check residuals from the Poisson-Binomial distribution:
-
-```{r resid}
-plot(residuals(sr))
+lines(elev_seq, srNew$expected$fit, col = "red", lwd = 2)
+lines(elev_seq, srNew$expected$lower, col = "red", lwd = 1, lty = 2)
+lines(elev_seq, srNew$expected$upper, col = "red", lwd = 1, lty = 2)
 ```
 
 ## Tasks I
@@ -75,37 +82,59 @@ plot(residuals(sr))
 4. Use `AIC()` or `BIC()` to compare models. Does including latent variables improve fit?
 5. Examine the `predictSR` residuals: do they look like random noise, or is there remaining structure?
 
-# Part II: Diversity components
+# Part II: Diagnosing and fixing lack of fit
 
-The variance components from the model connect to ecological diversity concepts.
+In the lecture, the alpine example showed that a missing quadratic elevation term can be absorbed entirely by the latent variables: `plot(model)` and the usual conditional residuals look clean, but predictions for a *new* site (latent variables set to zero, since there is no estimated score for it) are biased, and only the marginal Poisson-Binomial residuals reveal the problem.
 
-```{r var_components}
-# Variation explained by the latent variables
-getResidualCov(model1)$trace
+We reproduce that same diagnostic here, but on the carabid beetle data instead of the alpine data, using soil moisture (`Moist`) as the covariate instead of elevation.
 
-# Relative variation per axis
-var.q <- getResidualCov(model1)$var.q
-var.q / sum(var.q)
+```{r beetle_setup, message=FALSE}
+Yb <- t(read.csv("../../data/beetlesY.csv"))
+colnames(Yb) <- Yb[2, ]
+Yb <- Yb[-c(1:2), -c(1, 70:71)]
+Yb <- as.data.frame(apply(Yb, 2, as.integer))
+
+Xb <- read.csv("../../data/beetlesX.csv")[, -c(1:5)]
+Xb <- as.data.frame(apply(Xb, 2, as.numeric))
+Xb_sc <- data.frame(scale(Xb[, c("Moist", "Elevation")]))
 ```
 
-For the species-specific elevation effects (treated as random), the variance tells us how much species differ in their response to elevation, a measure of niche differentiation driving beta diversity.
+```{r beetle_fit_lin, cache=TRUE, message=FALSE}
+modelB_lin <- gllvm(y = Yb, X = Xb_sc,
+                    formula = ~Moist,
+                    num.lv = 2,
+                    family = "negative.binomial",
+                    seed = 1)
+```
 
-```{r beta_diversity, eval=FALSE}
-model2 <- gllvm(y = Y, X = X_sc,
-                formula = ~(0 + ELEV|1),
-                num.lv = 0,
-                family = "binomial",
-                sd.errors = FALSE)
-summary(model2)  # examine variance of elevation slopes
+Predict richness twice: once "conditionally", using the model's own estimated site scores (the default, `level = 1`), and once "marginally", forcing the latent variables to zero as if predicting for a new site.
+
+```{r beetle_sr}
+sr_full <- predictSR(modelB_lin, se.fit = FALSE)
+sr_marg <- predictSR(modelB_lin, se.fit = FALSE,
+                     newLV = matrix(0, ncol = 2, nrow = nrow(Yb)))
+
+res_full <- residuals(sr_full, modelB_lin)
+res_marg <- residuals(sr_marg, modelB_lin)
+```
+
+```{r beetle_resid_plot, fig.height=4}
+par(mfrow = c(1, 2))
+plot(Xb_sc$Moist, res_full$residuals, xlab = "Moisture (scaled)",
+     ylab = "Dunn-Smyth residuals", main = "Conditional")
+abline(h = 0, lty = 2)
+plot(Xb_sc$Moist, res_marg$residuals, xlab = "Moisture (scaled)",
+     ylab = "Dunn-Smyth residuals", main = "Marginal")
+abline(h = 0, lty = 2)
 ```
 
 ## Tasks II
 
-1. Extract and interpret the residual covariance trace: how much variation is captured by the latent variables?
-2. Compare the relative variation explained by each latent variable axis.
-3. Fit a model with a random slope for elevation across species. What is the variance of species' elevation responses?
-4. Try predicting species richness with the random-slope model. How does the uncertainty compare to the fixed-effect model?
-5. Think about what alpha, beta, and gamma diversity mean in the context of this dataset and model. Which model components drive each component of diversity?
+1. Look at the two residual-vs-moisture panels above. Which one shows a clear pattern, and which looks flat? What does that tell you about where the missing nonlinearity has gone?
+2. Refit the model with `formula = ~Moist + I(Moist^2)` and repeat the marginal residual check. Does the pattern disappear?
+3. Why does `plot(modelB_lin)` (the default conditional diagnostic) not warn you about this problem, even though the fixed-effect part of the model is mis-specified?
+4. This matters most when predicting richness for a site that was not part of the fitted data, so there is no estimated latent variable to lean on. Using `newX` with a sequence of `Moist` values and `newLV = matrix(0, ...)`, compare the richness curve predicted by the linear model to the one predicted by the quadratic model. How different are they?
+5. Is there another covariate, in the beetle data or in the alpine data from Part I, where you suspect the same problem could occur? How would you check?
 
 # Part III: Exploring the Poisson-Binomial
 

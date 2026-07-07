@@ -16,7 +16,11 @@ Key concepts from the lecture:
 - **Variance partitioning** (`VP()`): quantifying the contribution of each model component
 - **Nested designs**: `lvCor` places the ordination at a higher grouping level; `row.eff` accommodates plot-level variation
 
-We use the wadden sea macrozoobenthos data, which has a nested structure (transects within islands) and environmental covariates.
+We use the wadden sea macrozoobenthos data, which has a nested structure (transects within islands) and environmental covariates. Today's lecture used this same wadden data, plus the Alpine and Dutch Dune data for other conditioning examples. This practical works best with a dataset that has some nested or grouped structure; alternatives include:
+
+1. wadden (abundance; nested transects within islands; used in the lecture)
+2. Road ("roadX/Y", percentage cover; nested plots within sites; used in Practicals 6-7)
+3. Skabbholmen (counts, in the <tt>gllvm</tt> package via `data(Skabbholmen)`; repeated transects over time)
 
 ```{r setup, message=FALSE}
 library(gllvm)

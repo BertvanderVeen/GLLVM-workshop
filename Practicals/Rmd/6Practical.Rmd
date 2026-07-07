@@ -15,7 +15,17 @@ From a more statistical angle, model-based ordination is a way of fitting comple
 
 In Part II, we will also briefly use the `lvCor` argument to place the (unconstrained) ordination at a higher grouping level (e.g., site rather than observation) instead of the default observation-level ordination. That is the only thing we use it for here; `lvCor` has more to offer for nested designs and partial ordination, which is the subject of Thursday's Conditioning lecture and practical.
 
-## Part I
+# Part I: Unconstrained ordination
+
+### Data
+
+Today's lecture used the Dutch Dune data (<tt>vegan</tt>) and the Alpine data for the unconstrained ordination examples. Unconstrained ordination does not need environmental covariates, so almost any species dataset works; besides the road data used below, you could use:
+
+1. Dune ("dune", percentage cover, in <tt>vegan</tt>; used in the lecture)
+2. Alpine ("alpineX/Y", presence-absence; used in the lecture)
+3. wadden (abundance)
+4. Wetlands (counts)
+5. Beetles (counts)
 
 I will explore fitting model-based ordination using a (restoration) vegetation dataset by [Mehlhoop et al. (2022)](https://onlinelibrary.wiley.com/doi/full/10.1111/avsc.12673). We can read it in as follows:
 
@@ -135,7 +145,7 @@ Now, we have only fitted models with two latent variables, or ordination axes. F
 2. Try to find an ordination that you are "satisfied". Try conditioning on random or fixed effects, and perhaps perform model selection via `AIC` or `BIC`.
 3. Make sure to check the residual diagnostics of the model: a nice looking ordination plot does not make for a valid model! (and a poor looking ordination plot does not make for an invalid model)
 
-## Part II
+# Part II: Group-level ordination with lvCor
 
 The ordinations we have fitted in the first part are defined at the observation-level, while we might want to have it at the site-level, instead. There are two ways of doing that: the "lvCor" argument accepts (at the moment) a single variable for the level at which the (unconstrained) ordination is defined. We can also use the `num.RR` argument and `lv.formula`, which we will learn more about in the next practical. For now, let's stick to using "lvCor".
 

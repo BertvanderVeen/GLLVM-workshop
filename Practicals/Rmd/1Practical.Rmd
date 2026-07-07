@@ -23,15 +23,16 @@ We have also discussed the model structure; how we can have effects that are the
 
 # Data
 
+Today's lecture used the Wetlands (macroinvertebrate counts) and Swiss birds (presence-absence) data; both are options below if you want to continue with what you saw in the lecture.
+
 The github repository has a "data" folder. You can pick any of the datasets:
 
-
 1. Beetles (abundance)
-2. Birds (abundance)
-3. wadden (abundance)
-4. wadden (biomass)
-5. fungi (presence-absence)
-6. eucalypt (presence-absence)
+2. Birds (presence-absence; used in the lecture)
+3. Wetlands (counts; used in the lecture)
+4. wadden (abundance)
+5. wadden (biomass)
+6. fungi (presence-absence)
 
 Note, as a rule-of-thumb, discrete data has less information than continuous data, with binary data having the least information, so we need more of it than (say) count data, to accurately estimate parameters.
 
@@ -95,7 +96,7 @@ matplot(sort(X$elevation),pmax(Y[order(X$elevation),], 1), type  ="p", log = "y"
 
 That mostly just looks very messy. Not sure we can learn something from these, except that we do not have a lot of samples over the covariates.
 
-# Part I
+# Part I: Fitting GLMs
 
 Let's just continue to fitting a model. We first need to form the data from wide to long:
 
@@ -207,7 +208,7 @@ segments(LI[,i], 1:nrow(est), UI[,i], 1:nrow(est))
 
 You can probably identify the species that have too little data from these plots.
 
-## Tasks
+## Tasks I
 
 The goal of this first part is to get familiar with the ideas of multispecies modeling. Here is what I want you to do:
 
@@ -216,7 +217,7 @@ The goal of this first part is to get familiar with the ideas of multispecies mo
 3. If you want to do something really daring, try changing the contrast for the 'Species' covariate to a sum-to-zero contrast (and isolate the species-common effect)
 4. After a while we will discuss together how far you got, questions or challenges that have come up, and what conclusions you were able to draw.
 
-# Part II
+# Part II: Fitting VGLMs
 
 In this second part, we will look at vector GLMs. The equation for the likelihood from before becomes:
 
@@ -286,7 +287,7 @@ From here, we could choose to explore the biomass equivalent of the same data ("
 where $p$ is the power parameter and $\phi$ is the dispersion parameter as before. Note, this looks very similar to the variance function written above!
 The Power parameter controls the exact distribution that you have, and can be estimated by the package, so that it provides for very flexible modeling of biomass.
 
-## Tasks
+## Tasks II
 
 Try fitting a few models with the <tt>gllvm</tt> package; it's why you are here after all! Each data type has its own "quirks" (ordinal classes are different from cover, which is different from biomass, and so on), and it is best to understand these before getting into more complex models. The data directory on the github has most types, so go through some modeling with different data types at this point.
 

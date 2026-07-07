@@ -11,6 +11,13 @@ In the previous practical we fitted unconstrained ordinations. Unconstrained ord
 
 This practical brings covariates into the ordination, either as fixed or as random effects. The main benefit compared to (e.g.) CCA or RDA is that many more response distributions are available, that we can combine this with random effects outside of the ordination (a partial constrained ordination, where the study design is accommodated with random effects), and that we keep a link to the original species-specific responses to the environmental covariates.
 
+Today's lecture used the Dutch Dune data (with `dune.env`) and the wadden data for these examples. This practical needs a dataset with environmental covariates; besides the road data used below, you could use:
+
+1. Dune + dune.env ("dune"/"dune.env", percentage cover, in <tt>vegan</tt>; used in the lecture)
+2. wadden (abundance; used in the lecture)
+3. Wetlands (counts, has several environmental covariates)
+4. Beetles (counts, has Elevation, Moisture, and management covariates)
+
 ```{r setup, message=FALSE}
 library(gllvm)
 TMB::openmp(parallel::detectCores()-1, autopar = TRUE, DLL = "gllvm")
@@ -26,7 +33,7 @@ X$plot <- factor(ave(seq_along(X$site), X$site, FUN = seq_along))
 
 The covariates are: "method" (restoration treatment: pn = planted natural, nat = naturally re-vegetated, ref = pristine vegetation, seed = seeded plots), "dist_int_veg" (distance to road), "caco" (canopy cover), "slope", "grain_size_stand_f" (soil grain size), "years_since_n" (time since restoration), "gf" (ecosystem type), "loi" (loss on ignition, organic content), and "site" (replicated locations).
 
-# Part I
+# Part I: Fixed-effects constrained ordination
 
 We start with a fixed-effects constrained ordination, similar in spirit to CCA:
 
@@ -101,7 +108,7 @@ The fourth model is a fixed-effects unconstrained ordination: including the obse
 4. Extract species-specific effects with `coefplot` and compare them to what the ordination plot shows.
 5. Try out the hypothesis tests above.
 
-# Part II
+# Part II: Random canonical coefficients
 
 We now have covariates available in `row.eff`, `formula`, and `lv.formula`, each with a different meaning, so model formulation needs some care. Here we focus on `lv.formula`: a constrained ordination.
 
