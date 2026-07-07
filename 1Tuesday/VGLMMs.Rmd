@@ -725,28 +725,28 @@ $13 \times 13 \to 13*(13+1)/2 = 91$ variance parameters from $14*13 = 182$ obser
 
 # From \texttt{glmmVA} to \texttt{gllvm}
 
-- \texttt{glmmVA} calls \texttt{gllvm} internally wrapping \texttt{row.eff}
+- \texttt{glmmVA} collapses long-format data to a univariate \texttt{gllvm} call, and calls \texttt{gllvm} internally wrapping \texttt{row.eff}
 - The \texttt{formula} interface provides species-specific random effects in wide format (with mean effects)
 - VGLMMs: the covariance structure is shared across all species, but own dispersion
 - Potentially species-specific response types
 
 ## \texttt{glmmVA} is a wrapper around \texttt{row.eff}
 
-\texttt{glmmVA} internally calls \texttt{gllvm(..., row.eff = formula, ...)}:
+Internally, \texttt{glmmVA} reduces $y$ to a single column: each "row" is one site$\times$species observation, not a site. \texttt{Species} is then just another row-level covariate, so it is legal (if unusual) to see it inside \texttt{row.eff}:
 
 \footnotesize
 
 ```{r bridge, eval=FALSE}
 glmmVA(Count ~ Species + (0+NO3|Species), ...)
-# strips the response, passes the formula as row.eff:
-gllvm(y, studyDesign=X, row.eff=~(0+NO3|Species), ...)
+# strips the response, passes the formula as row.eff on the collapsed (site x species) rows:
+gllvm(y, studyDesign=X, row.eff=~Species+(0+NO3|Species), ...)
 ```
 
 \normalsize
 
 \pause
 
-\texttt{gllvm}'s \texttt{formula} interface is the wide-format equivalent:
+On the genuine wide-format response matrix (species as columns, sites as rows), this trick does not apply: \texttt{Species} can never appear in \texttt{row.eff}, since rows are sites only. Species-specific effects instead use \texttt{formula}, the wide-format equivalent:
 
 \footnotesize
 
@@ -756,8 +756,8 @@ gllvm(y, X=X, formula=~(0+NO3|1), beta0com=TRUE, ...)
 
 \normalsize
 
-\texttt{|Species} (long format) $\equiv$ \texttt{|1} (wide format): one $\mathcal{N}(\mu, \sigma^2)$ for all species. \newline
-\texttt{formula} gives species-specific $\beta_j$; \texttt{row.eff} gives site-level effects shared across species.
+\texttt{|Species} (long format, collapsed rows) $\equiv$ \texttt{|1} (wide format, per column): one $\mathcal{N}(\mu, \sigma^2)$ for all species. \newline
+\texttt{formula} gives species-specific $\beta_j$ on the real (wide) response matrix; \texttt{row.eff} gives site-level effects shared across species.
 
 ## \texttt{gllvm}: the VGLMM engine
 
