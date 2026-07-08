@@ -28,11 +28,15 @@ Sessions from 14:00 to 20:00 (Tuesday to Friday). Sessions will consist of a mix
 * [Multispecies Generalised Linear Mixed Models](https://github.com/BertvanderVeen/GLLVM-workshop/blob/main/1Tuesday/VGLMMs.pdf)
 * [Model checking and comparison](https://github.com/BertvanderVeen/GLLVM-workshop/blob/main/1Tuesday/Checking.pdf)
 
+Practicals: [1: Fitting multispecies GLMs](https://htmlpreview.github.io/?https://github.com/BertvanderVeen/GLLVM-workshop/blob/main/Practicals/1Practical.html), [2: Multispecies GLMMs and diagnostics](https://htmlpreview.github.io/?https://github.com/BertvanderVeen/GLLVM-workshop/blob/main/Practicals/2Practical.html)
+
 ### Wednesday
 *joint species distribution models*
 * [Hierarchical environmental responses](https://github.com/BertvanderVeen/GLLVM-workshop/blob/main/2Wednesday/HierarchicalResponses.pdf)
 * [Joint Species Distribution Models](https://github.com/BertvanderVeen/GLLVM-workshop/blob/main/2Wednesday/JSDM.pdf)
 * [Predicting species richness and diversity](https://github.com/BertvanderVeen/GLLVM-workshop/blob/main/2Wednesday/Diversity.pdf)
+
+Practicals: [3: Traits and phylogeny](https://htmlpreview.github.io/?https://github.com/BertvanderVeen/GLLVM-workshop/blob/main/Practicals/3Practical.html), [4: Joint Species Distribution Models](https://htmlpreview.github.io/?https://github.com/BertvanderVeen/GLLVM-workshop/blob/main/Practicals/4Practical.html), [5: Predicting diversity](https://htmlpreview.github.io/?https://github.com/BertvanderVeen/GLLVM-workshop/blob/main/Practicals/5Practical.html)
 
 ### Thursday
 *ordination*
@@ -40,10 +44,14 @@ Sessions from 14:00 to 20:00 (Tuesday to Friday). Sessions will consist of a mix
 * [Ordination with covariates](https://github.com/BertvanderVeen/GLLVM-workshop/blob/main/3Thursday/OrdWithPred.pdf)
 * [Conditioning and nested designs](https://github.com/BertvanderVeen/GLLVM-workshop/blob/main/3Thursday/Conditioning.pdf)
 
+Practicals: [6: Model-based ordination](https://htmlpreview.github.io/?https://github.com/BertvanderVeen/GLLVM-workshop/blob/main/Practicals/6Practical.html), [7: Ordination with covariates](https://htmlpreview.github.io/?https://github.com/BertvanderVeen/GLLVM-workshop/blob/main/Practicals/7Practical.html), [8: Conditioning and partial ordination](https://htmlpreview.github.io/?https://github.com/BertvanderVeen/GLLVM-workshop/blob/main/Practicals/8Practical.html)
+
 ### Friday
 *advanced GLLVM extensions*
 * [Unimodal response models](https://github.com/BertvanderVeen/GLLVM-workshop/blob/main/4Friday/Unimodal.pdf)
 * [Extensions: spatial/temporal autocorrelation and mixed response types](https://github.com/BertvanderVeen/GLLVM-workshop/blob/main/4Friday/Extensions.pdf)
+
+Practicals: [9: Unimodal responses](https://htmlpreview.github.io/?https://github.com/BertvanderVeen/GLLVM-workshop/blob/main/Practicals/9Practical.html), [10: Extensions](https://htmlpreview.github.io/?https://github.com/BertvanderVeen/GLLVM-workshop/blob/main/Practicals/10Practical.html)
 * Own data analysis and wrap-up
 
 # Detailed schedule
