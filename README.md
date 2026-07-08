@@ -22,22 +22,26 @@ Please make sure to update your R installation prior to the workshop. Most of th
 Sessions from 14:00 to 20:00 (Tuesday to Friday). Sessions will consist of a mix of lectures, in-class discussion, and practical exercises over Zoom.
 
 ### Tuesday
+*background to multispecies modeling*
 * [Introduction to model-based community analysis](https://github.com/BertvanderVeen/GLLVM-workshop/blob/main/1Tuesday/CommunityIntroduction.pdf)
 * [Multispecies Generalised Linear Models](https://github.com/BertvanderVeen/GLLVM-workshop/blob/main/1Tuesday/VGLMs.pdf)
 * [Multispecies Generalised Linear Mixed Models](https://github.com/BertvanderVeen/GLLVM-workshop/blob/main/1Tuesday/VGLMMs.pdf)
 * [Model checking and comparison](https://github.com/BertvanderVeen/GLLVM-workshop/blob/main/1Tuesday/Checking.pdf)
 
 ### Wednesday
+*joint species distribution models*
 * [Hierarchical environmental responses](https://github.com/BertvanderVeen/GLLVM-workshop/blob/main/2Wednesday/HierarchicalResponses.pdf)
 * [Joint Species Distribution Models](https://github.com/BertvanderVeen/GLLVM-workshop/blob/main/2Wednesday/JSDM.pdf)
 * [Predicting species richness and diversity](https://github.com/BertvanderVeen/GLLVM-workshop/blob/main/2Wednesday/Diversity.pdf)
 
 ### Thursday
+*ordination*
 * [Model-based ordination](https://github.com/BertvanderVeen/GLLVM-workshop/blob/main/3Thursday/ModelbasedOrdination.pdf)
 * [Ordination with covariates](https://github.com/BertvanderVeen/GLLVM-workshop/blob/main/3Thursday/OrdWithPred.pdf)
 * [Conditioning and nested designs](https://github.com/BertvanderVeen/GLLVM-workshop/blob/main/3Thursday/Conditioning.pdf)
 
 ### Friday
+*advanced GLLVM extensions*
 * [Unimodal response models](https://github.com/BertvanderVeen/GLLVM-workshop/blob/main/4Friday/Unimodal.pdf)
 * [Extensions: spatial/temporal autocorrelation and mixed response types](https://github.com/BertvanderVeen/GLLVM-workshop/blob/main/4Friday/Extensions.pdf)
 * Own data analysis and wrap-up
