@@ -56,6 +56,7 @@ TMB::openmp(parallel::detectCores()-1, autopar = TRUE, DLL = "gllvm")
 \center
 
 ![](../questions.jpg){width=40%}
+# Background 
 
 ## Diversity as a community property
 
@@ -95,7 +96,7 @@ A community model addresses all of these: diversity follows from the generative 
 Species richness $SR_i$ at site $i$ is the number of species recorded:
 
 \begin{equation}
-SR_i = \sum_{j=1}^{m} y_{ij} \quad \text{(for binary data)}
+SR_i = \sum_{j=1}^{m} I(y_{ij}>0)
 \end{equation}
 
 \pause
@@ -104,11 +105,11 @@ It is by far the most common biodiversity metric: simple to calculate, intuitive
 
 \pause
 
-But it is a \textbf{derived quantity} from multivariate community data. Analyzing it directly means throwing away most of the data.
+But it is a \textbf{derived quantity} from multivariate community data. Analyzing it directly means ditching important aspects of the data.
 
 ## The typical approach
 
-Species richness is most commonly analyzed with Poisson or negative-binomial regression:
+Species richness is most commonly analyzed with log-linear regression (Poisson or negative-binomial):
 
 \begin{equation}
 \log\{\mathbb{E}(SR_i)\} = \alpha + \textbf{x}_i^\top \symbf{\beta}
@@ -121,20 +122,19 @@ This is simple and interpretable. But it rests on four assumptions that are rout
 1. Species are \textbf{independent} of each other
 2. All species respond \textbf{identically} to the environment
 3. The species pool is \textbf{infinite} (unbounded distribution)
-4. The Poisson or NB distribution is \textbf{appropriate}
+4. The chosen distribution is \textbf{appropriate}
 
 ## Assumption 1: species independence
 
-Species are not independent; they share environmental responses and co-occur non-randomly. \newline
+The Poisson-Binomial derivation requires species to be \textbf{conditionally independent} given the environment: knowing species $k$ is present tells us nothing extra about species $j$.
 
 \pause
 
-If species co-occurrence is positive, species richness has \textbf{less} variance than a Poisson.
-If it is negative, species richness has \textbf{more} variance.
+Real communities co-occur non-randomly beyond what the environment explains: facilitation, competition, and shared microhabitat leave residual correlation.
 
 \pause
 
-A Poisson or NB regression cannot accommodate this: it will over- or underestimate uncertainty.
+A Poisson or NB regression assumes this away entirely: it has no way to represent residual structure among species, whatever its strength or direction.
 
 ## Assumption 2: homogeneity of niches
 
@@ -154,7 +154,7 @@ A Poisson distribution is unbounded above: it can predict species richness large
 
 \pause
 
-\textbf{This is ecologically impossible.} You cannot observe more species than those you have observed. \newline
+\textbf{This is ecologically implausible.} You cannot observe more species than those you have observed. \newline
 
 Negative-binomial adds overdispersion, making the problem worse. \newline
 
@@ -234,9 +234,7 @@ We do not model species richness directly; instead, \textbf{species richness eme
 \pause
 
 - No separate richness model needed
-- Works for any data type: binary, counts, cover, biomass, ordinal
 - Uncertainty propagates naturally from species-level predictions
-- Assumptions are explicit and testable
 - Non-linear richness gradients emerge even from linear species responses
 - Inherits whatever structure the species model has: traits, phylogeny, spatial or hierarchical effects
 
@@ -496,9 +494,22 @@ But diversity has many facets: how dominant is the community at a site? How simi
 
 These all follow from the \textbf{variance structure of $\eta_{ij}$}; like $R^2$ in mixed models \footnotesize (Nakagawa \& Schielzeth 2013)\normalsize, we work on the link scale rather than the response scale.
 
+## Richness and composition, together
+
+Species richness came from a fitted community model: species-level predictions and any ordination are still there, untouched.
+
 \pause
 
-Unlike species richness, \texttt{gllvm} does not (yet) have a dedicated function for these: what follows is computed directly from the fitted model's variance components, not a canned implementation. Still worth working through, since the ingredients are already sitting in every model you fit.
+\textbf{Richness and composition can therefore be analyzed simultaneously, from one model.} They can move independently:
+
+\begin{itemize}
+  \item Richness \textbf{unchanged}, composition \textbf{changed}: species replace one another (pure turnover)
+  \item Richness \textbf{changed}, composition \textbf{stable}: species gained or lost without reshuffling the rest
+\end{itemize}
+
+\pause
+
+A model reporting only $SR_i$ cannot tell these apart.
 
 ## Alpha, beta, and gamma diversity
 
@@ -510,7 +521,21 @@ Unlike species richness, \texttt{gllvm} does not (yet) have a dedicated function
 
 \pause
 
-In a model, these follow from the \textbf{variance-covariance structure} of $\eta_{ij}$
+In a model, these follow from the \textbf{variance-covariance structure} of $\eta_{ij}$: not new quantities, but different summaries of the same fitted object that also gives you species richness.
+
+## Setting up the model
+
+\texttt{gllvm} does not (yet) have a dedicated function for alpha, beta, and gamma diversity: what follows is computed directly from a fitted model's variance components. Still worth working through, since the ingredients are already sitting in every model you fit.
+
+\pause
+
+For $\eta_{ij} = \beta_{0j} + \mathbf{x}_i^\top\mathbf{\beta}_j$ with $\beta_{0j} \sim \mathcal{N}(0,\sigma^2_{\beta_0})$ and $\mathbf{\beta}_j \sim \mathcal{N}(\mathbf{0},\Sigma_\beta)$:
+
+\begin{itemize}
+  \item $\text{var}_j(\eta_{ij})$: how much species disagree at site $i$ $\Rightarrow$ \textbf{alpha}
+  \item $\text{cov}_j(\eta_{ij},\eta_{kj})$: how similarly species respond at sites $i$ and $k$ $\Rightarrow$ \textbf{beta}
+  \item $\mathbb{E}_i\{\text{var}_j(\eta_{ij})\}$: average disagreement over sites $\Rightarrow$ \textbf{gamma}
+\end{itemize}
 
 \pause
 
@@ -518,10 +543,10 @@ In a model, these follow from the \textbf{variance-covariance structure} of $\et
 
 ## Dominance
 
-For $\eta_{ij} = \beta_{0j} + \mathbf{x}_i^\top\mathbf{\beta}_j$ with $\beta_{0j} \sim \mathcal{N}(0,\sigma^2_{\beta_0})$ and $\mathbf{\beta}_j \sim \mathcal{N}(\mathbf{0},\Sigma_\beta)$:
+Dominance is the within-site variance across species:
 
 \begin{equation}
-D_i = \mathbf{x}_i^\top\Sigma_\beta\mathbf{x}_i
+D_i = \text{var}_j(\eta_{ij}) = \mathbf{x}_i^\top\Sigma_\beta\mathbf{x}_i
 \end{equation}
 
 \pause
