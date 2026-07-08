@@ -375,33 +375,45 @@ are:</p>
 variables</li>
 <li><code>row.eff</code>: specifies correlation structure for the row
 effects</li>
-<li><code>distLV</code>: matrix of distances between sites (for spatial
-models)</li>
+<li><code>distLV</code>: matrix of coordinates (or time points) for the
+levels used in <code>lvCor</code>’s spatial kernels – not a precomputed
+distance matrix, <code>gllvm</code> computes distances internally</li>
 <li><code>corAR1</code>, <code>corExp</code>, <code>corMatern</code>,
 <code>corCS</code>: available correlation structures</li>
 </ul>
 <p>Today’s lecture demonstrated these ideas on small synthetic examples,
 plus a real case study: the Garchinger Heide calcareous grassland data
-(Bauer &amp; Albrecht 2020), combining ordinal and zero-inflated count
-families with a spatial correlation structure. That dataset is not in
-the shared <code>data</code> folder, so here we work with wadden
-instead. If you want a dataset with real (rather than simulated) spatial
-or temporal replication, the <tt>gllvm</tt> package ships two:</p>
+(Bauer &amp; Albrecht 2020), combining ordinal and binomial families
+with a spatial correlation structure. The two component datasets from
+that case study (percent cover and Raunkiaer frequency, each with real
+GPS-derived coordinates) are available separately in the shared
+<code>data</code> folder; see <code>data/README.md</code> for how they
+relate. We use wadden and kelpforest as well:</p>
 <ol style="list-style-type: decimal">
-<li>wadden (abundance; simulated coordinates for the spatial part, real
-seasons for the temporal part; used below)</li>
+<li>wadden (abundance; used below for the mixed-response part). Its
+“season” covariate only has two levels (spring/summer), which is not
+enough to demonstrate genuine AR(1) decay: with only two time points,
+any correlation structure – AR(1), compound symmetry, unstructured –
+saturates the same 2x2 covariance matrix, so there is no decay over lags
+to show.</li>
+<li>kelpforest (percent cover, <code>data(kelpforest)</code>; real
+site/transect/year structure spanning 21 years, 2000-2020; used below
+for the temporal part)</li>
+<li>garchingerFrequency (Raunkiaer frequency out of 100 quadrats, real
+GPS coordinates for 40 plots surveyed in 1984, 1993 and 2018; used below
+for the spatial part)</li>
 <li>Skabbholmen (counts, <code>data(Skabbholmen)</code>; real repeated
-transects surveyed over several years, a genuine temporal succession
-dataset)</li>
-<li>kelpforest (counts, <code>data(kelpforest)</code>; real
-site/year/transect structure, suitable for both the spatial and temporal
-parts)</li>
+transects, but only two survey years, 1978 and 1984 – useful for a
+simple before/after comparison, but the same two-time-point limitation
+as wadden’s season applies for demonstrating AR(1) decay)</li>
 </ol>
 </div>
 <div id="part-i-temporal-autocorrelation" class="section level1">
 <h1>Part I: Temporal autocorrelation</h1>
-<p>We use a subset of the wadden sea data which has a temporal structure
-(seasons).</p>
+<p>We use the <code>kelpforest</code> dataset: annual surveys
+(2000-2020) of sessile invertebrate percent cover at 11 sites, each with
+up to 8 transects. Unlike a 2-level factor, 21 years is enough to
+actually show correlation decaying over increasing lags.</p>
 <pre class="r"><code>library(gllvm)
 TMB::openmp(parallel::detectCores()-1, autopar = TRUE, DLL = &quot;gllvm&quot;)</code></pre>
 <pre><code>## gllvm 
@@ -413,75 +425,112 @@ Y &lt;- Y[, colSums(ifelse(Y == 0, 0, 1)) &gt; 2]
 X &lt;- read.csv(&quot;../../data/waddenX.csv&quot;)
 X &lt;- X[, !apply(X, 2, anyNA)]
 X[, unlist(lapply(X, is.numeric))] &lt;- scale(X[, unlist(lapply(X, is.numeric))])</code></pre>
-<p>Fit a baseline model (IID latent variables) and compare to one with
-AR(1) structure across seasons:</p>
-<pre class="r"><code># Baseline: independent latent variables
-model_iid &lt;- gllvm(Y, num.lv = 2, family = &quot;tweedie&quot;, Power = NULL,
-                   disp.formula = rep(1, ncol(Y)), n.init = 3)
+<pre class="r"><code>data(kelpforest)
+Yabund &lt;- kelpforest$Y
+SPinfo &lt;- kelpforest$SPinfo
+Xenv &lt;- kelpforest$X
 
-# AR(1) structure across seasons in the row effect
-model_ar1 &lt;- gllvm(Y, num.lv = 2, family = &quot;tweedie&quot;, Power = NULL,
-                   disp.formula = rep(1, ncol(Y)),
-                   studyDesign = X[, &quot;season&quot;, drop = FALSE],
-                   row.eff = ~corAR1(1|season), n.init = 3)
+# sessile invertebrates observed at least 10 times; rarer species summed into one column
+Yinvert &lt;- Yabund[SPinfo$GROUP == &quot;INVERT&quot;]
+Yinvert10 &lt;- Yinvert[, colSums(Yinvert &gt; 0, na.rm = TRUE) &gt; 9]
+Yinvert10$Sum_inv &lt;- rowSums(Yinvert[, colSums(Yinvert &gt; 0, na.rm = TRUE) &lt;= 9], na.rm = TRUE)
+
+studyDesign &lt;- data.frame(year = factor(Xenv$YEAR), site = factor(Xenv$SITE))</code></pre>
+<p>Percent cover here is bounded in [0,1) (no site ever reaches 100%
+cover for these species), so we use the beta-hurdle family, which
+handles the point mass at zero. Fit a baseline model (site-level random
+intercepts only) and compare to one that adds AR(1) structure across
+years:</p>
+<pre class="r"><code># Baseline: site-level random intercepts, no temporal correlation
+model_iid &lt;- gllvm(Yinvert10, family = &quot;betaH&quot;, num.lv = 0,
+                   disp.formula = rep(1, ncol(Yinvert10)),
+                   studyDesign = studyDesign, row.eff = ~(1|site), n.init = 3)
+
+# AR(1) structure across years, added on top of the site-level intercepts
+model_ar1 &lt;- gllvm(Yinvert10, family = &quot;betaH&quot;, num.lv = 0,
+                   disp.formula = rep(1, ncol(Yinvert10)),
+                   studyDesign = studyDesign, row.eff = ~(1|site) + corAR1(1|year), n.init = 3)
 
 AIC(model_iid, model_ar1)</code></pre>
-<pre><code>##            df       AIC
-## model_iid 117 -1850.729
-## model_ar1 119 -1811.237</code></pre>
+<pre><code>##            df      AIC
+## model_iid 179 5529.123
+## model_ar1 181 5493.523</code></pre>
 <p>Inspect the estimated AR(1) correlation:</p>
-<pre class="r"><code>model_ar1$params$sigma  # the &quot;.rho&quot;-suffixed entry is the temporal correlation between seasons</code></pre>
-<pre><code>##     1 | season 1 | season.rho 
-##   0.0051208901   0.0009547202</code></pre>
+<pre class="r"><code>model_ar1$params$sigma  # the &quot;.rho&quot;-suffixed entry is the year-to-year correlation</code></pre>
+<pre><code>## (Intercept)|site         1 | year     1 | year.rho 
+##       0.14206562       0.04500514       0.62171722</code></pre>
 <div id="tasks-i" class="section level2">
 <h2>Tasks I</h2>
 <ol style="list-style-type: decimal">
 <li>Fit both models and compare AIC. Does adding temporal structure
 improve fit?</li>
-<li>Interpret the AR(1) correlation parameter. Is community composition
-persistent across seasons?</li>
-<li>Try <code>lvCor = ~corAR1(1|season)</code> instead of
+<li>Interpret the AR(1) correlation parameter. How persistent is
+community composition from one year to the next?</li>
+<li>The AR(1) correlation at lag <span class="math inline">\(k\)</span>
+is <span class="math inline">\(\rho^k\)</span>. Using the estimated
+<span class="math inline">\(\rho\)</span>, at what lag does the
+correlation drop below 0.1?</li>
+<li>Try <code>lvCor = ~corAR1(1|year)</code> with
+<code>num.lv = 2</code> instead of putting the AR(1) structure in
 <code>row.eff</code>. What is the difference in interpretation?</li>
-<li>Visualize the ordination from both models. Does temporal structure
-change the ordination?</li>
+<li>Why couldn’t a 2-level factor like wadden’s <code>season</code> be
+used to demonstrate what task 3 just showed?</li>
 </ol>
 </div>
 </div>
 <div id="part-ii-spatial-models" class="section level1">
 <h1>Part II: Spatial models</h1>
-<p>If you have site coordinates, you can fit a model with spatial
-correlation. Here we simulate coordinates for illustration; in your own
-data, use real coordinates.</p>
-<pre class="r"><code># Simulate spatial coordinates for the wadden sites
-set.seed(42)
-n_sites &lt;- nrow(Y)
-coords &lt;- data.frame(
-  lon = runif(n_sites, 0, 100),
-  lat = runif(n_sites, 0, 100)
-)
-dist_mat &lt;- as.matrix(dist(coords))</code></pre>
-<pre class="r"><code>model_spatial &lt;- gllvm(Y, num.lv = 2, family = &quot;tweedie&quot;, Power = NULL,
-                       disp.formula = rep(1, ncol(Y)),
-                       lvCor = ~corExp(1|site),
-                       studyDesign = data.frame(site = factor(1:nrow(Y))),
-                       distLV = dist_mat,
-                       Lambda.struc = &quot;UNN&quot;, NN = 5,
-                       n.init = 1)</code></pre>
-<p>Note: spatial models are computationally demanding. With real data,
-ensure you have sufficient memory and consider sparse approximations
-(<code>Lambda.struc = &quot;bdNN&quot;</code> or <code>&quot;UNN&quot;</code> with
-<code>NN</code> set to a small number of neighbours).</p>
+<p>We use <code>garchingerFrequency</code>: Raunkiaer frequency (out of
+100 quadrats) for 97 species at 40 plots in the Garchinger Heide
+calcareous grassland, surveyed in 1984, 1993 and 2018, with real
+GPS-derived coordinates (see <code>data/README.md</code>).</p>
+<pre class="r"><code>Yf &lt;- read.csv(&quot;../../data/garchingerFrequencyY.csv&quot;, row.names = 1)
+Xf &lt;- read.csv(&quot;../../data/garchingerFrequencyX.csv&quot;)
+
+plot_f &lt;- factor(Xf$PlotID)
+# Plots repeat across the 3 survey years (120 rows, 40 distinct plots).
+# distLV needs one coordinate row per distinct level of the lvCor grouping
+# variable, not one row per observation.
+coords_plot &lt;- as.matrix(Xf[match(levels(plot_f), Xf$PlotID), c(&quot;E&quot;, &quot;N&quot;)])</code></pre>
+<p>Fit a baseline model (no spatial structure) and compare to one with
+exponentially decaying correlation between plots:</p>
+<pre class="r"><code>model_iid &lt;- gllvm(Yf, family = &quot;binomial&quot;, Ntrials = 100, num.lv = 2, n.init = 3)
+
+model_spatial &lt;- gllvm(Yf, family = &quot;binomial&quot;, Ntrials = 100, num.lv = 2,
+                       lvCor = ~corExp(1|plot),
+                       studyDesign = data.frame(plot = plot_f),
+                       distLV = coords_plot, n.init = 3)
+
+AIC(model_iid, model_spatial)</code></pre>
+<pre><code>##                df      AIC
+## model_iid     290 75757.02
+## model_spatial 292 82325.74</code></pre>
+<p>Inspect the estimated spatial range:</p>
+<pre class="r"><code>model_spatial$params$rho.lv  # range per LV, in the same units as the coordinates (km)</code></pre>
+<pre><code>##    rho.lv1    rho.lv2 
+## 0.01815620 0.01926456</code></pre>
+<p>The range is the distance at which correlation decays to <span class="math inline">\(e^{-1}\approx0.37\)</span>; the effective range
+(correlation below 0.05) is about <span class="math inline">\(3\times\)</span> that.</p>
 <div id="tasks-ii" class="section level2">
 <h2>Tasks II</h2>
 <ol style="list-style-type: decimal">
-<li>Read through the code for fitting a spatial model. What does
-<code>distLV</code> do?</li>
-<li>What does the <code>NN</code> argument control? What are the
-trade-offs of using more vs. fewer neighbours?</li>
-<li>How would you use <code>VP()</code> to see how much variation the
-spatial structure explains?</li>
+<li>Fit both models and compare AIC. A lower log-likelihood for the
+spatial model does not automatically mean a worse model:
+<code>gllvm</code>’s variational approximation bound is not equally
+tight for every <code>lvCor</code> structure, so logLik comparisons
+across different correlation structures should be read cautiously.</li>
+<li>Interpret the estimated range parameter(s). What is the effective
+range, and how does that compare to the extent of the study area (all
+plots fall within roughly 300m x 300m)?</li>
+<li>Use <code>VP()</code> to see how much variation the spatial
+structure explains.</li>
+<li>Why would giving <code>distLV</code> one coordinate row per
+observation (120 rows) instead of one per distinct plot (40 rows) be
+wrong here, even though every row does have its own coordinates?</li>
 <li>If you have your own spatial dataset, try fitting a
-<code>corExp</code> model to it.</li>
+<code>corExp</code> model to it. For large datasets, consider a sparse
+approximation (<code>Lambda.struc = &quot;bdNN&quot;</code> or <code>&quot;UNN&quot;</code>
+with <code>NN</code> set to a small number of neighbours).</li>
 </ol>
 </div>
 </div>

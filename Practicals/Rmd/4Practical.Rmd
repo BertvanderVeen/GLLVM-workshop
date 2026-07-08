@@ -91,9 +91,10 @@ Now that we have a covariate in the model, we can think of including species' co
 JSDMs are geared towards prediction: often on a map. Let's go ahead and do that, so we can see what our model tells us about any of the species in the data. I've already prepared a slope raster for you, it comes from the `unmarked` R-package. It is located in the "data" folder of the github repository, so we load it straight from there.
 
 ```{r}
-download.file("https://raw.githubusercontent.com/BertvanderVeen/GLLVM-workshop/main/data/slope.tif", 
-              destfile = "/tmp/slope.tif", mode = "wb")
-slope <- terra::rast("/tmp/slope.tif")
+slope_path <- file.path(tempdir(), "slope.tif")
+download.file("https://raw.githubusercontent.com/BertvanderVeen/GLLVM-workshop/main/data/slope.tif",
+              destfile = slope_path, mode = "wb")
+slope <- terra::rast(slope_path)
 
 slp_scale = scale(X$SLOPE)
 Xnew = cbind(1, terra::values(slope)-attr(slp_scale,"scaled:center"))/attr(slp_scale,"scaled:scale")

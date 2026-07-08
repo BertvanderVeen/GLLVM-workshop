@@ -9,36 +9,51 @@ X <- read.csv("../../data/waddenX.csv")
 X <- X[, !apply(X, 2, anyNA)]
 X[, unlist(lapply(X, is.numeric))] <- scale(X[, unlist(lapply(X, is.numeric))])
 
-# Baseline: independent latent variables
-model_iid <- gllvm(Y, num.lv = 2, family = "tweedie", Power = NULL,
-                   disp.formula = rep(1, ncol(Y)), n.init = 3)
+data(kelpforest)
+Yabund <- kelpforest$Y
+SPinfo <- kelpforest$SPinfo
+Xenv <- kelpforest$X
 
-# AR(1) structure across seasons in the row effect
-model_ar1 <- gllvm(Y, num.lv = 2, family = "tweedie", Power = NULL,
-                   disp.formula = rep(1, ncol(Y)),
-                   studyDesign = X[, "season", drop = FALSE],
-                   row.eff = ~corAR1(1|season), n.init = 3)
+# sessile invertebrates observed at least 10 times; rarer species summed into one column
+Yinvert <- Yabund[SPinfo$GROUP == "INVERT"]
+Yinvert10 <- Yinvert[, colSums(Yinvert > 0, na.rm = TRUE) > 9]
+Yinvert10$Sum_inv <- rowSums(Yinvert[, colSums(Yinvert > 0, na.rm = TRUE) <= 9], na.rm = TRUE)
+
+studyDesign <- data.frame(year = factor(Xenv$YEAR), site = factor(Xenv$SITE))
+
+# Baseline: site-level random intercepts, no temporal correlation
+model_iid <- gllvm(Yinvert10, family = "betaH", num.lv = 0,
+                   disp.formula = rep(1, ncol(Yinvert10)),
+                   studyDesign = studyDesign, row.eff = ~(1|site), n.init = 3)
+
+# AR(1) structure across years, added on top of the site-level intercepts
+model_ar1 <- gllvm(Yinvert10, family = "betaH", num.lv = 0,
+                   disp.formula = rep(1, ncol(Yinvert10)),
+                   studyDesign = studyDesign, row.eff = ~(1|site) + corAR1(1|year), n.init = 3)
 
 AIC(model_iid, model_ar1)
 
-model_ar1$params$sigma  # the ".rho"-suffixed entry is the temporal correlation between seasons
+model_ar1$params$sigma  # the ".rho"-suffixed entry is the year-to-year correlation
 
-# Simulate spatial coordinates for the wadden sites
-set.seed(42)
-n_sites <- nrow(Y)
-coords <- data.frame(
-  lon = runif(n_sites, 0, 100),
-  lat = runif(n_sites, 0, 100)
-)
-dist_mat <- as.matrix(dist(coords))
+Yf <- read.csv("../../data/garchingerFrequencyY.csv", row.names = 1)
+Xf <- read.csv("../../data/garchingerFrequencyX.csv")
 
-# model_spatial <- gllvm(Y, num.lv = 2, family = "tweedie", Power = NULL,
-#                        disp.formula = rep(1, ncol(Y)),
-#                        lvCor = ~corExp(1|site),
-#                        studyDesign = data.frame(site = factor(1:nrow(Y))),
-#                        distLV = dist_mat,
-#                        Lambda.struc = "UNN", NN = 5,
-#                        n.init = 1)
+plot_f <- factor(Xf$PlotID)
+# Plots repeat across the 3 survey years (120 rows, 40 distinct plots).
+# distLV needs one coordinate row per distinct level of the lvCor grouping
+# variable, not one row per observation.
+coords_plot <- as.matrix(Xf[match(levels(plot_f), Xf$PlotID), c("E", "N")])
+
+model_iid <- gllvm(Yf, family = "binomial", Ntrials = 100, num.lv = 2, n.init = 3)
+
+model_spatial <- gllvm(Yf, family = "binomial", Ntrials = 100, num.lv = 2,
+                       lvCor = ~corExp(1|plot),
+                       studyDesign = data.frame(plot = plot_f),
+                       distLV = coords_plot, n.init = 3)
+
+AIC(model_iid, model_spatial)
+
+model_spatial$params$rho.lv  # range per LV, in the same units as the coordinates (km)
 
 Y_mixed <- Y
 Y_mixed[, 1:10] <- ifelse(Y_mixed[, 1:10] > 0, 1, 0)

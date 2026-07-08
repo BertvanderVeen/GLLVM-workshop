@@ -23,9 +23,10 @@ corrplot::corrplot(getResidualCor(model1), type = "lower", order = "AOE", diag =
 
 model2  <- gllvm(y = Y, X = X, formula = ~ scale(SLOPE), num.lv = 2, family = "binomial", Lambda.struc = "diagonal", sd.errors = FALSE, optim.method = "L-BFGS-B")
 
-download.file("https://raw.githubusercontent.com/BertvanderVeen/GLLVM-workshop/main/data/slope.tif", 
-              destfile = "/tmp/slope.tif", mode = "wb")
-slope <- terra::rast("/tmp/slope.tif")
+slope_path <- file.path(tempdir(), "slope.tif")
+download.file("https://raw.githubusercontent.com/BertvanderVeen/GLLVM-workshop/main/data/slope.tif",
+              destfile = slope_path, mode = "wb")
+slope <- terra::rast(slope_path)
 
 slp_scale = scale(X$SLOPE)
 Xnew = cbind(1, terra::values(slope)-attr(slp_scale,"scaled:center"))/attr(slp_scale,"scaled:scale")
