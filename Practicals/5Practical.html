@@ -376,6 +376,18 @@ look fine even when richness predictions for new sites are biased</li>
 Part II uses the carabid beetle data (counts, already used in Practicals
 1 and 3) to check whether the lack-of-fit problem demonstrated in the
 lecture also shows up elsewhere.</p>
+<p>Today’s lecture used this same Alpine data, plus Swiss birds for the
+diversity examples. <code>predictSR()</code> works for any response
+distribution, so any dataset with binary or count responses is fair game
+if you would rather use something else for Part I:</p>
+<ol style="list-style-type: decimal">
+<li>Alpine (“alpineX/Y”, presence-absence; default here, used in the
+lecture)</li>
+<li>Beetles (counts; used here in Part II)</li>
+<li>Birds (presence-absence; used in the lecture)</li>
+<li>wadden (abundance)</li>
+<li>fungi (presence-absence)</li>
+</ol>
 <pre class="r"><code>library(gllvm)
 TMB::openmp(parallel::detectCores()-1, autopar = TRUE, DLL = &quot;gllvm&quot;)</code></pre>
 <pre><code>## gllvm 

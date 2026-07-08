@@ -427,12 +427,12 @@ model_ar1 &lt;- gllvm(Y, num.lv = 2, family = &quot;tweedie&quot;, Power = NULL,
 
 AIC(model_iid, model_ar1)</code></pre>
 <pre><code>##            df       AIC
-## model_iid 117 -1835.384
-## model_ar1 119 -1847.152</code></pre>
+## model_iid 117 -1850.729
+## model_ar1 119 -1811.237</code></pre>
 <p>Inspect the estimated AR(1) correlation:</p>
 <pre class="r"><code>model_ar1$params$sigma  # the &quot;.rho&quot;-suffixed entry is the temporal correlation between seasons</code></pre>
 <pre><code>##     1 | season 1 | season.rho 
-##     0.00332887    -0.07314303</code></pre>
+##   0.0051208901   0.0009547202</code></pre>
 <div id="tasks-i" class="section level2">
 <h2>Tasks I</h2>
 <ol style="list-style-type: decimal">

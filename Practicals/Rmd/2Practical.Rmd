@@ -102,10 +102,10 @@ Let's go ahead, fit these two models, and compare them. Note that this might tak
 
 ```{r}
 model4 <- gllvm(Y, X, formula = ~diag(0+island|1) + (0+scale(silt_clay)|1) + (0+scale(elevation)|1), row.eff =~1, family = "negative.binomial", num.lv = 0)
-model5 <- gllvm(Y, studyDesign=X, row.eff = ~(1|island), family = "negative.binomial", num.lv = 0)
+model5 <- gllvm(Y, X, studyDesign = X, row.eff = ~ (1|island), formula = ~(0+scale(silt_clay)|1) + (0+scale(elevation)|1), family = "negative.binomial", num.lv = 0)
 ```
 
-The "model5" treats island as a species-common random intercept instead of the species-specific version in "model4", and drops the silt_clay/elevation random slopes entirely. We can go ahead and compare them with AIC:
+The "model5" treats island as a species-common random intercept instead of the species-specific version in "model4", but retains the same effects for silt_clay and elevation. We can go ahead and compare them with AIC:
 
 ```{r}
 AIC(model4, model5)
@@ -124,7 +124,7 @@ Whether we include an effect as random or as fixed requires careful deliberation
 One of the benefits of maintaining an effect as random, is that we can calculate diversity for our system directly from the model — this connects to the alpha/beta/gamma diversity framework covered in Wednesday's Diversity lecture, but we can get a first taste of it already here. We can also predict how diversity changes along a gradient. For the model above with silt_clay and elevation as random effects, alpha diversity is:
 
 \begin{equation}
-\text{var}(\eta_{ij}) = elevation_i^2\sigma^2_{elevation} + silt_clay_i^2\sigma^2_{silt_clay}.
+\text{var}(\eta_{ij}) = elevation_i^2\sigma^2_{elevation} + \text{silt_clay}_i^2\sigma^2_{\text{silt_clay}}.
 \end{equation}
 
 Which tells us that we can visualize the change in alpha diversity due to one of the covariates, by keeping the other constant. For example, for elevation:

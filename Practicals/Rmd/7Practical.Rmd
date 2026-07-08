@@ -33,6 +33,17 @@ X$plot <- factor(ave(seq_along(X$site), X$site, FUN = seq_along))
 
 The covariates are: "method" (restoration treatment: pn = planted natural, nat = naturally re-vegetated, ref = pristine vegetation, seed = seeded plots), "dist_int_veg" (distance to road), "caco" (canopy cover), "slope", "grain_size_stand_f" (soil grain size), "years_since_n" (time since restoration), "gf" (ecosystem type), "loi" (loss on ignition, organic content), and "site" (replicated locations).
 
+The ordered beta family has two cutoff parameters per species: a lower cutoff for the point mass at 0, and an upper cutoff for the point mass at 1. Almost none of these species ever reach 100% cover, so there is no data to estimate a species-specific upper cutoff for them: left free, these parameters run away towards infinity and the model fails to converge. We fix the upper cutoff for species that never reach 1 (map value `NA`, held at the value given by `zetacutoff`), and only freely estimate a single shared upper cutoff for the handful of species that do reach 1 (`setMap` ties them to one common parameter). Lower cutoffs stay species-specific throughout, since every species has enough zeros to estimate them.
+
+```{r map}
+zetaMap <- matrix(NA,nrow=2,ncol=ncol(Y))
+zetaMap[1,] <- 1:ncol(Y) # lower cut-off
+# upper cut-off
+zetaMap[2,which(apply(Y,2,max)==1)] <- ncol(Y)+1 # collect for species that have 1
+zetaMap[2,which(apply(Y,2,max)!=1)] <- NA # fix for species that do not have 1
+setMap = list(zeta = factor(c(zetaMap)))
+```
+
 # Part I: Fixed-effects constrained ordination
 
 We start with a fixed-effects constrained ordination, similar in spirit to CCA:
@@ -40,7 +51,8 @@ We start with a fixed-effects constrained ordination, similar in spirit to CCA:
 ```{r mod1, cache=TRUE}
 model1 <- gllvm(y = Y, X = X,
                 lv.formula = ~dist_int_veg + caco + slope + loi + grain_size_stand_f + years_since_n + gf,
-                num.RR = 2, family = "orderedBeta", disp.formula = rep(1, ncol(Y)), n.init = 3)
+                num.RR = 2, family = "orderedBeta", disp.formula = rep(1, ncol(Y)), n.init = 3,
+                zetacutoff = c(-2,20), setMap = setMap)
 ordiplot(model1)
 ```
 
@@ -65,7 +77,8 @@ You can combine a constrained ordination with species-common effects (`row.eff`)
 model2 <- gllvm(y = Y, X = X,
                 lv.formula = ~dist_int_veg + caco + slope + loi + grain_size_stand_f + years_since_n + gf,
                 num.RR = 2, row.eff = ~(1|site/plot), studyDesign = X,
-                family = "orderedBeta", disp.formula = rep(1, ncol(Y)))
+                family = "orderedBeta", disp.formula = rep(1, ncol(Y)),
+                zetacutoff = c(-2,20), setMap = setMap)
 ```
 
 The only difference with the first model is the `row.eff`, which adds a nested random effect of plots within sites to accommodate the study design. Under the hood this expands to `~(1|site) + (1|site:plot)`, each with its own variance parameter.
@@ -76,7 +89,8 @@ If a constrained ordination includes the wrong environmental effects, ones with 
 model3 <- gllvm(y = Y, X = X,
                 lv.formula = ~dist_int_veg + caco + slope + loi + grain_size_stand_f + years_since_n + gf,
                 num.lv.c = 2, row.eff = ~(1|site/plot), studyDesign = X,
-                family = "orderedBeta", disp.formula = rep(1, ncol(Y)), n.init = 10)
+                family = "orderedBeta", disp.formula = rep(1, ncol(Y)), n.init = 10,
+                zetacutoff = c(-2,20), setMap = setMap)
 ```
 
 The only change from the second model is `num.RR = 2` becoming `num.lv.c = 2`, with `n.init` raised a little since some starting values do not converge.
@@ -88,12 +102,14 @@ For hypothesis testing, a fixed-effects constrained ordination is not nested in 
 ```{r comparemod, cache=TRUE}
 model4 <- gllvm(y = Y, X = cbind(X, obs = factor(1:nrow(X))), lv.formula = ~obs, num.RR = 2,
                 row.eff = ~(1|site/plot), studyDesign = X,
-                family = "orderedBeta", disp.formula = rep(1, ncol(Y)))
+                family = "orderedBeta", disp.formula = rep(1, ncol(Y)),
+                zetacutoff = c(-2,20), setMap = setMap)
 anova(model2, model4)
 
 model5 <- gllvm(y = Y, num.lv = 2,
                 row.eff = ~(1|site/plot), studyDesign = X,
-                family = "orderedBeta", disp.formula = rep(1, ncol(Y)))
+                family = "orderedBeta", disp.formula = rep(1, ncol(Y)),
+                zetacutoff = c(-2,20), setMap = setMap)
 anova(model3, model5)
 anova(model2, model3)
 ```
@@ -118,7 +134,8 @@ So far the covariate effects in the ordination were treated as fixed. We can ins
 model6 <- gllvm(y = Y, X = X,
                 lv.formula = ~(0+dist_int_veg|1) + (0+caco|1) + (0+slope|1) + (0+loi|1) + (0+grain_size_stand_f|1) + (0+years_since_n|1) + (0+gf|1),
                 num.RR = 2, randomB = "P",
-                family = "orderedBeta", disp.formula = rep(1, ncol(Y)), n.init = 10)
+                family = "orderedBeta", disp.formula = rep(1, ncol(Y)), n.init = 10,
+                zetacutoff = c(-2,20), setMap = setMap)
 gllvm::ordiplot(model6)
 summary(model6)
 ```
@@ -129,7 +146,8 @@ and
 model7 <- gllvm(y = Y, X = X,
                 lv.formula = ~(0+dist_int_veg|1) + (0+caco|1) + (0+slope|1) + (0+loi|1) + (0+grain_size_stand_f|1) + (0+years_since_n|1) + (0+gf|1),
                 num.RR = 2, randomB = "LV",
-                family = "orderedBeta", disp.formula = rep(1, ncol(Y)), n.init = 10)
+                family = "orderedBeta", disp.formula = rep(1, ncol(Y)), n.init = 10,
+                zetacutoff = c(-2,20), setMap = setMap)
 gllvm::ordiplot(model7)
 corrplot::corrplot(getEnvironCor(model7), type = "lower", order = "AOE", diag = FALSE, tl.pos = "l", tl.cex = 0.2, addgrid.col = NA)
 ```
