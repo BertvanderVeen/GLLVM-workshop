@@ -33,12 +33,6 @@ We use the `kelpforest` dataset: annual surveys (2000-2020) of sessile invertebr
 ```{r setup, message=FALSE}
 library(gllvm)
 TMB::openmp(parallel::detectCores()-1, autopar = TRUE, DLL = "gllvm")
-
-Y <- read.csv("../../data/waddenY2.csv")[, -c(1:2)]
-Y <- Y[, colSums(ifelse(Y == 0, 0, 1)) > 2]
-X <- read.csv("../../data/waddenX.csv")
-X <- X[, !apply(X, 2, anyNA)]
-X[, unlist(lapply(X, is.numeric))] <- scale(X[, unlist(lapply(X, is.numeric))])
 ```
 
 ```{r kelp_setup, message=FALSE}
@@ -133,7 +127,12 @@ The range is the distance at which correlation decays to $e^{-1}\approx0.37$; th
 
 Different species in a single dataset can call for different response distributions — for example, rare species recorded as presence-absence and common species recorded as counts. As covered in the lecture, `gllvm` supports this by passing a **character vector** to `family`, with one entry per species column (matching column order), rather than a single distribution for the whole community.
 
-To illustrate on data we already have, we will treat the first 10 species in `Y` as presence-absence (thresholding to 0/1) and leave the rest as counts:
+We use the wadden data again. To illustrate, we will treat the first 10 species as presence-absence (thresholding to 0/1) and leave the rest as counts:
+
+```{r mixed_setup, message=FALSE}
+Y <- read.csv("../../data/waddenY2.csv")[, -c(1:2)]
+Y <- Y[, colSums(ifelse(Y == 0, 0, 1)) > 2]
+```
 
 ```{r mixed, cache=TRUE, message=FALSE, warning=FALSE}
 Y_mixed <- Y
@@ -149,13 +148,3 @@ model_mixed <- gllvm(Y_mixed, num.lv = 2, family = family_vec, n.init = 3, sd.er
 1. Compare `model_mixed` to a model that (incorrectly) treats all species in `Y_mixed` as counts (`family = "negative.binomial"`). What goes wrong for the thresholded species?
 2. Think about your own data: do different species call for different distributions? Build a `family` vector for it, matching column order.
 3. Check `?gllvm` for the full list of families that can be mixed together in one model.
-
-# Part IV: Own data
-
-Use the remaining time to apply what you have learned to your own dataset, or to explore further aspects of the models fitted in Parts I-III.
-
-Suggested directions:
-- Fit a temporal or spatial model to your own data
-- Compare IID vs structured models using AIC
-- Use `VP()` to partition spatial vs. environmental vs. residual variation
-- Build a mixed-response `family` vector for your own data, if it has species that call for different distributions

@@ -3,12 +3,6 @@
 library(gllvm)
 TMB::openmp(parallel::detectCores()-1, autopar = TRUE, DLL = "gllvm")
 
-Y <- read.csv("../../data/waddenY2.csv")[, -c(1:2)]
-Y <- Y[, colSums(ifelse(Y == 0, 0, 1)) > 2]
-X <- read.csv("../../data/waddenX.csv")
-X <- X[, !apply(X, 2, anyNA)]
-X[, unlist(lapply(X, is.numeric))] <- scale(X[, unlist(lapply(X, is.numeric))])
-
 data(kelpforest)
 Yabund <- kelpforest$Y
 SPinfo <- kelpforest$SPinfo
@@ -54,6 +48,9 @@ model_spatial <- gllvm(Yf, family = "binomial", Ntrials = 100, num.lv = 2,
 AIC(model_iid, model_spatial)
 
 model_spatial$params$rho.lv  # range per LV, in the same units as the coordinates (km)
+
+Y <- read.csv("../../data/waddenY2.csv")[, -c(1:2)]
+Y <- Y[, colSums(ifelse(Y == 0, 0, 1)) > 2]
 
 Y_mixed <- Y
 Y_mixed[, 1:10] <- ifelse(Y_mixed[, 1:10] > 0, 1, 0)

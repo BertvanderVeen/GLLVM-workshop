@@ -420,11 +420,6 @@ TMB::openmp(parallel::detectCores()-1, autopar = TRUE, DLL = &quot;gllvm&quot;)<
 ##    11 
 ## attr(,&quot;autopar&quot;)
 ## [1] TRUE</code></pre>
-<pre class="r"><code>Y &lt;- read.csv(&quot;../../data/waddenY2.csv&quot;)[, -c(1:2)]
-Y &lt;- Y[, colSums(ifelse(Y == 0, 0, 1)) &gt; 2]
-X &lt;- read.csv(&quot;../../data/waddenX.csv&quot;)
-X &lt;- X[, !apply(X, 2, anyNA)]
-X[, unlist(lapply(X, is.numeric))] &lt;- scale(X[, unlist(lapply(X, is.numeric))])</code></pre>
 <pre class="r"><code>data(kelpforest)
 Yabund &lt;- kelpforest$Y
 SPinfo &lt;- kelpforest$SPinfo
@@ -458,7 +453,7 @@ AIC(model_iid, model_ar1)</code></pre>
 <p>Inspect the estimated AR(1) correlation:</p>
 <pre class="r"><code>model_ar1$params$sigma  # the &quot;.rho&quot;-suffixed entry is the year-to-year correlation</code></pre>
 <pre><code>## (Intercept)|site         1 | year     1 | year.rho 
-##       0.14206562       0.04500514       0.62171722</code></pre>
+##       0.14206599       0.04500578       0.62171680</code></pre>
 <div id="tasks-i" class="section level2">
 <h2>Tasks I</h2>
 <ol style="list-style-type: decimal">
@@ -503,12 +498,12 @@ model_spatial &lt;- gllvm(Yf, family = &quot;binomial&quot;, Ntrials = 100, num.
 
 AIC(model_iid, model_spatial)</code></pre>
 <pre><code>##                df      AIC
-## model_iid     290 75757.02
-## model_spatial 292 82325.74</code></pre>
+## model_iid     290 75757.52
+## model_spatial 292 82218.67</code></pre>
 <p>Inspect the estimated spatial range:</p>
 <pre class="r"><code>model_spatial$params$rho.lv  # range per LV, in the same units as the coordinates (km)</code></pre>
 <pre><code>##    rho.lv1    rho.lv2 
-## 0.01815620 0.01926456</code></pre>
+## 0.01060816 0.03044414</code></pre>
 <p>The range is the distance at which correlation decays to <span class="math inline">\(e^{-1}\approx0.37\)</span>; the effective range
 (correlation below 0.05) is about <span class="math inline">\(3\times\)</span> that.</p>
 <div id="tasks-ii" class="section level2">
@@ -543,9 +538,11 @@ and common species recorded as counts. As covered in the lecture,
 vector</strong> to <code>family</code>, with one entry per species
 column (matching column order), rather than a single distribution for
 the whole community.</p>
-<p>To illustrate on data we already have, we will treat the first 10
-species in <code>Y</code> as presence-absence (thresholding to 0/1) and
-leave the rest as counts:</p>
+<p>We use the wadden data again. To illustrate, we will treat the first
+10 species as presence-absence (thresholding to 0/1) and leave the rest
+as counts:</p>
+<pre class="r"><code>Y &lt;- read.csv(&quot;../../data/waddenY2.csv&quot;)[, -c(1:2)]
+Y &lt;- Y[, colSums(ifelse(Y == 0, 0, 1)) &gt; 2]</code></pre>
 <pre class="r"><code>Y_mixed &lt;- Y
 Y_mixed[, 1:10] &lt;- ifelse(Y_mixed[, 1:10] &gt; 0, 1, 0)
 
@@ -566,17 +563,6 @@ column order.</li>
 mixed together in one model.</li>
 </ol>
 </div>
-</div>
-<div id="part-iv-own-data" class="section level1">
-<h1>Part IV: Own data</h1>
-<p>Use the remaining time to apply what you have learned to your own
-dataset, or to explore further aspects of the models fitted in Parts
-I-III.</p>
-<p>Suggested directions: - Fit a temporal or spatial model to your own
-data - Compare IID vs structured models using AIC - Use
-<code>VP()</code> to partition spatial vs. environmental vs. residual
-variation - Build a mixed-response <code>family</code> vector for your
-own data, if it has species that call for different distributions</p>
 </div>
 
 
