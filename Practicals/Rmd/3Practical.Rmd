@@ -130,8 +130,6 @@ model2 <- gllvm(y = Y, X = X, TR = TR,
 Similar as in the previous models we can plot the species-specific responses with `randomCoefPlot`.
 
 ```{r res, message=FALSE, fig.width = 10}
-# there is a little bug in the software, this first line circumvents that. Will be fixed in the upcoming CRAN submission
-model2$randomX <- model2$Xrandom <- NULL
 randomCoefplot(model2)
 ```
 
