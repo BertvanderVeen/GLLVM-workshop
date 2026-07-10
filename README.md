@@ -159,4 +159,5 @@ The animation below shows the variational approximation converging to the final 
 - present species richness (P5/Diversity) as a form of co-occurrence, to link it more tightly into the rest of the workshop (JSDM/ordination framing) rather than treating it as a standalone univariate summary
 - flow of CommunityIntroduction.Rmd (first lecture, Tuesday) needs considerable improvement
 - show a predict function slide in the constrained ordination, conditioning, or another day 3 ordination presentation, wherever it fits best
+- add turnover/gradient-length for a covariate inside a (concurrent) quadratic ordination, not just for the LV axes; to the quadratic ordination presentation and/or its practical. Demonstrated in Practicals/R/livecode_pred_CO_turnover.R: predict along a covariate with other covariates and LVs held at 0, then project the LV-scale tolerance onto the covariate via the canonical coefficients (coef(model, "Cancoef")) to get tolerance/turnover in covariate units
 -->
