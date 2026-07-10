@@ -580,7 +580,7 @@ If both surveys reflect the same community gradient, the separate loadings shoul
 
 We need an external anchor.
 
-## Model 1: shared species only
+## Model 1: no anchor yet
 
 ```{r}
 fit3 <- gllvm(
@@ -694,7 +694,7 @@ The Procrustes alignment between the \texttt{\_COV} and \texttt{\_FREQ} loadings
 \toprule
 Model & Anchor & Alignment & Interpretation \\
 \midrule
-fit3: shared species & None (separate $\symbf{\gamma}$ per survey) & Procrustes $r$, low & Rotation ambiguity \\
+fit3: no anchor & None (separate $\symbf{\gamma}$ per survey) & Procrustes $r$, low & Rotation ambiguity \\
 fit4: + Spatial & Nearby cross-survey pairs & $r \approx `r pr_cor`$ & Methods agree spatially \\
 fit5: + Year & Space + time & $r \approx `r pr_cor_5`$ & Residual agreement \\
 \bottomrule
