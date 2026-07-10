@@ -49,20 +49,25 @@ Yinvert10$Sum_inv <- rowSums(Yinvert[, colSums(Yinvert > 0, na.rm = TRUE) <= 9],
 studyDesign <- data.frame(year = factor(Xenv$YEAR), site = factor(Xenv$SITE))
 ```
 
-Percent cover here is bounded in [0,1) (no site ever reaches 100% cover for these species), so we use the beta-hurdle family, which handles the point mass at zero. Fit a baseline model (site-level random intercepts only) and compare to one that adds AR(1) structure across years:
+Percent cover here is bounded in [0,1) (no site ever reaches 100% cover for these species), so we use the beta-hurdle family, which handles the point mass at zero. Fit three models: site-level random intercepts only, then site plus an *uncorrelated* year effect, then site plus an AR(1)-correlated year effect. Splitting it into three like this matters: `model_iid` to `model_year` tests whether year matters at all, and that is a random-effect-variance-at-the-boundary comparison (as in Practical 2's Hypothesis Testing section). `model_year` to `model_ar1` differs only in $\rho$, whose null value 0 sits in the *interior* of its $(-1,1)$ range rather than on a boundary, so that comparison is a regular, boundary-free AIC/LRT test. That second comparison is the one that actually answers "does the temporal *correlation* improve the fit", isolated from "does year matter at all":
 
 ```{r ar1, cache=TRUE, message=FALSE, warning=FALSE}
-# Baseline: site-level random intercepts, no temporal correlation
+# Baseline: site-level random intercepts, no year effect at all
 model_iid <- gllvm(Yinvert10, family = "betaH", num.lv = 0,
                    disp.formula = rep(1, ncol(Yinvert10)),
                    studyDesign = studyDesign, row.eff = ~(1|site), n.init = 3, sd.errors = FALSE)
+
+# Year-level random intercepts, but years are treated as uncorrelated
+model_year <- gllvm(Yinvert10, family = "betaH", num.lv = 0,
+                   disp.formula = rep(1, ncol(Yinvert10)),
+                   studyDesign = studyDesign, row.eff = ~(1|site) + (1|year), n.init = 3, sd.errors = FALSE)
 
 # AR(1) structure across years, added on top of the site-level intercepts
 model_ar1 <- gllvm(Yinvert10, family = "betaH", num.lv = 0,
                    disp.formula = rep(1, ncol(Yinvert10)),
                    studyDesign = studyDesign, row.eff = ~(1|site) + corAR1(1|year), n.init = 3, sd.errors = FALSE)
 
-AIC(model_iid, model_ar1)
+AIC(model_iid, model_year, model_ar1)
 ```
 
 Inspect the estimated AR(1) correlation:
@@ -73,7 +78,7 @@ model_ar1$params$sigma  # the ".rho"-suffixed entry is the year-to-year correlat
 
 ## Tasks I
 
-1. Fit both models and compare AIC. Does adding temporal structure improve fit?
+1. Compare `model_year` to `model_ar1` with AIC: this is the boundary-free test for whether temporal correlation, specifically, improves the fit (see above). Separately, compare `model_iid` to `model_year`: does year matter at all, and how does that comparison differ in kind from the first one?
 2. Interpret the AR(1) correlation parameter. How persistent is community composition from one year to the next?
 3. The AR(1) correlation at lag $k$ is $\rho^k$. Using the estimated $\rho$, at what lag does the correlation drop below 0.1?
 4. Try `lvCor = ~corAR1(1|year)` with `num.lv = 2` instead of putting the AR(1) structure in `row.eff`. What is the difference in interpretation?
@@ -116,7 +121,10 @@ Inspect the estimated spatial range:
 model_spatial$params$rho.lv  # range per LV, in the same units as the coordinates (km)
 ```
 
-The range is the distance at which correlation decays to $e^{-1}\approx0.37$; the effective range (correlation below 0.05) is about $3\times$ that.
+`corExp` models correlation as a function of the distance $d$ between two plots: $K(d) = \exp(-d/\rho)$, where $\rho$ is exactly the `rho.lv` value above. Two things follow directly from that formula, and are worth knowing before you try to interpret $\rho$ as a distance:
+
+- At $d = \rho$ (one "range" worth of distance), $K(\rho) = \exp(-\rho/\rho) = e^{-1} \approx 0.37$. That is why $\rho$ is called the range: by convention, it is defined as the distance at which correlation has decayed to $1/e$, not to zero.
+- Solving $\exp(-d/\rho) = 0.05$ for $d$ gives $d = -\rho\ln(0.05) \approx 3\rho$. This "effective range" is the distance beyond which correlation is small enough to treat as practically negligible, and is generally a more intuitive number to report than $\rho$ itself.
 
 ## Tasks II
 

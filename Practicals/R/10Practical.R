@@ -15,17 +15,22 @@ Yinvert10$Sum_inv <- rowSums(Yinvert[, colSums(Yinvert > 0, na.rm = TRUE) <= 9],
 
 studyDesign <- data.frame(year = factor(Xenv$YEAR), site = factor(Xenv$SITE))
 
-# Baseline: site-level random intercepts, no temporal correlation
+# Baseline: site-level random intercepts, no year effect at all
 model_iid <- gllvm(Yinvert10, family = "betaH", num.lv = 0,
                    disp.formula = rep(1, ncol(Yinvert10)),
                    studyDesign = studyDesign, row.eff = ~(1|site), n.init = 3, sd.errors = FALSE)
+
+# Year-level random intercepts, but years are treated as uncorrelated
+model_year <- gllvm(Yinvert10, family = "betaH", num.lv = 0,
+                   disp.formula = rep(1, ncol(Yinvert10)),
+                   studyDesign = studyDesign, row.eff = ~(1|site) + (1|year), n.init = 3, sd.errors = FALSE)
 
 # AR(1) structure across years, added on top of the site-level intercepts
 model_ar1 <- gllvm(Yinvert10, family = "betaH", num.lv = 0,
                    disp.formula = rep(1, ncol(Yinvert10)),
                    studyDesign = studyDesign, row.eff = ~(1|site) + corAR1(1|year), n.init = 3, sd.errors = FALSE)
 
-AIC(model_iid, model_ar1)
+AIC(model_iid, model_year, model_ar1)
 
 model_ar1$params$sigma  # the ".rho"-suffixed entry is the year-to-year correlation
 
