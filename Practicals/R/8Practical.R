@@ -10,12 +10,12 @@ X <- X[, !apply(X, 2, anyNA)]
 X[, unlist(lapply(X, is.numeric))] <- scale(X[, unlist(lapply(X, is.numeric))])
 
 model1 <- gllvm(Y, num.lv = 2, family = "tweedie", Power = NULL,
-                disp.formula = rep(1, ncol(Y)), n.init = 3)
+                disp.formula = rep(1, ncol(Y)), n.init = 3, sd.errors = FALSE)
 gllvm::ordiplot(model1, symbols = TRUE, s.cex = 1.5)
 
 model2 <- gllvm(Y, num.lv = 2, family = "tweedie", Power = NULL,
                 disp.formula = rep(1, ncol(Y)),
-                row.eff = ~(1|island), studyDesign = X, n.init = 3)
+                row.eff = ~(1|island), studyDesign = X, n.init = 3, sd.errors = FALSE)
 gllvm::ordiplot(model2, symbols = TRUE, s.cex = 1.5)
 
 vegan::procrustes(getLV(model1), getLV(model2), symmetric = TRUE)
@@ -26,7 +26,7 @@ model3 <- gllvm(Y, X = X,
                 family = "tweedie", Power = NULL,
                 disp.formula = rep(1, ncol(Y)),
                 row.eff = ~(1|island), studyDesign = X,
-                n.init = 3)
+                n.init = 3, sd.errors = FALSE)
 gllvm::ordiplot(model3, symbols = TRUE, s.cex = 1.5, arrow.ci = FALSE)
 
 VP(model3)

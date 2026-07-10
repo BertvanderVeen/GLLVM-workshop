@@ -439,12 +439,12 @@ years:</p>
 <pre class="r"><code># Baseline: site-level random intercepts, no temporal correlation
 model_iid &lt;- gllvm(Yinvert10, family = &quot;betaH&quot;, num.lv = 0,
                    disp.formula = rep(1, ncol(Yinvert10)),
-                   studyDesign = studyDesign, row.eff = ~(1|site), n.init = 3)
+                   studyDesign = studyDesign, row.eff = ~(1|site), n.init = 3, sd.errors = FALSE)
 
 # AR(1) structure across years, added on top of the site-level intercepts
 model_ar1 &lt;- gllvm(Yinvert10, family = &quot;betaH&quot;, num.lv = 0,
                    disp.formula = rep(1, ncol(Yinvert10)),
-                   studyDesign = studyDesign, row.eff = ~(1|site) + corAR1(1|year), n.init = 3)
+                   studyDesign = studyDesign, row.eff = ~(1|site) + corAR1(1|year), n.init = 3, sd.errors = FALSE)
 
 AIC(model_iid, model_ar1)</code></pre>
 <pre><code>##            df      AIC
@@ -453,7 +453,7 @@ AIC(model_iid, model_ar1)</code></pre>
 <p>Inspect the estimated AR(1) correlation:</p>
 <pre class="r"><code>model_ar1$params$sigma  # the &quot;.rho&quot;-suffixed entry is the year-to-year correlation</code></pre>
 <pre><code>## (Intercept)|site         1 | year     1 | year.rho 
-##       0.14206599       0.04500578       0.62171680</code></pre>
+##       0.14206682       0.04500576       0.62171160</code></pre>
 <div id="tasks-i" class="section level2">
 <h2>Tasks I</h2>
 <ol style="list-style-type: decimal">
@@ -489,21 +489,27 @@ plot_f &lt;- factor(Xf$PlotID)
 coords_plot &lt;- as.matrix(Xf[match(levels(plot_f), Xf$PlotID), c(&quot;E&quot;, &quot;N&quot;)])</code></pre>
 <p>Fit a baseline model (no spatial structure) and compare to one with
 exponentially decaying correlation between plots:</p>
-<pre class="r"><code>model_iid &lt;- gllvm(Yf, family = &quot;binomial&quot;, Ntrials = 100, num.lv = 2, n.init = 3)
+<pre class="r"><code>model_iid &lt;- gllvm(Yf, family = &quot;binomial&quot;, Ntrials = 100, num.lv = 2,
+                   n.init = 5, seed = 1:5, sd.errors = FALSE)
 
 model_spatial &lt;- gllvm(Yf, family = &quot;binomial&quot;, Ntrials = 100, num.lv = 2,
                        lvCor = ~corExp(1|plot),
                        studyDesign = data.frame(plot = plot_f),
-                       distLV = coords_plot, n.init = 3)
+                       distLV = coords_plot, n.init = 5, seed = 1:5, sd.errors = FALSE)
 
 AIC(model_iid, model_spatial)</code></pre>
 <pre><code>##                df      AIC
-## model_iid     290 75757.52
-## model_spatial 292 82218.67</code></pre>
+## model_iid     290 75792.87
+## model_spatial 292 82527.02</code></pre>
+<p><code>corExp</code> model fits are sensitive to starting values: with
+too few restarts, one of the two LV ranges can collapse to a degenerate,
+effectively-zero value. <code>n.init = 5</code> with fixed seeds avoids
+that here; if you still see a <code>rho.lv</code> value near zero
+(e.g. <code>1e-70</code>), increase <code>n.init</code> further.</p>
 <p>Inspect the estimated spatial range:</p>
 <pre class="r"><code>model_spatial$params$rho.lv  # range per LV, in the same units as the coordinates (km)</code></pre>
-<pre><code>##    rho.lv1    rho.lv2 
-## 0.01060816 0.03044414</code></pre>
+<pre><code>##      rho.lv1      rho.lv2 
+## 0.0156014137 0.0004526496</code></pre>
 <p>The range is the distance at which correlation decays to <span class="math inline">\(e^{-1}\approx0.37\)</span>; the effective range
 (correlation below 0.05) is about <span class="math inline">\(3\times\)</span> that.</p>
 <div id="tasks-ii" class="section level2">
@@ -541,7 +547,7 @@ the whole community.</p>
 <p>We use the wadden data again. To illustrate, we will treat the first
 10 species as presence-absence (thresholding to 0/1) and leave the rest
 as counts:</p>
-<pre class="r"><code>Y &lt;- read.csv(&quot;../../data/waddenY2.csv&quot;)[, -c(1:2)]
+<pre class="r"><code>Y &lt;- read.csv(&quot;../../data/waddenY.csv&quot;)[, -c(1:2)]
 Y &lt;- Y[, colSums(ifelse(Y == 0, 0, 1)) &gt; 2]</code></pre>
 <pre class="r"><code>Y_mixed &lt;- Y
 Y_mixed[, 1:10] &lt;- ifelse(Y_mixed[, 1:10] &gt; 0, 1, 0)

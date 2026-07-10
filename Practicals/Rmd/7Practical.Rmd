@@ -48,17 +48,22 @@ setMap = list(zeta = factor(c(zetaMap)))
 
 We start with a fixed-effects constrained ordination, similar in spirit to CCA:
 
+As before, we fit with `sd.errors = FALSE`, and only calculate standard errors with `se.gllvm` once we need them, for example for `summary` or `coefplot`. `ordiplot` does not need them (unless you ask for `predict.region`), so we can look at the ordination straight away:
+
 ```{r mod1, cache=TRUE}
 model1 <- gllvm(y = Y, X = X,
                 lv.formula = ~dist_int_veg + caco + slope + loi + grain_size_stand_f + years_since_n + gf,
                 num.RR = 2, family = "orderedBeta", disp.formula = rep(1, ncol(Y)), n.init = 3,
-                zetacutoff = c(-2,20), setMap = setMap)
+                zetacutoff = c(-2,20), setMap = setMap, sd.errors = FALSE)
 ordiplot(model1)
 ```
 
-`num.RR` sets the number of constrained ordination axes, and `lv.formula` specifies the effects that go into the ordination. `disp.formula` collects the dispersion parameters for the beta distribution into a single shared parameter, to reduce the information burden on the data. The arrows in the ordination show the association of the environmental effects with the ordination axes; they are scaled so the largest effect has the longest arrow, so arrow length alone does not tell you relative importance. For the magnitude of the canonical coefficients themselves, extract them with `coef` or `summary`:
+`num.RR` sets the number of constrained ordination axes, and `lv.formula` specifies the effects that go into the ordination. `disp.formula` collects the dispersion parameters for the beta distribution into a single shared parameter, to reduce the information burden on the data. The arrows in the ordination show the association of the environmental effects with the ordination axes; they are scaled so the largest effect has the longest arrow, so arrow length alone does not tell you relative importance. For the magnitude of the canonical coefficients themselves, extract them with `coef` or `summary`, which do need standard errors:
 
 ```{r, fig.width=10}
+ses <- se.gllvm(model1)
+model1$sd <- ses$sd
+model1$Hess <- ses$Hess
 summary(model1)
 plot(summary(model1))
 ```
@@ -78,7 +83,7 @@ model2 <- gllvm(y = Y, X = X,
                 lv.formula = ~dist_int_veg + caco + slope + loi + grain_size_stand_f + years_since_n + gf,
                 num.RR = 2, row.eff = ~(1|site/plot), studyDesign = X,
                 family = "orderedBeta", disp.formula = rep(1, ncol(Y)),
-                zetacutoff = c(-2,20), setMap = setMap)
+                zetacutoff = c(-2,20), setMap = setMap, sd.errors = FALSE)
 ```
 
 The only difference with the first model is the `row.eff`, which adds a nested random effect of plots within sites to accommodate the study design. Under the hood this expands to `~(1|site) + (1|site:plot)`, each with its own variance parameter.
@@ -90,7 +95,7 @@ model3 <- gllvm(y = Y, X = X,
                 lv.formula = ~dist_int_veg + caco + slope + loi + grain_size_stand_f + years_since_n + gf,
                 num.lv.c = 2, row.eff = ~(1|site/plot), studyDesign = X,
                 family = "orderedBeta", disp.formula = rep(1, ncol(Y)), n.init = 10,
-                zetacutoff = c(-2,20), setMap = setMap)
+                zetacutoff = c(-2,20), setMap = setMap, sd.errors = FALSE)
 ```
 
 The only change from the second model is `num.RR = 2` becoming `num.lv.c = 2`, with `n.init` raised a little since some starting values do not converge.
@@ -103,13 +108,13 @@ For hypothesis testing, a fixed-effects constrained ordination is not nested in 
 model4 <- gllvm(y = Y, X = cbind(X, obs = factor(1:nrow(X))), lv.formula = ~obs, num.RR = 2,
                 row.eff = ~(1|site/plot), studyDesign = X,
                 family = "orderedBeta", disp.formula = rep(1, ncol(Y)),
-                zetacutoff = c(-2,20), setMap = setMap)
+                zetacutoff = c(-2,20), setMap = setMap, sd.errors = FALSE)
 anova(model2, model4)
 
 model5 <- gllvm(y = Y, num.lv = 2,
                 row.eff = ~(1|site/plot), studyDesign = X,
                 family = "orderedBeta", disp.formula = rep(1, ncol(Y)),
-                zetacutoff = c(-2,20), setMap = setMap)
+                zetacutoff = c(-2,20), setMap = setMap, sd.errors = FALSE)
 anova(model3, model5)
 anova(model2, model3)
 ```
@@ -135,8 +140,11 @@ model6 <- gllvm(y = Y, X = X,
                 lv.formula = ~(0+dist_int_veg|1) + (0+caco|1) + (0+slope|1) + (0+loi|1) + (0+grain_size_stand_f|1) + (0+years_since_n|1) + (0+gf|1),
                 num.RR = 2, randomB = "P",
                 family = "orderedBeta", disp.formula = rep(1, ncol(Y)), n.init = 10,
-                zetacutoff = c(-2,20), setMap = setMap)
+                zetacutoff = c(-2,20), setMap = setMap, sd.errors = FALSE)
 gllvm::ordiplot(model6)
+ses <- se.gllvm(model6)
+model6$sd <- ses$sd
+model6$Hess <- ses$Hess
 summary(model6)
 ```
 
@@ -147,7 +155,7 @@ model7 <- gllvm(y = Y, X = X,
                 lv.formula = ~(0+dist_int_veg|1) + (0+caco|1) + (0+slope|1) + (0+loi|1) + (0+grain_size_stand_f|1) + (0+years_since_n|1) + (0+gf|1),
                 num.RR = 2, randomB = "LV",
                 family = "orderedBeta", disp.formula = rep(1, ncol(Y)), n.init = 10,
-                zetacutoff = c(-2,20), setMap = setMap)
+                zetacutoff = c(-2,20), setMap = setMap, sd.errors = FALSE)
 gllvm::ordiplot(model7)
 corrplot::corrplot(getEnvironCor(model7), type = "lower", order = "AOE", diag = FALSE, tl.pos = "l", tl.cex = 0.2, addgrid.col = NA)
 ```

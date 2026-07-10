@@ -18,12 +18,12 @@ studyDesign <- data.frame(year = factor(Xenv$YEAR), site = factor(Xenv$SITE))
 # Baseline: site-level random intercepts, no temporal correlation
 model_iid <- gllvm(Yinvert10, family = "betaH", num.lv = 0,
                    disp.formula = rep(1, ncol(Yinvert10)),
-                   studyDesign = studyDesign, row.eff = ~(1|site), n.init = 3)
+                   studyDesign = studyDesign, row.eff = ~(1|site), n.init = 3, sd.errors = FALSE)
 
 # AR(1) structure across years, added on top of the site-level intercepts
 model_ar1 <- gllvm(Yinvert10, family = "betaH", num.lv = 0,
                    disp.formula = rep(1, ncol(Yinvert10)),
-                   studyDesign = studyDesign, row.eff = ~(1|site) + corAR1(1|year), n.init = 3)
+                   studyDesign = studyDesign, row.eff = ~(1|site) + corAR1(1|year), n.init = 3, sd.errors = FALSE)
 
 AIC(model_iid, model_ar1)
 
@@ -38,18 +38,19 @@ plot_f <- factor(Xf$PlotID)
 # variable, not one row per observation.
 coords_plot <- as.matrix(Xf[match(levels(plot_f), Xf$PlotID), c("E", "N")])
 
-model_iid <- gllvm(Yf, family = "binomial", Ntrials = 100, num.lv = 2, n.init = 3)
+model_iid <- gllvm(Yf, family = "binomial", Ntrials = 100, num.lv = 2,
+                   n.init = 5, seed = 1:5, sd.errors = FALSE)
 
 model_spatial <- gllvm(Yf, family = "binomial", Ntrials = 100, num.lv = 2,
                        lvCor = ~corExp(1|plot),
                        studyDesign = data.frame(plot = plot_f),
-                       distLV = coords_plot, n.init = 3)
+                       distLV = coords_plot, n.init = 5, seed = 1:5, sd.errors = FALSE)
 
 AIC(model_iid, model_spatial)
 
 model_spatial$params$rho.lv  # range per LV, in the same units as the coordinates (km)
 
-Y <- read.csv("../../data/waddenY2.csv")[, -c(1:2)]
+Y <- read.csv("../../data/waddenY.csv")[, -c(1:2)]
 Y <- Y[, colSums(ifelse(Y == 0, 0, 1)) > 2]
 
 Y_mixed <- Y

@@ -21,9 +21,12 @@ setMap = list(zeta = factor(c(zetaMap)))
 model1 <- gllvm(y = Y, X = X,
                 lv.formula = ~dist_int_veg + caco + slope + loi + grain_size_stand_f + years_since_n + gf,
                 num.RR = 2, family = "orderedBeta", disp.formula = rep(1, ncol(Y)), n.init = 3,
-                zetacutoff = c(-2,20), setMap = setMap)
+                zetacutoff = c(-2,20), setMap = setMap, sd.errors = FALSE)
 ordiplot(model1)
 
+ses <- se.gllvm(model1)
+model1$sd <- ses$sd
+model1$Hess <- ses$Hess
 summary(model1)
 plot(summary(model1))
 
@@ -33,24 +36,24 @@ model2 <- gllvm(y = Y, X = X,
                 lv.formula = ~dist_int_veg + caco + slope + loi + grain_size_stand_f + years_since_n + gf,
                 num.RR = 2, row.eff = ~(1|site/plot), studyDesign = X,
                 family = "orderedBeta", disp.formula = rep(1, ncol(Y)),
-                zetacutoff = c(-2,20), setMap = setMap)
+                zetacutoff = c(-2,20), setMap = setMap, sd.errors = FALSE)
 
 model3 <- gllvm(y = Y, X = X,
                 lv.formula = ~dist_int_veg + caco + slope + loi + grain_size_stand_f + years_since_n + gf,
                 num.lv.c = 2, row.eff = ~(1|site/plot), studyDesign = X,
                 family = "orderedBeta", disp.formula = rep(1, ncol(Y)), n.init = 10,
-                zetacutoff = c(-2,20), setMap = setMap)
+                zetacutoff = c(-2,20), setMap = setMap, sd.errors = FALSE)
 
 model4 <- gllvm(y = Y, X = cbind(X, obs = factor(1:nrow(X))), lv.formula = ~obs, num.RR = 2,
                 row.eff = ~(1|site/plot), studyDesign = X,
                 family = "orderedBeta", disp.formula = rep(1, ncol(Y)),
-                zetacutoff = c(-2,20), setMap = setMap)
+                zetacutoff = c(-2,20), setMap = setMap, sd.errors = FALSE)
 anova(model2, model4)
 
 model5 <- gllvm(y = Y, num.lv = 2,
                 row.eff = ~(1|site/plot), studyDesign = X,
                 family = "orderedBeta", disp.formula = rep(1, ncol(Y)),
-                zetacutoff = c(-2,20), setMap = setMap)
+                zetacutoff = c(-2,20), setMap = setMap, sd.errors = FALSE)
 anova(model3, model5)
 anova(model2, model3)
 
@@ -58,14 +61,17 @@ model6 <- gllvm(y = Y, X = X,
                 lv.formula = ~(0+dist_int_veg|1) + (0+caco|1) + (0+slope|1) + (0+loi|1) + (0+grain_size_stand_f|1) + (0+years_since_n|1) + (0+gf|1),
                 num.RR = 2, randomB = "P",
                 family = "orderedBeta", disp.formula = rep(1, ncol(Y)), n.init = 10,
-                zetacutoff = c(-2,20), setMap = setMap)
+                zetacutoff = c(-2,20), setMap = setMap, sd.errors = FALSE)
 gllvm::ordiplot(model6)
+ses <- se.gllvm(model6)
+model6$sd <- ses$sd
+model6$Hess <- ses$Hess
 summary(model6)
 
 model7 <- gllvm(y = Y, X = X,
                 lv.formula = ~(0+dist_int_veg|1) + (0+caco|1) + (0+slope|1) + (0+loi|1) + (0+grain_size_stand_f|1) + (0+years_since_n|1) + (0+gf|1),
                 num.RR = 2, randomB = "LV",
                 family = "orderedBeta", disp.formula = rep(1, ncol(Y)), n.init = 10,
-                zetacutoff = c(-2,20), setMap = setMap)
+                zetacutoff = c(-2,20), setMap = setMap, sd.errors = FALSE)
 gllvm::ordiplot(model7)
 corrplot::corrplot(getEnvironCor(model7), type = "lower", order = "AOE", diag = FALSE, tl.pos = "l", tl.cex = 0.2, addgrid.col = NA)

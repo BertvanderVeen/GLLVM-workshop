@@ -158,4 +158,5 @@ The animation below shows the variational approximation converging to the final 
 - different dataset for unimodal model; one that has more optima in range of the LVs
 - present species richness (P5/Diversity) as a form of co-occurrence, to link it more tightly into the rest of the workshop (JSDM/ordination framing) rather than treating it as a standalone univariate summary
 - flow of CommunityIntroduction.Rmd (first lecture, Tuesday) needs considerable improvement
+- show a predict function slide in the constrained ordination, conditioning, or another day 3 ordination presentation, wherever it fits best
 -->

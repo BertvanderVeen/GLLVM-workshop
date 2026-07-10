@@ -56,13 +56,13 @@ There are different philosophies to fitting ordinations, some people prefer star
 
 Repeatedly re-running the model is essentially what the `n.init` argument does in the below code. This is good practice, because different model runs often result in a (somewhat) different result. You can set `seed` to ensure you get the same model every time, or use `starting.val = "zero"` instead (the latter option might be suboptimal in many cases, see [Niku et al. (2019)](https://journals.plos.org/plosone/article?id=10.1371/journal.pone.0216129)).
 
-To further facilitate the low number of observations for some species, we collect all dispersion parameters for this model using the same, via the `disp.formula` argument. By default this is species-specific, but for this dataset that simply requires more information than we have available.
+To further facilitate the low number of observations for some species, we collect all dispersion parameters for this model using the same, via the `disp.formula` argument. By default this is species-specific, but for this dataset that simply requires more information than we have available. We again fit with `sd.errors = FALSE`; ordination diagrams, `getLV`, `getLoadings`, and `procrustes` do not need standard errors, so there is no reason to pay for calculating them here.
 
 ```{r, cache = TRUE, warning=FALSE, message=FALSE}
 library(gllvm)
 TMB::openmp(parallel::detectCores()-1, autopar = TRUE, DLL = "gllvm")
-model1  <- gllvm(y = Y, num.lv = 2, family = "orderedBeta", disp.formula = rep(1,ncol(Y)), starting.val = "zero")
-model2  <- gllvm(y = Y2, num.lv = 2, family = "orderedBeta", disp.formula = rep(1,ncol(Y2)), starting.val = "zero")
+model1  <- gllvm(y = Y, num.lv = 2, family = "orderedBeta", disp.formula = rep(1,ncol(Y)), n.init = 5, sd.errors = FALSE)
+model2  <- gllvm(y = Y2, num.lv = 2, family = "orderedBeta", disp.formula = rep(1,ncol(Y2)), n.init = 5, sd.errors = FALSE)
 ```
 
 Sometimes, especially for "difficult" datatypes like percentage cover, and for sparse data, this might require fiddling around a bit with the starting values and `n.init`. 
@@ -107,12 +107,12 @@ Everything from the first two practicals still applies: we can include random ef
 model3  <- gllvm(y = Y2, num.lv = 2,
                  family = "orderedBeta", disp.formula = rep(1,ncol(Y2)),
                  starting.val = "res", row.eff = ~(1|site), studyDesign = X,
-                 sd.errors = FALSE, seed = 2)
+                 sd.errors = FALSE, seed = 2, n.init = 5)
 
 model4  <- gllvm(y = Y2, X = X, num.lv = 2,
                  family = "orderedBeta", disp.formula = rep(1,ncol(Y2)),
-                 starting.val = "res", formula = ~diag(1|site), randomX.start = "zero",
-                 Ab.struct = "diagonal", sd.errors = FALSE, seed = 2)
+                 starting.val = "res", formula = ~diag(1|site),
+                 Ab.struct = "diagonal", sd.errors = FALSE, seed = 2, n.init = 5)
 ```
 
 The fourth model includes many more random effects (20*98) than the third model (20) , as we conditioned the ordination on species-specific random effects with site-specific variances. In the third model we assume the random effects for all species are the same, and the variance of the random effects is the same for all sites. The latter is much closer to what `Condition` does in classical ordination methods. Comparing some of our ordinations again:
@@ -150,7 +150,7 @@ Now, we have only fitted models with two latent variables, or ordination axes. F
 The ordinations we have fitted in the first part are defined at the observation-level, while we might want to have it at the site-level, instead. There are two ways of doing that: the "lvCor" argument accepts (at the moment) a single variable for the level at which the (unconstrained) ordination is defined. We can also use the `num.RR` argument and `lv.formula`, which we will learn more about in the next practical. For now, let's stick to using "lvCor".
 
 ```{r, cache = TRUE, warning=FALSE, message=FALSE, fig.width = 10}
-model5  <- gllvm(y = Y2, num.lv = 2, family = "orderedBeta", n.init = 10, lvCor = ~(1|site), studyDesign = X[,"site",drop=FALSE], disp.formula = rep(1, ncol(Y2)))
+model5  <- gllvm(y = Y2, num.lv = 2, family = "orderedBeta", n.init = 10, lvCor = ~(1|site), studyDesign = X[,"site",drop=FALSE], disp.formula = rep(1, ncol(Y2)), sd.errors = FALSE)
 gllvm::ordiplot(model5)
 ```
 
@@ -168,7 +168,7 @@ In this figure, where residuals are colored by site, we do see that there is var
 ```{r, cache = TRUE}
 X$plot<- factor(ave(seq_along(X$site), X$site, FUN = seq_along))
 
-model6  <- gllvm(y = Y2, num.lv = 2, family = "orderedBeta", n.init = 10, lvCor = ~(1|site), studyDesign = X[,c("plot","site"),drop=FALSE], disp.formula = rep(1, ncol(Y2)), row.eff = ~(1|site/plot))
+model6  <- gllvm(y = Y2, num.lv = 2, family = "orderedBeta", n.init = 5, lvCor = ~(1|site), studyDesign = X[,c("plot","site"),drop=FALSE], disp.formula = rep(1, ncol(Y2)), row.eff = ~(1|site/plot), sd.errors = FALSE)
 
 # this draws way too much memory
 # model7  <- gllvm(y = Y2, X = X[,c("site","plot")], num.lv = 2, family = "orderedBeta", lvCor = ~(1|site), studyDesign = X[,c("site"),drop=FALSE], disp.formula = rep(1, ncol(Y2)), formula = ~diag(1|site/plot), randomX.start = "res", Ab.struct = "diagonal", sd.errors = FALSE)

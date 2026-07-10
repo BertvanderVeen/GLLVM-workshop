@@ -36,7 +36,7 @@ Because the model is more complex, it also takes longer to fit it. I will fit it
 ```{r uo, cache = TRUE, message=FALSE}
 library(gllvm)
 TMB::openmp(parallel::detectCores()-1, autopar = TRUE, DLL = "gllvm")
-model1 <- gllvm(Y, num.lv = 2, quadratic = TRUE, n.init = 3, family = "negative.binomial", disp.formula = rep(1, ncol(Y)))
+model1 <- gllvm(Y, num.lv = 2, quadratic = TRUE, n.init = 3, family = "negative.binomial", disp.formula = rep(1, ncol(Y)), sd.errors = FALSE)
 gllvm::ordiplot(model1, biplot = TRUE)
 ```
 

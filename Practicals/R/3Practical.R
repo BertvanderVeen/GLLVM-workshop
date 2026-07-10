@@ -25,9 +25,12 @@ X <- scale(model.matrix(~.,X))[,-1] # environmental variables
 TR <- scale(model.matrix(~.,TR))[,-1] # species traits
 
 library(gllvm)
-model1 <- gllvm(y = Y, X = X, TR = TR, 
-                formula = ~ Management + Elevation + pH + Moist + (Management + Elevation + pH + Moist):(LPH+ LTL + OVE2 + BRE2 + BRE3), 
-                family = "negative.binomial", num.lv = 0)
+model1 <- gllvm(y = Y, X = X, TR = TR,
+                formula = ~ Management + Elevation + pH + Moist + (Management + Elevation + pH + Moist):(LPH+ LTL + OVE2 + BRE2 + BRE3),
+                family = "negative.binomial", num.lv = 0, sd.errors = FALSE)
+ses <- se.gllvm(model1)
+model1$sd <- ses$sd
+model1$Hess <- ses$Hess
 
 library(gllvm)
 (fourth <- gllvm:::getFourthCorner(model1))
@@ -60,12 +63,13 @@ for (cell in 1:nrow(cells_to_outline)){
 polygon(x_vals, y_vals, col = NA, border = "black", lwd = 2)
 }
 
-model2 <- gllvm(y = Y, X = X, TR = TR, 
+model2 <- gllvm(y = Y, X = X, TR = TR,
                 formula = ~ Management + Elevation + pH + Moist + (Management + Elevation + pH + Moist):(LPH+ LTL + OVE2 + BRE2 + BRE3) + (0+Management + Elevation + pH + Moist|1),
-                family = "negative.binomial", num.lv = 0, n.init = 3)
+                family = "negative.binomial", num.lv = 0, n.init = 3, sd.errors = FALSE)
+ses <- se.gllvm(model2)
+model2$sd <- ses$sd
+model2$Hess <- ses$Hess
 
-# there is a little bug in the software, this first line circumvents that. Will be fixed in the upcoming CRAN submission
-model2$randomX <- model2$Xrandom <- NULL
 randomCoefplot(model2)
 
 fourth <- gllvm:::getFourthCorner(model2)
@@ -96,7 +100,7 @@ polygon(x_vals, y_vals, col = NA, border = "black", lwd = 2)
 
 model3 <- gllvm(y = Y, X = X,
                 formula = ~ (0+Management + Elevation + pH + Moist|1),
-                family = "negative.binomial", num.lv = 0, n.init = 3)
+                family = "negative.binomial", num.lv = 0, n.init = 3, sd.errors = FALSE)
 anova(model2, model3)
 
 data(fungi, package = "gllvm")
@@ -148,7 +152,7 @@ model6 <- gllvm(Y2[,spec.ord], X = X2, TR = TR, formula = ~DBH.CM+AVERDP+CONNECT
                 optim.method = "L-BFGS-B", Ab.struct = "MNdiagonal", maxit = 1e5,
                 colMat = list(covMat[spec.ord, spec.ord], dist = distMat[spec.ord, spec.ord]), colMat.rho.struct = "term", nn.colMat = 15)
 
-ses <- se(model6)
+ses <- se.gllvm(model6)
 model6$sd <- ses$sd
 model6$Hess <- ses$Hess
 

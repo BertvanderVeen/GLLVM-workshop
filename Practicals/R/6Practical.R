@@ -11,8 +11,8 @@ ncol(Y2)
 
 library(gllvm)
 TMB::openmp(parallel::detectCores()-1, autopar = TRUE, DLL = "gllvm")
-model1  <- gllvm(y = Y, num.lv = 2, family = "orderedBeta", disp.formula = rep(1,ncol(Y)), starting.val = "zero")
-model2  <- gllvm(y = Y2, num.lv = 2, family = "orderedBeta", disp.formula = rep(1,ncol(Y2)), starting.val = "zero")
+model1  <- gllvm(y = Y, num.lv = 2, family = "orderedBeta", disp.formula = rep(1,ncol(Y)), n.init = 5, sd.errors = FALSE)
+model2  <- gllvm(y = Y2, num.lv = 2, family = "orderedBeta", disp.formula = rep(1,ncol(Y2)), n.init = 5, sd.errors = FALSE)
 
 library(gllvm)
 par(mfrow = c(2, 2))
@@ -33,12 +33,12 @@ vegan::procrustes(getLV(model1), vegan::scores(DCA, choices = 1:2), symmetric = 
 model3  <- gllvm(y = Y2, num.lv = 2,
                  family = "orderedBeta", disp.formula = rep(1,ncol(Y2)),
                  starting.val = "res", row.eff = ~(1|site), studyDesign = X,
-                 sd.errors = FALSE, seed = 2)
+                 sd.errors = FALSE, seed = 2, n.init = 5)
 
 model4  <- gllvm(y = Y2, X = X, num.lv = 2,
                  family = "orderedBeta", disp.formula = rep(1,ncol(Y2)),
-                 starting.val = "res", formula = ~diag(1|site), randomX.start = "zero",
-                 Ab.struct = "diagonal", sd.errors = FALSE, seed = 2)
+                 starting.val = "res", formula = ~diag(1|site),
+                 Ab.struct = "diagonal", sd.errors = FALSE, seed = 2, n.init = 5)
 
 vegan::procrustes(getLV(model3), getLV(model4), symmetric = TRUE)
 vegan::procrustes(getLV(model1), getLV(model4), symmetric = TRUE)
@@ -48,7 +48,7 @@ vegan::procrustes(getLoadings(model2), getLoadings(model4), symmetric = TRUE)
 
 AIC(model3, model4)
 
-model5  <- gllvm(y = Y2, num.lv = 2, family = "orderedBeta", n.init = 10, lvCor = ~(1|site), studyDesign = X[,"site",drop=FALSE], disp.formula = rep(1, ncol(Y2)))
+model5  <- gllvm(y = Y2, num.lv = 2, family = "orderedBeta", n.init = 10, lvCor = ~(1|site), studyDesign = X[,"site",drop=FALSE], disp.formula = rep(1, ncol(Y2)), sd.errors = FALSE)
 gllvm::ordiplot(model5)
 
 resi <- residuals(model5)$resi
@@ -58,7 +58,7 @@ plot(c(resi) ~ c(fitted), xlim = c(min(xxx), max(xxx)), col = rep(X$site, times 
 
 X$plot<- factor(ave(seq_along(X$site), X$site, FUN = seq_along))
 
-model6  <- gllvm(y = Y2, num.lv = 2, family = "orderedBeta", n.init = 10, lvCor = ~(1|site), studyDesign = X[,c("plot","site"),drop=FALSE], disp.formula = rep(1, ncol(Y2)), row.eff = ~(1|site/plot))
+model6  <- gllvm(y = Y2, num.lv = 2, family = "orderedBeta", n.init = 5, lvCor = ~(1|site), studyDesign = X[,c("plot","site"),drop=FALSE], disp.formula = rep(1, ncol(Y2)), row.eff = ~(1|site/plot), sd.errors = FALSE)
 
 # this draws way too much memory
 # model7  <- gllvm(y = Y2, X = X[,c("site","plot")], num.lv = 2, family = "orderedBeta", lvCor = ~(1|site), studyDesign = X[,c("site"),drop=FALSE], disp.formula = rep(1, ncol(Y2)), formula = ~diag(1|site/plot), randomX.start = "res", Ab.struct = "diagonal", sd.errors = FALSE)

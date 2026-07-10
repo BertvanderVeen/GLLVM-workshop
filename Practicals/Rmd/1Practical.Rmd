@@ -237,11 +237,16 @@ Reduce("+", lapply(GLMs, logLik))
 
 which just sums the likelihoods of all the separate models, which is the same as the model we just fitted above. We can also fit in with just a single line of code using the <tt>gllvm</tt> package:
 
+By default, `gllvm` calculates standard errors while fitting the model, from the Hessian of the (approximate) log-likelihood. For simple models that is not an issue, but for larger or more complex models, this can take much longer than the fitting itself, and it is wasted effort while you are still exploring the data or comparing model formulations. So, from here on, we will fit models with `sd.errors = FALSE`, and only calculate standard errors afterwards with `se.gllvm`, once we actually need them (for a `summary`, `coefplot`, `confint`, and so on). The standard errors get stored back onto the model object:
+
 ```{r, message=FALSE, eval = TRUE}
 X <- X[,-which(apply(X,2, anyNA))] # remove column with NAs
 library(gllvm)
-model5 <- gllvm(Y, X, formula = ~silt_clay + elevation, family = "poisson", num.lv = 0)
+model5 <- gllvm(Y, X, formula = ~silt_clay + elevation, family = "poisson", num.lv = 0, sd.errors = FALSE)
 logLik(model5)
+ses <- se.gllvm(model5)
+model5$sd <- ses$sd
+model5$Hess <- ses$Hess
 summary(model5, digits = 3L)
 ```
 
@@ -250,7 +255,10 @@ OK, it is not __exactly__ the same as before, but pretty close. That is because 
 Species-common effects are specified with the `row.eff` argument, and work on average abundance at sites. We can combine this with `formula`, but note that the same effect cannot be in `row.eff` and in `formula` for identifiability reasons. There is a separate argument that takes the covariates related to `row.eff`, which is "studyDesign", so the code to fit this model is:
 
 ```{r, message=FALSE, echo = -1}
-model6 <- gllvm(Y, studyDesign = X, row.eff = ~scale(silt_clay) + scale(elevation), family = "poisson", num.lv = 0)
+model6 <- gllvm(Y, studyDesign = X, row.eff = ~scale(silt_clay) + scale(elevation), family = "poisson", num.lv = 0, sd.errors = FALSE)
+ses <- se.gllvm(model6)
+model6$sd <- ses$sd
+model6$Hess <- ses$Hess
 summary(model6)
 ```
 
@@ -268,12 +276,12 @@ if the confidence interval crosses zero, the species' effect is greyed out as it
 Compared to the models we have fitted before, the models in <tt>gllvm</tt> correspond to "dummy coding", so that there is no "common" effect, but species-specific effects instead, as long as things are treated as fixed. In this framework, we can now straightforwardly move to a distribution outside of the single-parameter exponential family; so we can fit (for example) a negative-binomial model that accommodates overdispersion per species.
 
 ```{r, message=FALSE, echo = -1}
-model7 <- gllvm(Y, X, formula = ~scale(silt_clay) + scale(elevation), family = "negative.binomial", num.lv = 0)
+model7 <- gllvm(Y, X, formula = ~scale(silt_clay) + scale(elevation), family = "negative.binomial", num.lv = 0, sd.errors = FALSE)
 ```
 
 I will not show equivalence with separate negative-binomial GLMs fitted to the data of each species, because the software for fitting negative-binomial GLMs (e.g., as in the <tt>MASS</tt> R-package) is not sufficiently robust; issues arise.
 
-Similar functionality applies here: we can apply `anova` or `aic` for model comparison, we can use  `confint` to get the confidence intervals, `coef` for the coefficients (estimates), `summary` to get some useful information on the model, and `coefplot` we already used before.
+Similar functionality applies here: we can apply `anova` or `aic` for model comparison (neither needs standard errors), we can use `confint` to get the confidence intervals, `coef` for the coefficients (estimates), `summary` to get some useful information on the model, and `coefplot` we already used before. `confint`, `summary`, and `coefplot` all need standard errors, so remember to run `se.gllvm` first, as we did for `model5` and `model6` above, if you fitted with `sd.errors = FALSE`.
 
 From here, we could choose to explore the biomass equivalent of the same data ("WaddenY2"), with a Tweedie distribution. Without going into too much detail, the Tweedie family is a class of distributions, including the Poisson distribution, for positive continuous data with zeros (such as biomass). It has a dispersion parameter and a Power parameter. The variance function looks like:
 

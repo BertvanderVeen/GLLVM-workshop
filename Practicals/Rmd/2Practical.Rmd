@@ -50,16 +50,24 @@ As a matter of terminology, we speak of "random effects model" if only random ef
 
 In the last exercise, I fitted the model:
 
+As a reminder from Practical 1: we fit with `sd.errors = FALSE` by default and only calculate standard errors afterwards with `se.gllvm`, once we need them for a `summary`, `coefplot`, `randomCoefplot`, or `confint`.
+
 ```{r, message=FALSE}
 library(gllvm)
-model1 <- gllvm(Y, X, formula = ~scale(silt_clay) + scale(elevation), family = "negative.binomial", num.lv = 0)
+model1 <- gllvm(Y, X, formula = ~scale(silt_clay) + scale(elevation), family = "negative.binomial", num.lv = 0, sd.errors = FALSE)
+ses <- se.gllvm(model1)
+model1$sd <- ses$sd
+model1$Hess <- ses$Hess
 coefplot(model1)
 ```
 
 The caterpillar plots created with `coefplot` showed some extreme results: species with very large estimates and large confidence intervals. By specifying the effects as random, we can pull these closer to the average effect, reining their variability. Let's go ahead and specify the equivalent of this model, but with random effects:
 
 ```{r}
-model2 <- gllvm(Y, X, formula = ~(0+scale(silt_clay)|1) + (0+scale(elevation)|1), family = "negative.binomial", num.lv = 0)
+model2 <- gllvm(Y, X, formula = ~(0+scale(silt_clay)|1) + (0+scale(elevation)|1), family = "negative.binomial", num.lv = 0, sd.errors = FALSE)
+ses <- se.gllvm(model2)
+model2$sd <- ses$sd
+model2$Hess <- ses$Hess
 randomCoefplot(model2)
 ```
 
@@ -83,7 +91,10 @@ Which also reports the estimates for the variances of the random effects. If the
 By default, the (fixed) common effect is included with random effects in the <tt>gllvm</tt> package. However, it is controlled by `row.eff`, so we can exclude it if we want, or choose to include it only for particular covariates:
 
 ```{r}
-model3 <- gllvm(Y, X, formula = ~(0+scale(silt_clay)|1) + (0+scale(elevation)|1), row.eff =~1, family = "negative.binomial", num.lv = 0)
+model3 <- gllvm(Y, X, formula = ~(0+scale(silt_clay)|1) + (0+scale(elevation)|1), row.eff =~1, family = "negative.binomial", num.lv = 0, sd.errors = FALSE)
+ses <- se.gllvm(model3)
+model3$sd <- ses$sd
+model3$Hess <- ses$Hess
 summary(model3)
 randomCoefplot(model3)
 ```
@@ -101,8 +112,8 @@ The model above includes random slopes. However, as I mentioned, the dataset has
 Let's go ahead, fit these two models, and compare them. Note that this might take a little, as there are quite a few random effects to estimate: $3*58+58*2$ and another 58 fixed effects parameters for species' intercepts (which are included by default). If we instead formulated the random effect below as transect/island, the number of random effects would instead be $3*3*58+58*2$ (as there are also 3 transects). There are some ways to speed this up, but we will consider those tomorrow instead. By default, the package includes correlations between the different categories of the same random effect, which we (for now) omit using `diag`.
 
 ```{r}
-model4 <- gllvm(Y, X, formula = ~diag(0+island|1) + (0+scale(silt_clay)|1) + (0+scale(elevation)|1), row.eff =~1, family = "negative.binomial", num.lv = 0)
-model5 <- gllvm(Y, X, studyDesign = X, row.eff = ~ (1|island), formula = ~(0+scale(silt_clay)|1) + (0+scale(elevation)|1), family = "negative.binomial", num.lv = 0)
+model4 <- gllvm(Y, X, formula = ~diag(0+island|1) + (0+scale(silt_clay)|1) + (0+scale(elevation)|1), row.eff =~1, family = "negative.binomial", num.lv = 0, sd.errors = FALSE)
+model5 <- gllvm(Y, X, studyDesign = X, row.eff = ~ (1|island), formula = ~(0+scale(silt_clay)|1) + (0+scale(elevation)|1), family = "negative.binomial", num.lv = 0, sd.errors = FALSE)
 ```
 
 The "model5" treats island as a species-common random intercept instead of the species-specific version in "model4", but retains the same effects for silt_clay and elevation. We can go ahead and compare them with AIC:
@@ -116,7 +127,7 @@ Although there are technically only a few parameters more in "model4" than "mode
 Although we have now specified all effects as random, we are of course free to combine random and fixed effects at will, for example:
 
 ```{r}
-model6 <- gllvm(Y, X, formula = ~diag(0+island|1) + scale(silt_clay) + scale(elevation), row.eff =~1, family = "negative.binomial", num.lv = 0)
+model6 <- gllvm(Y, X, formula = ~diag(0+island|1) + scale(silt_clay) + scale(elevation), row.eff =~1, family = "negative.binomial", num.lv = 0, sd.errors = FALSE)
 ```
 
 Whether we include an effect as random or as fixed requires careful deliberation. Inducing shrinkage can result in (too) conservative estimates if we do not have enough data. When we have enough data, results of the two will (at least in this particular instance) be very similar; the random effect will then act like a fixed effect.
@@ -155,7 +166,10 @@ Ecologically, correlation of random effects corresponds best with *trait syndrom
 Syntax-wise, terms that share the same brackets get correlation parameters; simple, right?! It is important to note that the number of correlation parameters increases quite quickly with the number of effects, and that it tends to slow model fitting down considerably, due to the added complexity. Having said that, let's go ahead and add a correlation parameter for silt_clay and elevation:
 
 ```{r}
-model8 <- gllvm(Y, X, formula = ~diag(0+island|1) + (0+scale(silt_clay)+scale(elevation)|1), row.eff =~1, family = "negative.binomial", num.lv = 0)
+model8 <- gllvm(Y, X, formula = ~diag(0+island|1) + (0+scale(silt_clay)+scale(elevation)|1), row.eff =~1, family = "negative.binomial", num.lv = 0, sd.errors = FALSE)
+ses <- se.gllvm(model8)
+model8$sd <- ses$sd
+model8$Hess <- ses$Hess
 summary(model8)
 ```
 
@@ -170,12 +184,15 @@ We do see similarity: some of species' responses to silt_clay are almost the sam
 We can introduce a few more correlation parameters, by removing the `diag` around the island covariate, and then construct a correlogram for a quicker overview than that `summary` gives us. If you are using the same dataset as I am, the following model will take a bit to run, as there are 10 correlation parameters now included.
 
 ```{r}
-model9 <- gllvm(Y, X, formula = ~(0+island+scale(silt_clay)+scale(elevation)|1), row.eff =~1, family = "negative.binomial", num.lv = 0)
+model9 <- gllvm(Y, X, formula = ~(0+island+scale(silt_clay)+scale(elevation)|1), row.eff =~1, family = "negative.binomial", num.lv = 0, sd.errors = FALSE)
 ```
  Woops, it did not converge; the numerical optimiser reached the maximum number of iterations. Let's increase this and try again:
 
 ```{r}
-model9 <- gllvm(Y, X, formula = ~(0+island+scale(silt_clay)+scale(elevation)|1), row.eff =~1, family = "negative.binomial", num.lv = 0, control = list(maxit = 10e3))
+model9 <- gllvm(Y, X, formula = ~(0+island+scale(silt_clay)+scale(elevation)|1), row.eff =~1, family = "negative.binomial", num.lv = 0, control = list(maxit = 10e3), sd.errors = FALSE)
+ses <- se.gllvm(model9)
+model9$sd <- ses$sd
+model9$Hess <- ses$Hess
 summary(model9)
 cors <- cov2cor(model9$params$sigmaB)
 colnames(cors) <- row.names(cors) <- colnames(model9$params$sigmaB)
@@ -225,7 +242,10 @@ StudyDesign <- data.frame(X[,1:4], sample = rownames(X))
 model10 <- gllvm(Y, X, formula = ~(0+scale(silt_clay)|1) + (0+scale(elevation)|1),
                  studyDesign = StudyDesign,
                  row.eff = ~(1|island:transect) + (1|island:transect:station) + (1|sample) + island + season,
-                 family = "negative.binomial", num.lv = 0)
+                 family = "negative.binomial", num.lv = 0, sd.errors = FALSE)
+ses <- se.gllvm(model10)
+model10$sd <- ses$sd
+model10$Hess <- ses$Hess
 ```
 
 The fixed effects from `summary`:
@@ -279,7 +299,7 @@ Residual diagnostics are covered in depth in the **Checking** lecture; here is a
 Suppose we had not accounted for overdispersion, and fitted `model1` with a Poisson distribution instead of negative binomial:
 
 ```{r}
-model_pois <- gllvm(Y, X, formula = ~scale(silt_clay) + scale(elevation), family = "poisson", num.lv = 0)
+model_pois <- gllvm(Y, X, formula = ~scale(silt_clay) + scale(elevation), family = "poisson", num.lv = 0, sd.errors = FALSE)
 plot(model_pois, which = c(1, 2))
 ```
 

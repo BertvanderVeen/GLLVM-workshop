@@ -4,7 +4,7 @@ Y <- read.table("../../data/waddenY.csv", sep="," ,header=TRUE, row.names = 2)[,
 
 library(gllvm)
 TMB::openmp(parallel::detectCores()-1, autopar = TRUE, DLL = "gllvm")
-model1 <- gllvm(Y, num.lv = 2, quadratic = TRUE, n.init = 3, family = "negative.binomial", disp.formula = rep(1, ncol(Y)))
+model1 <- gllvm(Y, num.lv = 2, quadratic = TRUE, n.init = 3, family = "negative.binomial", disp.formula = rep(1, ncol(Y)), sd.errors = FALSE)
 gllvm::ordiplot(model1, biplot = TRUE)
 
 library(gllvm)

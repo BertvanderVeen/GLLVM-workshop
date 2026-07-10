@@ -60,11 +60,16 @@ A fourth-corner model in <tt>gllvm</tt> is fitted by providing environment and t
 
 Niku et al. used only a few covariates, so I will do the same here:
 
+As before, we fit with `sd.errors = FALSE` and calculate standard errors afterwards with `se.gllvm`, only once we need them:
+
 ```{r traits, cache = TRUE, message=FALSE}
 library(gllvm)
-model1 <- gllvm(y = Y, X = X, TR = TR, 
-                formula = ~ Management + Elevation + pH + Moist + (Management + Elevation + pH + Moist):(LPH+ LTL + OVE2 + BRE2 + BRE3), 
-                family = "negative.binomial", num.lv = 0)
+model1 <- gllvm(y = Y, X = X, TR = TR,
+                formula = ~ Management + Elevation + pH + Moist + (Management + Elevation + pH + Moist):(LPH+ LTL + OVE2 + BRE2 + BRE3),
+                family = "negative.binomial", num.lv = 0, sd.errors = FALSE)
+ses <- se.gllvm(model1)
+model1$sd <- ses$sd
+model1$Hess <- ses$Hess
 ```
 
 This first model fits rather quickly: there are only a few coefficients included as it excludes species-specific responses to the environment. It corresponds to the equation:
@@ -122,9 +127,12 @@ where the effects that have confidence intervals overlapping zero are not outlin
 The previous assumption of species' responses fully due to traits is fine if the right traits are included, but if the chosen traits are not important to determining species' environmental responses, it will result in lack-of-fit. So, in this next model we relax that assumption by also including species-specific random effects. We do need to run the model a few times, as it includes a lot of effects and does not always converge well.
 
 ```{r traits2, cache = TRUE, warning=FALSE}
-model2 <- gllvm(y = Y, X = X, TR = TR, 
+model2 <- gllvm(y = Y, X = X, TR = TR,
                 formula = ~ Management + Elevation + pH + Moist + (Management + Elevation + pH + Moist):(LPH+ LTL + OVE2 + BRE2 + BRE3) + (0+Management + Elevation + pH + Moist|1),
-                family = "negative.binomial", num.lv = 0, n.init = 3)
+                family = "negative.binomial", num.lv = 0, n.init = 3, sd.errors = FALSE)
+ses <- se.gllvm(model2)
+model2$sd <- ses$sd
+model2$Hess <- ses$Hess
 ```
 
 Similar as in the previous models we can plot the species-specific responses with `randomCoefPlot`.
@@ -169,7 +177,7 @@ Finally, we can use `anova` to test if our species' responses really depend on t
 ```{r traits3, cache = TRUE, warning=FALSE}
 model3 <- gllvm(y = Y, X = X,
                 formula = ~ (0+Management + Elevation + pH + Moist|1),
-                family = "negative.binomial", num.lv = 0, n.init = 3)
+                family = "negative.binomial", num.lv = 0, n.init = 3, sd.errors = FALSE)
 anova(model2, model3)
 ```
 
@@ -264,15 +272,15 @@ model6 <- gllvm(Y2[,spec.ord], X = X2, TR = TR, formula = ~DBH.CM+AVERDP+CONNECT
                 colMat = list(covMat[spec.ord, spec.ord], dist = distMat[spec.ord, spec.ord]), colMat.rho.struct = "term", nn.colMat = 15)
 ```
 
-Let's also calculate the standard error for our "final" model, but post model fitting. This is a useful strategy if you have a complex model, or if you are going through a model comparison procedure, as standard error calculation can take a significant amount of time, depending on the exact model structure:
+As with our earlier models, we fitted with `sd.errors = FALSE`. Now that we have settled on this "final" model, we calculate standard errors with `se.gllvm`. This is a particularly useful strategy for complex, slow-to-fit models like this one, where you do not want to pay the cost of calculating standard errors for every model you try along the way, only for the one you keep:
 
 ```{r, cache = TRUE}
-ses <- se(model6)
+ses <- se.gllvm(model6)
 model6$sd <- ses$sd
 model6$Hess <- ses$Hess
 ```
 
-We can examine the phylogenetic signal with `summary` and plot the species-specific random effects (without trait effects) jointly with the phylogeny. We first need to calculate standard errors to do that:
+We can examine the phylogenetic signal with `summary` and plot the species-specific random effects (without trait effects) jointly with the phylogeny:
 
 ```{r, fig.width = 15, fig.height = 10}
 summary(model6)

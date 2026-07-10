@@ -37,9 +37,11 @@ X[, unlist(lapply(X, is.numeric))] <- scale(X[, unlist(lapply(X, is.numeric))])
 
 Start with an unconstrained ordination: no covariates, no conditioning.
 
+As before, we fit with `sd.errors = FALSE`; ordination diagrams and `VP()` do not need standard errors, so we leave that calculation out unless we later use `summary` or `coefplot`.
+
 ```{r unc, cache=TRUE, message=FALSE}
 model1 <- gllvm(Y, num.lv = 2, family = "tweedie", Power = NULL,
-                disp.formula = rep(1, ncol(Y)), n.init = 3)
+                disp.formula = rep(1, ncol(Y)), n.init = 3, sd.errors = FALSE)
 gllvm::ordiplot(model1, symbols = TRUE, s.cex = 1.5)
 ```
 
@@ -48,7 +50,7 @@ Now condition on island (a nuisance factor) using `row.eff`:
 ```{r cond, cache=TRUE, message=FALSE}
 model2 <- gllvm(Y, num.lv = 2, family = "tweedie", Power = NULL,
                 disp.formula = rep(1, ncol(Y)),
-                row.eff = ~(1|island), studyDesign = X, n.init = 3)
+                row.eff = ~(1|island), studyDesign = X, n.init = 3, sd.errors = FALSE)
 gllvm::ordiplot(model2, symbols = TRUE, s.cex = 1.5)
 ```
 
@@ -76,7 +78,7 @@ model3 <- gllvm(Y, X = X,
                 family = "tweedie", Power = NULL,
                 disp.formula = rep(1, ncol(Y)),
                 row.eff = ~(1|island), studyDesign = X,
-                n.init = 3)
+                n.init = 3, sd.errors = FALSE)
 gllvm::ordiplot(model3, symbols = TRUE, s.cex = 1.5, arrow.ci = FALSE)
 ```
 
@@ -87,7 +89,7 @@ This is a **partial constrained ordination**: we show the community variation ex
 1. Fit the partial constrained ordination and interpret the ordination plot. Which environmental variables drive the main axes?
 2. Try removing the conditioning (`row.eff`): how does the constrained ordination change?
 3. Switch from `num.RR` to `num.lv.c` (concurrent ordination). What is the difference in interpretation?
-4. Use `coefplot(model3, which.Xcoef = "TOC")` to examine species-specific TOC effects.
+4. Use `coefplot(model3, which.Xcoef = "TOC")` to examine species-specific TOC effects. `coefplot` needs standard errors, so run `se.gllvm` on `model3` first (as in earlier practicals) before calling it.
 
 # Part III: Variance partitioning
 

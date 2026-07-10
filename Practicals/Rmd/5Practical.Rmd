@@ -14,12 +14,12 @@ In this practical we use a multispecies model to predict species richness. The k
 - `predictSR()` computes expected richness from any fitted `gllvm` model, for any response distribution
 - A missing nonlinear term in the fixed effects can be silently absorbed by the latent variables, so the usual conditional diagnostics look fine even when richness predictions for new sites are biased
 
-We use two datasets. Part I and Part III use the alpine plant data (binary presence-absence, elevation gradient) that we have used before. Part II uses the carabid beetle data (counts, already used in Practicals 1 and 3) to check whether the lack-of-fit problem demonstrated in the lecture also shows up elsewhere.
+We use two datasets. Part I and Part II use the alpine plant data (binary presence-absence, elevation gradient) that we have used before: Part I fits a model with no latent variables, and Part II adds latent variables to see what changes. Part III uses the carabid beetle data (counts, already used in Practicals 1 and 3) to check whether the lack-of-fit problem demonstrated in the lecture also shows up elsewhere.
 
-Today's lecture used this same Alpine data, plus Swiss birds for the diversity examples. `predictSR()` works for any response distribution, so any dataset with binary or count responses is fair game if you would rather use something else for Part I:
+Today's lecture used this same Alpine data, plus Swiss birds for the diversity examples. `predictSR()` works for any response distribution, so any dataset with binary or count responses is fair game if you would rather use something else for Parts I and II:
 
 1. Alpine ("alpineX/Y", presence-absence; default here, used in the lecture)
-2. Beetles (counts; used here in Part II)
+2. Beetles (counts; used here in Part III)
 3. Birds (presence-absence; used in the lecture)
 4. wadden (abundance)
 5. fungi (presence-absence)
@@ -35,18 +35,85 @@ Y <- Y[rowSums(Y) > 0, ]
 X_sc <- data.frame(scale(X[, sapply(X, is.numeric)]))
 ```
 
-# Part I: Fitting a model and predicting richness
+# Part I: Poisson-Binomial vs Poisson, without latent variables
 
-We start by fitting a model with elevation as a covariate and two latent variables.
+We start with a model that has no latent variables, so richness can only be explained through elevation.
+
+```{r fit0, cache=TRUE, message=FALSE}
+model0 <- gllvm(y = Y, X = X_sc,
+                formula = ~ELEV,
+                num.lv = 0,
+                family = "binomial",
+                seed = 1,
+                sd.errors = FALSE)
+```
+
+Check residuals from the Poisson-Binomial distribution (this does not need standard errors, so `se.fit = FALSE`):
+
+```{r resid0}
+sr0 <- predictSR(model0, se.fit = FALSE)
+plot(sr0, model0)
+```
+
+Predict species richness along the elevation gradient. This time we do want the confidence band around the expected richness curve, which `predictSR` gets by simulating from the (approximate) sampling distribution of the parameter estimates, so we need standard errors on the model first:
+
+```{r predict0}
+elev_seq <- seq(min(X_sc$ELEV), max(X_sc$ELEV), length.out = 100)
+newX <- data.frame(ELEV = elev_seq)
+
+ses <- se.gllvm(model0)
+model0$sd <- ses$sd
+model0$Hess <- ses$Hess
+srNew0 <- predictSR(model0, newX = newX, level = 0)
+```
+
+Plot observed richness against predicted richness:
+
+```{r plot_sr0}
+obs_sr <- rowSums(Y)
+plot(X_sc$ELEV, obs_sr, pch = 16, col = rgb(0,0,0,0.3),
+     xlab = "Elevation (scaled)", ylab = "Species richness")
+lines(elev_seq, srNew0$expected$fit, col = "red", lwd = 2)
+lines(elev_seq, srNew0$expected$lower, col = "red", lwd = 1, lty = 2)
+lines(elev_seq, srNew0$expected$upper, col = "red", lwd = 1, lty = 2)
+```
+
+To understand why univariate species richness analysis can be misleading, compare the predicted distribution of species richness from this model to what a Poisson regression would give.
+
+```{r pb_vs_pois}
+# Expected richness and variance from the model
+pred_probs <- predict(model0, type = "response") # n x m matrix
+exp_sr <- rowSums(pred_probs)        # Poisson-Binomial mean
+var_sr <- rowSums(pred_probs * (1 - pred_probs))  # PB variance
+
+# Compare to Poisson assumption
+plot(exp_sr, var_sr, xlab = "Expected species richness",
+     ylab = "Predicted variance", pch = 16, col = "steelblue")
+abline(0, 1, col = "red", lty = 2, lwd = 2)  # Poisson: var = mean
+legend("topleft", legend = c("Poisson-Binomial", "Poisson (var=mean)"),
+       pch = c(16, NA), lty = c(NA, 2), col = c("steelblue", "red"))
+```
+
+## Tasks I
+
+1. Fit the model and predict species richness as above. Does the model capture the observed richness pattern well, even without latent variables?
+2. Run the Poisson-Binomial vs. Poisson comparison above. Is the Poisson assumption (variance = mean) realistic for these data?
+3. When variance < mean (underdispersion), what does that imply ecologically?
+4. Subset the data to a low-diversity region (e.g., high elevation). How does the Poisson approximation perform there versus a diverse region?
+5. Examine the `predictSR` residuals: do they look like random noise, or is there remaining structure?
+
+# Part II: Adding latent variables
+
+The model in Part I has no latent variables, so any structure in richness that is not explained by elevation is left unaccounted for. Now add latent variables and see whether the richness prediction changes.
 
 ```{r fit, cache=TRUE, message=FALSE}
 model1 <- gllvm(y = Y, X = X_sc,
                 formula = ~ELEV,
                 num.lv = 2,
                 family = "binomial",
-                seed = 1)
+                seed = 1,
+                sd.errors = FALSE)
 ```
-
 
 Check residuals from the Poisson-Binomial distribution:
 
@@ -54,19 +121,19 @@ Check residuals from the Poisson-Binomial distribution:
 sr <- predictSR(model1, se.fit = FALSE)
 plot(sr, model1)
 ```
-Now predict species richness along the elevation gradient:
+
+Predict species richness along the same elevation gradient as in Part I. As before, we need standard errors for the confidence band:
 
 ```{r predict}
-elev_seq <- seq(min(X_sc$ELEV), max(X_sc$ELEV), length.out = 100)
-newX <- data.frame(ELEV = elev_seq)
-
+ses <- se.gllvm(model1)
+model1$sd <- ses$sd
+model1$Hess <- ses$Hess
 srNew <- predictSR(model1, newX = newX, level = 0)
 ```
 
 Plot observed richness against predicted richness:
 
 ```{r plot_sr}
-obs_sr <- rowSums(Y)
 plot(X_sc$ELEV, obs_sr, pch = 16, col = rgb(0,0,0,0.3),
      xlab = "Elevation (scaled)", ylab = "Species richness")
 lines(elev_seq, srNew$expected$fit, col = "red", lwd = 2)
@@ -74,15 +141,15 @@ lines(elev_seq, srNew$expected$lower, col = "red", lwd = 1, lty = 2)
 lines(elev_seq, srNew$expected$upper, col = "red", lwd = 1, lty = 2)
 ```
 
-## Tasks I
+## Tasks II
 
-1. Fit the model and predict species richness as above. Does the model capture the observed richness pattern well?
+1. Compare the richness curve from `model1` (2 latent variables) to `model0` (no latent variables, Part I). Did adding latent variables change the prediction?
 2. Add more covariates (e.g., `SLOPE`, `MIND`, `SOLRAD`) and see if the richness prediction improves.
 3. Change the number of latent variables (0, 1, 2, 3). How does this affect the richness prediction?
-4. Use `AIC()` or `BIC()` to compare models. Does including latent variables improve fit?
-5. Examine the `predictSR` residuals: do they look like random noise, or is there remaining structure?
+4. Use `AIC()` or `BIC()` to compare `model0`, `model1`, and any other models you fitted. Does including latent variables improve fit?
+5. Examine the `predictSR` residuals for `model1`: do they look different from the residuals in Part I?
 
-# Part II: Diagnosing and fixing lack of fit
+# Part III: Diagnosing and fixing lack of fit
 
 In the lecture, the alpine example showed that a missing quadratic elevation term can be absorbed entirely by the latent variables: `plot(model)` and the usual conditional residuals look clean, but predictions for a *new* site (latent variables set to zero, since there is no estimated score for it) are biased, and only the marginal Poisson-Binomial residuals reveal the problem.
 
@@ -104,7 +171,8 @@ modelB_lin <- gllvm(y = Yb, X = Xb_sc,
                     formula = ~Moist,
                     num.lv = 2,
                     family = "negative.binomial",
-                    seed = 1)
+                    seed = 1,
+                    sd.errors = FALSE)
 ```
 
 Predict richness twice: once "conditionally", using the model's own estimated site scores (the default, `level = 1`), and once "marginally", forcing the latent variables to zero as if predicting for a new site.
@@ -128,34 +196,10 @@ plot(Xb_sc$Moist, res_marg$residuals, xlab = "Moisture (scaled)",
 abline(h = 0, lty = 2)
 ```
 
-## Tasks II
+## Tasks III
 
 1. Look at the two residual-vs-moisture panels above. Which one shows a clear pattern, and which looks flat? What does that tell you about where the missing nonlinearity has gone?
 2. Refit the model with `formula = ~Moist + I(Moist^2)` and repeat the marginal residual check. Does the pattern disappear?
 3. Why does `plot(modelB_lin)` (the default conditional diagnostic) not warn you about this problem, even though the fixed-effect part of the model is mis-specified?
 4. This matters most when predicting richness for a site that was not part of the fitted data, so there is no estimated latent variable to lean on. Using `newX` with a sequence of `Moist` values and `newLV = matrix(0, ...)`, compare the richness curve predicted by the linear model to the one predicted by the quadratic model. How different are they?
-5. Is there another covariate, in the beetle data or in the alpine data from Part I, where you suspect the same problem could occur? How would you check?
-
-# Part III: Exploring the Poisson-Binomial
-
-To understand why univariate species richness analysis can be misleading, compare the predicted distribution of species richness from your model to what a Poisson regression would give.
-
-```{r pb_vs_pois}
-# Expected richness and variance from the model
-pred_probs <- predict(model1, type = "response") # n x m matrix
-exp_sr <- rowSums(pred_probs)        # Poisson-Binomial mean
-var_sr <- rowSums(pred_probs * (1 - pred_probs))  # PB variance
-
-# Compare to Poisson assumption
-plot(exp_sr, var_sr, xlab = "Expected species richness",
-     ylab = "Predicted variance", pch = 16, col = "steelblue")
-abline(0, 1, col = "red", lty = 2, lwd = 2)  # Poisson: var = mean
-legend("topleft", legend = c("Poisson-Binomial", "Poisson (var=mean)"),
-       pch = c(16, NA), lty = c(NA, 2), col = c("steelblue", "red"))
-```
-
-## Tasks III
-
-1. Run the code above. Is the Poisson assumption (variance = mean) realistic for these data?
-2. When variance < mean (underdispersion), what does that imply ecologically?
-3. Subset the data to a low-diversity region (e.g., high elevation). How does the Poisson approximation perform there versus a diverse region?
+5. Is there another covariate, in the beetle data or in the alpine data from Parts I and II, where you suspect the same problem could occur? How would you check?

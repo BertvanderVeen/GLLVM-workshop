@@ -81,7 +81,8 @@ Standard GLLVMs fit one distribution to all species. But forcing binary, count, 
 In `gllvm`, the `family` argument accepts a \textbf{character vector} of length $p$ (one per species column):
 
 ```{r}
-family_vec <- c(rep("binomial", 12), rep("poisson", 8), rep("tweedie", 4))
+family_vec <- c(rep("binomial", 12), rep("poisson", 8),
+                 rep("tweedie", 4))
 
 fit <- gllvm(y = Y, family = family_vec, num.lv = 2)
 ```
@@ -93,52 +94,48 @@ Each species gets its own link function and variance structure. The latent varia
 ## What distributions are available?
 
 \begin{table}
-\footnotesize
-\begin{tabular}{p{3.0cm}p{3.8cm}p{1.6cm}}
+\tiny
+\begin{tabular}{p{2.6cm}p{4.2cm}p{2.0cm}}
 \toprule
 Family & Data type & Link \\
 \midrule
 \texttt{"gaussian"} & Continuous, symmetric & identity \\
-\texttt{"tweedie"} & Non-negative, zero-inflated & log \\
-\texttt{"orderedBeta"} & Proportions including 0/1 & logit \\
-\texttt{"betaH"} & Proportions excluding 0 or 1 & logit \\
+\texttt{"gamma"} & Positive continuous & log \\
+\texttt{"exponential"} & Positive continuous & log \\
+\texttt{"tweedie"} & Non-negative, right-skewed (biomass) & log \\
+\texttt{"beta"} & Proportions in $(0,1)$, no exact 0/1 & logit/probit \\
+\texttt{"orderedBeta"} & Proportions including 0 and 1 & logit/probit \\
+\texttt{"betaH"} & Proportions including 0, excluding 1 (hurdle) & logit/probit \\
 \texttt{"poisson"} & Counts & log \\
-\texttt{"negative.binomial"} & Overdispersed counts & log \\
-\texttt{"binomial"} & Presence-absence or trials & probit \\
+\texttt{"negative.binomial"} & Overdispersed counts (quadratic var.) & log \\
+\texttt{"negative.binomial1"} & Overdispersed counts (linear var.) & log \\
 \texttt{"ZIP"}, \texttt{"ZINB"} & Zero-inflated counts & log \\
+\texttt{"binomial"} & Presence-absence, or $k$ of $N$ trials & probit/logit/cloglog \\
+\texttt{"ZIB"}, \texttt{"ZNIB"} & Zero-/$N$-inflated trials & probit/logit/cloglog \\
+\texttt{"beta.binomial"} & Overdispersed trials & probit/logit/cloglog \\
+\texttt{"ordinal"} & Ordered categories & probit/logit \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-## Why the latent variable framework makes this possible
-
-The GLLVM is species-specific in its response model:
-
-$$g_j(\mu_{ij}) = \beta_{0j} + \mathbf{x}_i^\top \symbf{\beta}_j + \mathbf{u}_i^\top \symbf{\gamma}_j$$
-
-but the latent variables $\mathbf{u}_i$ are \textbf{shared}: they represent the underlying community state at site $i$.
-
 \pause
 
-Different families for different $j$ is just a change in $g_j(\cdot)$ and the variance function; the ordination structure is unaffected.
-
-\pause
-
-This is what makes joint modelling across survey methods possible.
+\footnotesize `family` restricts links to what the estimation `method` (VA/EVA/LA) supports for that family; \texttt{?gllvm} has the full method-by-link breakdown.
 
 ## Binomial with $N > 1$ trials
 
 When species are recorded as frequencies (e.g., Raunkiaer: $k$ quadrats occupied out of $N = 100$):
 
 ```{r}
-fit <- gllvm(y = Y, family = "binomial", Ntrials = 100, num.lv = 2)
+fit <- gllvm(y = Y, family = "binomial", Ntrials = 100,
+             num.lv = 2)
 ```
 
 `Ntrials` can also be a vector of length $p$ if trials differ per species, or a matrix of size $n \times p$.
 
 \pause
 
-Default link for binomial in `gllvm` is \textbf{probit}, not logit.
+`binomial` supports probit, logit, or cloglog links; the default in `gllvm` is \textbf{probit}, not logit.
 
 ## orderedBeta for proportions
 
@@ -155,7 +152,8 @@ The orderedBeta distribution places point masses at 0 and 1 with a Beta distribu
 `zetacutoff` controls the quantile threshold for the zero/one mixture; default is usually fine, but set explicitly for stability:
 
 ```{r}
-fit <- gllvm(..., family = "orderedBeta", zetacutoff = c(-2, 2))
+fit <- gllvm(..., family = "orderedBeta",
+             zetacutoff = c(-2, 2))
 ```
 
 ## Combining families in a single model
@@ -163,42 +161,27 @@ fit <- gllvm(..., family = "orderedBeta", zetacutoff = c(-2, 2))
 A realistic community dataset might need:
 
 ```{r}
-family_vec <- ifelse(grepl("_cover$", colnames(Y)), "orderedBeta",
-              ifelse(grepl("_count$", colnames(Y)), "negative.binomial",
-                                                    "binomial"))
+is_cover <- grepl("_cover$", colnames(Y))
+is_count <- grepl("_count$", colnames(Y))
+family_vec <- ifelse(is_cover, "orderedBeta",
+              ifelse(is_count, "negative.binomial",
+                     "binomial"))
 
 Ntrials <- ifelse(grepl("_freq$", colnames(Y)), 100, 1)
 
-fit <- gllvm(y      = Y,
-             family = family_vec,
-             Ntrials = Ntrials,
-             num.lv = 2,
-             zetacutoff = c(-2, 2))
+fit <- gllvm(y = Y, family = family_vec, Ntrials = Ntrials,
+             num.lv = 2, zetacutoff = c(-2, 2))
 ```
-
-## What does a joint model across datasets look like?
-
-Two surveys, different methods, stacked as rows:
-
-- Rows 1--$n_1$: survey A (ordinal columns only)
-- Rows $n_1 + 1$--$n_1 + n_2$: survey B (binomial columns only)
-- Shared species appear twice: `_COV` and `_FREQ` columns, with `NA` in the opposite block
-
-\pause
-
-The model estimates \textbf{one set of latent variables} covering all rows, and \textbf{separate loadings} for `_COV` and `_FREQ` versions of each shared species.
-
-\pause
-
-If the methods agree, $\hat{\symbf{\gamma}}_{j,\text{COV}} \approx \hat{\symbf{\gamma}}_{j,\text{FREQ}}$; testable with cosine similarity or Procrustes.
 
 # Spatial and temporal autocorrelation
 
 ## A core assumption we have not questioned
 
-All GLLVMs so far assume sites are \textbf{independent} after conditioning on the latent variables and covariates.
+Recall Thursday's concurrent ordination: $\mathbf{u}_i = \textbf{B}^\top\textbf{x}_i + \symbf{\epsilon}_i$. Whether unconstrained, constrained, or concurrent, every ordination so far has assumed the residual part is \textbf{independent} across sites:
 
-$$\mathbf{u}_i \overset{\text{iid}}{\sim} \mathcal{N}(\mathbf{0}, \mathbf{I}_d)$$
+$$\symbf{\epsilon}_i \overset{\text{iid}}{\sim} \mathcal{N}(\mathbf{0}, \mathbf{I}_d)$$
+
+For unconstrained ordination $\mathbf{u}_i = \symbf{\epsilon}_i$, so this is the same iid assumption directly on $\mathbf{u}_i$.
 
 \pause
 
@@ -210,9 +193,9 @@ This fails when:
 
 ## Structured covariance for the latent variables
 
-Replace independent LV draws with a \textbf{correlated} distribution:
+Thursday generalized the \textbf{mean} of $\mathbf{u}_i$ via $\textbf{B}^\top\textbf{x}_i$. Now we generalize the \textbf{covariance} of $\symbf{\epsilon}_i$ instead, replacing independent draws with a \textbf{correlated} distribution:
 
-$$\mathbf{u}_{.q} \sim \mathcal{N}(\mathbf{0}, \symbf{\Sigma}_q), \quad q = 1, \ldots, d$$
+$$\symbf{\epsilon}_{.q} \sim \mathcal{N}(\mathbf{0}, \symbf{\Sigma}_q), \quad q = 1, \ldots, d$$
 
 where $\symbf{\Sigma}_q$ encodes the dependence structure.
 
@@ -224,26 +207,30 @@ In `gllvm`: argument `lvCor` specifies the covariance model; `studyDesign` provi
 
 \begin{table}
 \footnotesize
-\begin{tabular}{p{3.2cm}p{2.8cm}p{2.8cm}}
+\begin{tabular}{p{3.4cm}p{3.0cm}p{2.4cm}}
 \toprule
 Formula syntax & Structure & Use case \\
 \midrule
-\texttt{\textasciitilde corAR1(1|time)} & AR(1) & Equally-spaced time series \\
-\texttt{\textasciitilde corExp(1|site)} & Exponential kernel & Spatial data (coordinate-based) \\
-\texttt{\textasciitilde corMatern(1|site)} & Matérn kernel & Spatial data (smoother fields) \\
+\texttt{\textasciitilde corMatern(1|site)} & Matérn kernel & Spatial, general \\
+\texttt{\textasciitilde corExp(1|site)} & Exponential kernel & Matérn, $\nu = 1/2$ \\
+\texttt{\textasciitilde corAR1(1|time)} & AR(1) & Equally-spaced time \\
 \texttt{\textasciitilde corCS(1|group)} & Compound symmetry & Nested designs \\
 \bottomrule
 \end{tabular}
 \end{table}
+
+\texttt{corExp} is not a separate model: it is \texttt{corMatern} with smoothness $\nu$ fixed at $1/2$. More on this shortly.
+
+\pause
 
 The same structures are available for row effects via `row.eff`.
 
 \vspace{0.4em}
 \footnotesize You have seen \texttt{lvCor} before for nested designs (\texttt{corCS}); the same argument accepts spatial and temporal kernels.
 
-## Temporal autocorrelation: AR(1)
+## Temporal autocorrelation: discrete time
 
-Community composition at time $t$ is correlated with time $t-1$:
+Equally-spaced sampling (e.g.\ annual census): composition at time $t$ is correlated with time $t-1$ via AR(1):
 
 $$\symbf{\Sigma}_q[t, t'] = \rho^{|t - t'|}, \quad \rho \in (-1, 1)$$
 
@@ -261,33 +248,116 @@ fit_ar1 <- gllvm(
 fit_ar1$params$rho.lv   # estimated temporal correlation
 ```
 
-## Spatial autocorrelation: corExp
+## Temporal autocorrelation: continuous time
 
-Correlation decays exponentially with geographic distance:
-
-$$\symbf{\Sigma}_q[i, k] = \exp\!\left(-\frac{d_{ik}}{\rho}\right)$$
-
-$\rho$ is the \textbf{range parameter}: the distance at which correlation has decayed to $e^{-1} \approx 0.37$.
+Resurveys are rarely equally spaced (opportunistic visits, variable gaps). AR(1) needs a regular grid; irregular sampling needs a different kernel.
 
 \pause
 
-Effective range (correlation $< 0.05$): $d \approx 3\rho$.
+The continuous-time analogue of AR(1) is the Ornstein-Uhlenbeck process:
+
+$$\symbf{\Sigma}_q[t, t'] = \exp\!\left(-\frac{|t - t'|}{\rho}\right)$$
+
+using the actual elapsed time $|t - t'|$, not an integer lag. This is the \textbf{same exponential kernel} used for space, applied along the time axis instead.
+
+\pause
+
+Evaluated at equally-spaced integer times, this kernel reduces exactly to AR(1): $\rho_{\text{AR1}} = \exp(-\Delta t / \rho)$.
+
+## Fitting continuous-time correlation in \texttt{gllvm}
+
+```{r}
+fit_ct <- gllvm(
+  y           = Y,
+  X           = Xenv,
+  num.lv      = 2,
+  distLV      = matrix(sample_time, ncol = 1),
+  lvCor       = ~corExp(1|time),
+  studyDesign = data.frame(time = time_id),
+  family      = "negative.binomial"
+)
+```
+
+## The Matérn covariance function
+
+One kernel family for space \textit{and} time; \texttt{corExp} is the special case $\nu = 1/2$. Of its three parameters, \texttt{gllvm} \textbf{estimates} $\rho$, lets you \textbf{fix} $\nu$, and fixes $\sigma^2 = 1$ (the LV's own scale is the separate \texttt{sigma.lv} you know from Thursday):
+
+$$K(d) = \sigma^2 \frac{2^{1-\nu}}{\Gamma(\nu)}\left(\frac{\sqrt{2\nu}\, d}{\rho}\right)^\nu \mathcal{K}_\nu\!\left(\frac{\sqrt{2\nu}\, d}{\rho}\right)$$
+
+- $d$: distance (or elapsed time) between two points
+- $\sigma^2$: marginal variance, $K(0) = \sigma^2$ (fixed to 1)
+- $\rho > 0$: range parameter, decay speed (estimated: \texttt{rho.lv})
+- $\nu > 0$: smoothness parameter (fixed by you: \texttt{MaternKappa})
+- $\mathcal{K}_\nu$: modified Bessel function, second kind, order $\nu$
+
+## Matérn special cases
+
+- $\nu = 1/2$: exponential kernel, $K(d) = \sigma^2\exp(-d/\rho)$, what we used for continuous time and \texttt{corExp}: a rough, jagged process
+- $\nu \to \infty$: Gaussian (squared-exponential) kernel, infinitely smooth
+- Larger $\nu$ $\Rightarrow$ smoother realizations
+
+\pause
+
+Fixing $\nu$ (whether via \texttt{corExp} or \texttt{MaternKappa}) is not just a computational shortcut: it is a specific hypothesis about how smooth the underlying spatial/temporal environmental process is. In practice $\nu$ is very hard to estimate from data, so \texttt{gllvm} fixes it rather than estimating it.
+
+## Matérn paths
+
+```{r matern-paths, echo=FALSE, eval=TRUE, fig.height=3.1, fig.width=6.5}
+set.seed(1)
+matern_cov <- function(d, rho, nu, sigma2 = 1) {
+  if (is.infinite(nu)) return(sigma2 * exp(-d^2 / (2 * rho^2)))
+  if (nu == 0.5) return(sigma2 * exp(-d / rho))
+  z <- sqrt(2 * nu) * d / rho
+  z[z == 0] <- 1e-8
+  sigma2 * (2^(1 - nu) / gamma(nu)) * z^nu * besselK(z, nu)
+}
+
+xseq <- seq(0, 1, length.out = 200)
+Dmat <- as.matrix(dist(xseq))
+rho  <- 0.15
+nus  <- c(0.5, 1.5, 2.5, Inf)
+cols <- c("black", "red3", "blue3", "purple")
+
+paths <- lapply(nus, function(nu) {
+  K <- matern_cov(Dmat, rho, nu) + diag(1e-6, length(xseq))
+  L <- chol(K)
+  as.vector(t(L) %*% rnorm(length(xseq)))
+})
+
+par(mar = c(4, 4, 1, 1))
+plot(NA, xlim = c(0, 1), ylim = range(unlist(paths)),
+     xlab = "Site order along the latent axis", ylab = expression(u[i]))
+for (i in seq_along(nus)) lines(xseq, paths[[i]], col = cols[i], lwd = 2)
+legend("bottomright", legend = c(expression(nu==1/2), expression(nu==3/2), expression(nu==5/2), expression(nu==infinity)),
+       col = cols, lwd = 2, bty = "n", cex = 0.85, seg.len = 1.5)
+```
+
+Four simulated realisations of the \textbf{same} latent variable and range $\rho$, only $\nu$ differs: this is what "fixing $\nu$" commits you to.
+
+## Fitting the Matérn kernel in \texttt{gllvm}
+
+$\nu$ is fixed via the \texttt{MaternKappa} argument, default $1.5$; common choices: $1/2$, $3/2$, $5/2$.
 
 ```{r}
 fit_sp <- gllvm(
   y           = Y,
   num.lv      = 2,
-  distLV      = site_coords,    # n x 2 coordinate matrix
-  lvCor       = ~corExp(1|site),
+  distLV      = site_coords,     # n x 2 coordinate matrix
+  lvCor       = ~corMatern(1|site),
+  MaternKappa = 1.5,
   studyDesign = data.frame(site = site_id),
   family      = "orderedBeta"
 )
 fit_sp$params$rho.lv   # range in same units as site_coords
 ```
 
-## Spatial vs. temporal: which to use?
+## Interpreting the estimated range
 
-\columnsbegin
+$\rho$ is estimated. Effective range (correlation $< 0.05$): $d \approx 3\rho$ (exact for $\nu = 1/2$).
+
+## Where does the correlation belong?
+
+\columnsbegin[T]
 \column{0.48\textwidth}
 \textbf{Row effects} (\texttt{row.eff})
 
@@ -313,42 +383,53 @@ fit <- gllvm(...,
   lvCor   = ~corExp(1|site))
 ```
 
-## The Matérn covariance
-
-A more flexible spatial kernel:
-
-$$K(d) = \sigma^2 \frac{2^{1-\nu}}{\Gamma(\nu)}\left(\frac{\sqrt{2\nu}\, d}{\rho}\right)^\nu \mathcal{K}_\nu\!\left(\frac{\sqrt{2\nu}\, d}{\rho}\right)$$
-
-- $\nu = 1/2$ recovers the exponential kernel
-- Higher $\nu$ produces smoother spatial fields
-- $\nu$ is typically fixed (hard to estimate); common choices: $1/2$, $3/2$, $5/2$
-
-\pause
-
-Use `corMatern` when you expect smooth spatial gradients rather than abrupt local variation.
-
 ## Computational considerations
 
-Spatial/temporal GLLVMs require inverting $\symbf{\Sigma}_q$, which is expensive for large $n$.
+Two separate matrices get expensive for large $n$:
 
-\pause
+\vspace{0.3em}
 
-`gllvm` uses \textbf{sparse approximations} to the variational covariance matrix:
+1. The \textbf{true} correlation matrix $\symbf{\Sigma}_q$ itself (from the Matérn/exponential kernel) is dense: evaluating and inverting it during optimisation still does not scale well. This is a genuinely unsolved problem in `gllvm`, in the same spirit as what INLA's sparse GMRF/SPDE approximation solves for spatial models. No drop-in fix yet; keep $n$ in mind when you reach for `lvCor`.
+
+## Sparse approximations for the other matrix
+
+2. The \textbf{variational} covariance matrix (the approximation to the posterior) is what `gllvm` already addresses with \textbf{sparse approximations}:
 
 - `Lambda.struc = "bdNN"`: block-diagonal nearest-neighbour Cholesky
 - `Lambda.struc = "UNN"`: Kronecker product with NN sparse Cholesky
 
-`NN` controls the number of neighbours; more neighbours = better approximation, slower fitting.
+`NN` controls the number of neighbours; more neighbours = better approximation, slower fitting. For large datasets ($n > 500$), start with `NN = 5` and increase if needed.
+
+## Spatial, temporal, and phylogenetic confounding
+
+A structured latent variable can absorb variation that really belongs to a covariate, if the covariate varies along the same axis as the structure.
 
 \pause
 
-For large datasets ($n > 500$), start with `NN = 5` and increase if needed.
+[Hui, Vu \& Hooten (2024)](https://besjournals.onlinelibrary.wiley.com/doi/10.1111/2041-210X.14420) show this for spatial JSDMs: a spatially structured covariate and spatially structured latent factors (`lvCor`) compete for the same variation.
+
+\pause
+
+Consequences: biased covariate effects, distorted between-species correlations, incorrect variance partitioning, and shifted ordination axes. Their fix, \textbf{restricted spatial factor analysis}, constrains the spatial factors to be uncorrelated with the covariates.
+
+## Confounding is not specific to space
+
+The same problem shows up wherever a structured latent variable and a covariate can vary along the same axis:
+
+- \textbf{Temporal}: a covariate that trends over time, confounded with `corAR1`/`corExp` latent variables
+- \textbf{Phylogenetic}: a phylogenetically structured trait, confounded with a phylogenetic random effect (`colMat`), which is one reason a phylogenetic signal estimate can vanish even when phylogeny really does matter (see Wednesday)
+
+\pause
+
+Before trusting a fixed effect, check whether the covariate or trait is itself structured along the same axis as a random effect in the model.
 
 ## Concurrent ordination with covariates
 
-Yesterday we saw \textbf{concurrent ordination}: LVs constrained to be linear combinations of predictors.
+Yesterday we saw \textbf{concurrent ordination}: LVs \textit{informed} by predictors, $\mathbf{u}_i = \textbf{B}^\top\textbf{x}_i + \symbf{\epsilon}_i$, not constrained to them; the residual $\symbf{\epsilon}_i$ keeps all variation the covariates do not explain.
 
-With `num.lv.c` and `lv.formula`, we can combine this with spatial/temporal structure:
+With `num.lv.c` and `lv.formula`, we can combine this with spatial/temporal structure.
+
+## Fitting a concurrent ordination with spatial structure
 
 ```{r}
 fit_conc <- gllvm(
@@ -368,13 +449,13 @@ The LVs are simultaneously informed by covariates and spatially correlated.
 
 # Case study, Garchinger Heide
 
-```{r garchinger-load, echo=FALSE, eval=TRUE, message=FALSE, warning=FALSE}
+```{r garchinger-load, echo=FALSE, eval=TRUE, message=FALSE, warning=FALSE, results="hide"}
 library(gllvm)
 library(vegan)
 source("load_garchinger_heide_gllvm.R")
 load("fit3.RData")   # unconstrained joint model
 load("fit4.RData")   # + spatial corExp on LVs
-load("fit5.RData")   # + Year as concurrent covariate
+load("fit5.RData")   # + Year via lv.formula (concurrent ordination)
 ```
 
 ```{r garchinger-results, echo=FALSE, eval=TRUE}
@@ -397,8 +478,6 @@ rownames(lc5) <- rownames(lf5) <- shared$freq[ord_shared]
 set.seed(1)
 pt5      <- vegan::protest(lc5, lf5, permutations = 999)
 pr_cor_5 <- round(pt5$t0, 2)
-
-aic_tab <- AIC(fit3, fit4, fit5)
 ```
 
 ## Families used in the Garchinger case study
@@ -410,7 +489,7 @@ aic_tab <- AIC(fit3, fit4, fit5)
 Family & Data type & Link \\
 \midrule
 \texttt{"ordinal"} & Ordered categories (Londo / BB codes) & cumulative probit \\
-\texttt{"ZNIB"} & Zero-inflated count, $N$ trials & log \\
+\texttt{"ZNIB"} & Zero-/$N$-inflated frequency ($k$ of $N$ trials) & probit \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -421,7 +500,7 @@ Family & Data type & Link \\
 
 ## The Garchinger Heide dataset
 
-A calcareous grassland in Bavaria (Bauer \& Albrecht 2020, *Basic and Applied Ecology*; data: PANGAEA).
+A calcareous grassland in Bavaria (Bauer \& Albrecht 2020; data: PANGAEA).
 
 \vspace{0.5em}
 
@@ -429,7 +508,7 @@ Two long-term monitoring programmes, never combined before:
 
 \vspace{0.5em}
 
-\columnsbegin
+\columnsbegin[T]
 \column{0.48\textwidth}
 \textbf{Coverage survey}
 
@@ -477,17 +556,25 @@ FREQ, plot II5, 2018 & \texttt{NA} & 81 & 8 \\
 - 204 rows, 196 columns; 79 shared species $\times$ 2 + survey-only
 - Block-diagonal NA structure: no plot is in both surveys
 
+## What the joint model estimates
+
+The model estimates \textbf{one set of latent variables} covering all rows, and \textbf{separate loadings} for \texttt{\_COV} and \texttt{\_FREQ} versions of each shared species.
+
+\pause
+
+If the two survey methods agree, $\hat{\symbf{\gamma}}_{j,\text{COV}} \approx \hat{\symbf{\gamma}}_{j,\text{FREQ}}$; testable with Procrustes.
+
 ## The identification problem
 
-With block-diagonal NAs, the two survey blocks are not directly anchored to each other.
+With block-diagonal NAs, the two survey blocks are not directly anchored to each other: no site is observed by both methods.
 
 \pause
 
-The only link is via \textbf{shared species}: the model must estimate one loading $\symbf{\gamma}_j$ that fits both the coverage and frequency observations of species $j$.
+Shared species get \textbf{separate} loadings $\symbf{\gamma}_{j,\text{COV}}$ and $\symbf{\gamma}_{j,\text{FREQ}}$, not one shared loading -- nothing in the model formally ties the two blocks together.
 
 \pause
 
-But rotation ambiguity means we cannot guarantee the two blocks are in the same orientation.
+If both surveys reflect the same community gradient, the separate loadings should still end up similar once the shared latent variables are estimated. But rotation ambiguity means we cannot guarantee the two blocks land in the same orientation at all.
 
 \pause
 
@@ -507,11 +594,13 @@ fit3 <- gllvm(
 )
 ```
 
-Diagnose alignment: cosine similarity between $\hat{\symbf{\gamma}}_{j,\text{COV}}$ and $\hat{\symbf{\gamma}}_{j,\text{FREQ}}$ for each shared species.
+## Diagnosing Model 1's alignment
+
+Diagnose alignment with a Procrustes rotation between the shared species' \texttt{\_COV} and \texttt{\_FREQ} loading matrices.
 
 \pause
 
-A bimodal distribution at $\pm 1$ signals rotation ambiguity. Non-bimodal signals real disagreement.
+A low Procrustes correlation here signals real rotation ambiguity, motivating the spatial anchor below.
 
 ## Model 2: spatial anchor
 
@@ -542,13 +631,24 @@ Fitted spatial range: $\hat{\rho}_{\text{LV1}} \approx `r round(rho_m[1])`$ m, $
 
 Effective range ($\text{Cor} < 0.05$): $\sim`r eff_m[1]`$ m and $\sim`r eff_m[2]`$ m.
 
+## How fast does spatial correlation decay?
+
+```{r spatial-decay-plot, echo=FALSE, eval=TRUE, fig.height=2.7, fig.width=6}
+dseq <- seq(0, 300, length.out = 200)
+plot(dseq, exp(-dseq / rho_m[1]), type = "l", lwd = 2, col = "steelblue",
+     xlab = "Distance (m)", ylab = "Correlation", ylim = c(0, 1))
+lines(dseq, exp(-dseq / rho_m[2]), lwd = 2, col = "darkorange")
+abline(h = 0.05, lty = 2, col = "grey40")
+legend("topright", legend = c("LV1", "LV2"), col = c("steelblue", "darkorange"), lwd = 2, bty = "n")
+```
+
 \pause
 
 Most inter-plot distances exceed 80 m; the community gradient is driven by local habitat conditions, not broad spatial autocorrelation. The few close pairs provide just enough anchor.
 
 ## Which species disagree?
 
-Species with cosine similarity near $-1$ are the interesting ones:
+Species with the largest Procrustes residual are the interesting ones:
 
 \pause
 
@@ -563,7 +663,7 @@ This is a resurvey: disagreement = ecological change, not methodological failure
 
 ## Model 3: adding temporal structure
 
-Year as a concurrent covariate; site random intercepts carry over from fit4:
+`lv.formula = ~ Year` now drives the ordination axes (concurrent ordination); `lvCor` continues to structure only the residual $\symbf{\epsilon}_i$, not the whole ordination as it would for unconstrained LVs, so site-level spatial correlation persists on top of the Year effect. Site random intercepts carry over from fit4:
 
 ```{r}
 fit5 <- update(fit4,
@@ -584,7 +684,7 @@ fit5 <- update(fit4,
 
 \pause
 
-The residual loadings alignment then answers: after partialling out temporal change, do the two surveys still agree on the community gradient?
+The Procrustes alignment between the \texttt{\_COV} and \texttt{\_FREQ} loadings then answers: after partialling out temporal change (via Year), do the two surveys still agree on the community gradient?
 
 ## Three model perspectives
 
@@ -594,7 +694,7 @@ The residual loadings alignment then answers: after partialling out temporal cha
 \toprule
 Model & Anchor & Alignment & Interpretation \\
 \midrule
-fit3: shared species & Shared $\symbf{\gamma}$ only & Bimodal $\pm 1$? & Rotation ambiguity \\
+fit3: shared species & None (separate $\symbf{\gamma}$ per survey) & Procrustes $r$, low & Rotation ambiguity \\
 fit4: + Spatial & Nearby cross-survey pairs & $r \approx `r pr_cor`$ & Methods agree spatially \\
 fit5: + Year & Space + time & $r \approx `r pr_cor_5`$ & Residual agreement \\
 \bottomrule
@@ -609,19 +709,14 @@ The three models are not competitors: they answer \textbf{different questions} a
 
 The joint family GLLVM makes all three possible within a single framework.
 
-## Model comparison
+## The joint ordination
 
-```{r}
-AIC(fit3, fit4, fit5)
+```{r ordination-plot, echo=FALSE, eval=TRUE, fig.height=3.6, fig.width=7}
+gllvm::ordiplot(fit5, biplot = FALSE, s.colors = ifelse(X_joint$Method == "COV", "steelblue", "darkorange"))
+legend("topright", legend = c("Coverage survey", "Frequency survey"), col = c("steelblue", "darkorange"), pch = 1, bty = "n")
 ```
 
-```{r aic-out, echo=FALSE, eval=TRUE}
-print(aic_tab)
-```
-
-\pause
-
-AIC favours the more complex models, but the models target different questions: do not use AIC to choose among them.
+Both surveys' plots land in the same ordination space; a common community gradient underlies both measurement methods.
 
 ## Summary
 

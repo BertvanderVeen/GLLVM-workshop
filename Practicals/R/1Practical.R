@@ -70,13 +70,19 @@ Reduce("+", lapply(GLMs, logLik))
 
 X <- X[,-which(apply(X,2, anyNA))] # remove column with NAs
 library(gllvm)
-model5 <- gllvm(Y, X, formula = ~silt_clay + elevation, family = "poisson", num.lv = 0)
+model5 <- gllvm(Y, X, formula = ~silt_clay + elevation, family = "poisson", num.lv = 0, sd.errors = FALSE)
 logLik(model5)
+ses <- se.gllvm(model5)
+model5$sd <- ses$sd
+model5$Hess <- ses$Hess
 summary(model5, digits = 3L)
 
-model6 <- gllvm(Y, studyDesign = X, row.eff = ~scale(silt_clay) + scale(elevation), family = "poisson", num.lv = 0)
+model6 <- gllvm(Y, studyDesign = X, row.eff = ~scale(silt_clay) + scale(elevation), family = "poisson", num.lv = 0, sd.errors = FALSE)
+ses <- se.gllvm(model6)
+model6$sd <- ses$sd
+model6$Hess <- ses$Hess
 summary(model6)
 
 coefplot(model5, order = FALSE)
 
-model7 <- gllvm(Y, X, formula = ~scale(silt_clay) + scale(elevation), family = "negative.binomial", num.lv = 0)
+model7 <- gllvm(Y, X, formula = ~scale(silt_clay) + scale(elevation), family = "negative.binomial", num.lv = 0, sd.errors = FALSE)

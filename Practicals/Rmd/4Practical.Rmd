@@ -71,7 +71,7 @@ TMB::openmp(parallel::detectCores()-1, DLL = "gllvm", autopar = TRUE)
 model1  <- gllvm(y = Y, num.lv = 2, family = "binomial", Lambda.struc = "diagonal", sd.errors = FALSE, optim.method = "L-BFGS-B")
 ```
 
-Turning off standard error calculation is often a good idea in gllvm when working with large datasets or complex models. When we have decided on our "final" model, we can post-hoc calculate the standard errors using the `se.gllvm` function (an example is shown on the help page of that function). For now, let's visualize the estimated associations:
+As in the earlier practicals, we fit with `sd.errors = FALSE`, but it matters even more here: for a JSDM of this size, standard error calculation can easily take longer than the fitting itself. Once we have decided on our "final" model, we calculate standard errors post-hoc with `se.gllvm`, as before. For now, let's visualize the estimated associations:
 
 ```{r, fig.width = 10, fig.height = 10, echo = -1, message=FALSE, warning=FALSE, message = FALSE}
 library(gllvm)
